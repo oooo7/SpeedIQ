@@ -17,19 +17,19 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
             <div className="text-white absolute top-10 space-y-1 px-10">
               <Command className="size-10" />
               <h1 className="text-2xl font-medium">{APP_CONFIG.name}</h1>
-              <p className="text-sm">AI-Powered Report Generation. Transform Data into Insights.</p>
+              <p className="text-sm">A starter template for shipping your SaaS faster.</p>
             </div>
 
             <div className="absolute bottom-10 flex w-full justify-between px-10">
               <div className="text-white flex-1 space-y-1">
-                <h2 className="font-medium">Upload & Generate</h2>
-                <p className="text-sm">Connect APIs or upload CSV files. AI handles the rest—formatting, cleaning, and generating beautiful reports.</p>
+                <h2 className="font-medium">Authentication included</h2>
+                <p className="text-sm">Email/password and Google OAuth via Supabase, plus verification and password reset flows.</p>
               </div>
               <Separator orientation="vertical" className="mx-3 !h-auto bg-white/20" />
               <div className="text-white flex-1 space-y-1">
-                <h2 className="font-medium">Share with Clients</h2>
+                <h2 className="font-medium">Dashboard foundation</h2>
                 <p className="text-sm">
-                  White-labeled reports with interactive dashboards and PDF downloads. Shareable links for seamless client access.
+                  A responsive sidebar layout and protected routes—ready for billing, teams, and your product features.
                 </p>
               </div>
             </div>
