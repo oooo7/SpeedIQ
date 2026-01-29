@@ -1,12 +1,12 @@
 const currentYear = new Date().getFullYear();
 
 export const APP_CONFIG = {
-  name: "Habiv",
+  name: "SaaS Starter",
   version: "1.0.0",
-  copyright: `© ${currentYear}, Habiv.`,
+  copyright: `© ${currentYear}, Your Company.`,
   meta: {
-    title: "Habiv - AI-Powered Report Generation",
+    title: "SaaS Starter - Next.js + Supabase",
     description:
-      "Transform client data into beautiful, white-labeled reports. Upload CSV files or connect APIs, and let AI generate stunning interactive dashboards and PDF reports.",
+      "A modern SaaS starter template built with Next.js, Supabase Auth, Tailwind, and shadcn/ui. Includes authentication flows, protected routes, and a dashboard layout to help you ship faster.",
   },
 };

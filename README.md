@@ -1,6 +1,6 @@
-# Habiv
+# SaaS Starter Template
 
-AI-Powered Report Generation Platform. Transform client data into beautiful, white-labeled reports.
+A modern SaaS starter template built with Next.js (App Router), Supabase Auth, Tailwind CSS, and shadcn/ui.
 
 ## Features
 
@@ -48,7 +48,7 @@ npm run dev
 ## Project Structure
 
 ```
-habiv/
+saas-starter/
 ├── app/
 │   ├── auth/          # Authentication pages
 │   ├── dashboard/     # Dashboard pages
@@ -82,4 +82,4 @@ The app includes a complete authentication system:
 
 ## License
 
-Private - All rights reserved
+Use as a starter template for your own SaaS.
