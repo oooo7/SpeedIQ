@@ -1,22 +1,22 @@
-# SaaS Starter Template
+# SpeedIQ
 
-A modern SaaS starter template built with Next.js (App Router), Supabase Auth, Tailwind CSS, and shadcn/ui.
+WhatsApp & Email Marketing platform built with Next.js (App Router), Supabase Auth, Tailwind CSS, and shadcn/ui.
 
 ## Features
 
-- **Authentication**: Complete auth system with email/password and Google OAuth
-- **Dashboard**: Modern sidebar navigation with collapsible menu
-- **UI Components**: Comprehensive shadcn/ui component library
-- **Theme Support**: Dark mode with system preference detection
-- **Responsive Design**: Mobile-first design with adaptive layouts
+- **Authentication**: Email/password and Google OAuth
+- **Dashboard**: Sidebar navigation with collapsible menu
+- **UI Components**: shadcn/ui component library
+- **Theme Support**: Dark mode with system preference
+- **Responsive Design**: Mobile-first layouts
 
 ## Tech Stack
 
 - **Framework**: Next.js 15 (App Router)
 - **Styling**: Tailwind CSS
-- **UI Components**: shadcn/ui (Radix UI primitives)
-- **Authentication**: Supabase Auth
-- **Forms**: React Hook Form + Zod validation
+- **UI**: shadcn/ui (Radix UI)
+- **Auth**: Supabase Auth
+- **Forms**: React Hook Form + Zod
 - **Icons**: Lucide React
 - **Notifications**: Sonner
 
@@ -30,12 +30,7 @@ npm install
 
 2. Set up environment variables:
 
-Create a `.env.local` file with your Supabase credentials:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_key
-```
+Create a `.env.local` file with your Supabase credentials (see `.env.example`).
 
 3. Run the development server:
 
@@ -43,43 +38,28 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_key
 npm run dev
 ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser.
+4. Open [http://localhost:3000](http://localhost:3000).
 
 ## Project Structure
 
 ```
-saas-starter/
 ├── app/
-│   ├── auth/          # Authentication pages
-│   ├── dashboard/     # Dashboard pages
-│   └── layout.tsx     # Root layout
+│   ├── auth/          # Auth pages
+│   ├── dashboard/     # Dashboard
+│   └── layout.tsx
 ├── components/
-│   ├── auth/          # Auth form components
-│   ├── sidebar/       # Sidebar navigation components
-│   └── ui/            # Reusable UI components
-├── config/            # App configuration
-├── lib/               # Utility functions and helpers
-├── hooks/             # Custom React hooks
-└── navigation/        # Navigation configuration
+│   ├── auth/
+│   ├── sidebar/
+│   └── ui/
+├── config/
+├── lib/
+├── hooks/
+└── navigation/
 ```
 
-## Authentication
+## Scripts
 
-The app includes a complete authentication system:
-
-- Login/Register pages
-- Password reset flow
-- Email verification
-- Google OAuth integration
-- Protected routes
-
-## Development
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
-
-## License
-
-Use as a starter template for your own SaaS.
+- `npm run dev` – Development server
+- `npm run build` – Production build
+- `npm run start` – Production server
+- `npm run lint` – ESLint

@@ -1,12 +1,12 @@
 const currentYear = new Date().getFullYear();
 
 export const APP_CONFIG = {
-  name: "SaaS Starter",
+  name: "SpeedIQ",
   version: "1.0.0",
-  copyright: `© ${currentYear}, Your Company.`,
+  copyright: `© ${currentYear} SpeedIQ.`,
   meta: {
-    title: "SaaS Starter - Next.js + Supabase",
+    title: "SpeedIQ – WhatsApp & Email Marketing Platform",
     description:
-      "A modern SaaS starter template built with Next.js, Supabase Auth, Tailwind, and shadcn/ui. Includes authentication flows, protected routes, and a dashboard layout to help you ship faster.",
+      "SpeedIQ is your all-in-one WhatsApp and Email Marketing platform. Automate, engage, and scale 3X faster with smart marketing and advanced protection.",
   },
 };

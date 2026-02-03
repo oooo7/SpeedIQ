@@ -47,8 +47,8 @@ function VerifyEmailContent() {
     return (
       <div className="mx-auto flex w-full flex-col justify-center space-y-8 sm:w-[350px]">
         <div className="space-y-4 text-center">
-          <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-            <Mail className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-pulse" />
+          <div className="mx-auto w-16 h-16 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
+            <Mail className="w-8 h-8 text-purple-600 dark:text-purple-400 animate-pulse" />
           </div>
           <h1 className="text-3xl font-medium">Verifying your email...</h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm">
@@ -106,8 +106,8 @@ function VerifyEmailContent() {
   return (
     <div className="mx-auto flex w-full flex-col justify-center space-y-8 sm:w-[350px]">
       <div className="space-y-4 text-center">
-        <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-          <Mail className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+        <div className="mx-auto w-16 h-16 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
+          <Mail className="w-8 h-8 text-purple-600 dark:text-purple-400" />
         </div>
         <h1 className="text-3xl font-medium">Check your email</h1>
         <p className="text-gray-500 dark:text-gray-400 text-sm">
@@ -123,7 +123,7 @@ function VerifyEmailContent() {
         <div className="text-center">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Didn't receive the email? Check your spam folder or{" "}
-            <Link href="/auth/register" className="text-blue-600 dark:text-blue-400 hover:underline">
+            <Link href="/auth/register" className="text-purple-600 dark:text-purple-400 hover:underline">
               try registering again
             </Link>
           </p>
@@ -138,8 +138,8 @@ export default function VerifyEmailPage() {
     <Suspense fallback={
       <div className="mx-auto flex w-full flex-col justify-center space-y-8 sm:w-[350px]">
         <div className="space-y-4 text-center">
-          <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-            <Mail className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-pulse" />
+          <div className="mx-auto w-16 h-16 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
+            <Mail className="w-8 h-8 text-purple-600 dark:text-purple-400 animate-pulse" />
           </div>
           <h1 className="text-3xl font-medium">Loading...</h1>
         </div>
