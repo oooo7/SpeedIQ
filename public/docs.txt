@@ -1,0 +1,569 @@
+WhatsApp Marketing Platform - Build Plan
+
+Core Features Breakdown
+1. Contact Management
+What it does: Store and organize customer contacts for campaigns
+Features:
+
+Import Contacts
+
+Upload CSV/Excel files
+Manual add (one by one)
+Import from previous campaigns
+Bulk import via API
+
+
+Contact Details
+
+Phone number (primary key)
+Name
+Email (optional)
+Custom fields (e.g., city, purchase history, preferences)
+Tags (e.g., "VIP", "New Customer", "Inactive")
+Source (imported, manual, campaign reply)
+Created date
+Last interaction date
+
+
+Segmentation
+
+Create segments based on tags
+Filter by custom fields
+Filter by engagement (replied/didn't reply)
+Save segments for reuse
+Dynamic segments (auto-update based on criteria)
+
+
+Contact Actions
+
+Edit contact details
+Add/remove tags
+Delete contacts
+Export contacts
+View contact history (all messages sent/received)
+Merge duplicate contacts
+
+
+Bulk Operations
+
+Bulk tag/untag
+Bulk delete
+Bulk export
+
+
+
+UI Components:
+
+Contact list table (searchable, filterable, sortable)
+Contact detail sidebar/modal
+Import wizard
+Segment builder (visual filter builder)
+
+
+2. Template Management
+What it does: Create, manage, and get WhatsApp templates approved
+Features:
+
+Template Builder
+
+Visual template editor
+Template categories (Transactional, Marketing, Authentication)
+Language selection (en, es, hi, etc.)
+Components:
+
+Header (text/image/video/document)
+Body (main message with variables)
+Footer (optional disclaimer)
+Buttons (URL, Phone, Quick Reply)
+
+
+Variable placeholders ({{1}}, {{2}}, {{3}})
+Character counter
+Preview mode (see how it looks in WhatsApp)
+
+
+Template Library
+
+List all templates
+Filter by status (draft, pending, approved, rejected)
+Filter by category
+Search by name
+Clone existing template
+
+
+Template Status Tracking
+
+Draft (not submitted yet)
+Pending (submitted, awaiting approval)
+Approved (ready to use)
+Rejected (show rejection reason)
+Option to edit and resubmit rejected templates
+
+
+Template Variables
+
+Define variable names (e.g., {{1}} = customer_name)
+Provide examples for submission
+Map variables when using in campaigns
+
+
+Template Actions
+
+Submit for approval
+Edit (only drafts)
+Delete
+Duplicate
+Test send (to your own number)
+
+
+
+UI Components:
+
+Template list with status badges
+Visual template builder (drag-drop or form-based)
+WhatsApp-style preview panel
+Variable mapper
+Rejection reason display
+
+
+3. Campaign Builder
+What it does: Create and schedule broadcast campaigns to segments
+Features:
+
+Campaign Creation Wizard
+
+Step 1: Campaign Details
+
+Campaign name
+Description (internal note)
+Campaign type (one-time vs recurring)
+
+
+Step 2: Audience Selection
+
+Choose segment(s)
+Or select individual contacts
+Show contact count preview
+Option to exclude contacts (e.g., already received this)
+
+
+Step 3: Template Selection
+
+Choose approved template
+Fill in variable values (manual or from contact fields)
+Variable mapping (e.g., {{1}} = contact.name)
+Preview with sample contact
+
+
+Step 4: Schedule
+
+Send now vs schedule for later
+Date & time picker
+Timezone selection
+Recurring schedule (daily/weekly/monthly)
+
+
+Step 5: Review & Send
+
+Summary of campaign
+Estimated reach
+Preview message
+Confirm and send
+
+
+
+
+Campaign Dashboard
+
+List all campaigns
+Filter by status (draft, scheduled, sending, completed, failed)
+Search by name
+Quick actions (pause, resume, duplicate)
+
+
+Campaign Analytics (per campaign)
+
+Total sent
+Delivered count
+Read count (blue ticks)
+Failed count
+Reply count
+Click-through rate (if URL buttons)
+Response rate
+Timeline chart (sent/delivered/read over time)
+
+
+Campaign Actions
+
+Edit (only drafts)
+Pause/resume (for scheduled/sending)
+Stop (cancel ongoing)
+Duplicate
+Delete
+Export results
+
+
+
+UI Components:
+
+Multi-step wizard
+Campaign list/grid view
+Campaign detail page with analytics
+Real-time progress bar (when sending)
+Charts (delivery rates, engagement)
+
+
+4. Message Queue & Sending System
+What it does: Handle bulk message sending with rate limiting
+Features:
+
+Queue Management
+
+Add campaigns to queue
+Prioritize campaigns (high/normal/low priority)
+Respect WhatsApp rate limits (80 msg/sec for verified accounts)
+Retry failed messages (with exponential backoff)
+Dead letter queue (messages that failed multiple times)
+
+
+Sending Logic
+
+Fetch campaign recipients
+For each recipient:
+
+Get template
+Replace variables with contact data
+Add to queue
+Send via WhatsApp API
+Update status (sent/failed)
+
+
+Batch processing (send in chunks)
+
+
+Status Tracking
+
+Listen to webhooks for delivery/read receipts
+Update campaign_recipients table
+Update contact last_interaction_date
+
+
+Rate Limiting
+
+Check account tier (1k/10k/100k per day)
+Distribute sends across 24 hours if needed
+Throttle based on current tier
+Alert if approaching limit
+
+
+Error Handling
+
+Invalid phone number → mark as failed
+Template not approved → stop campaign
+API error → retry with backoff
+Rate limit exceeded → pause and resume
+
+
+
+Background Jobs:
+
+Cron job to check scheduled campaigns
+Worker to process message queue
+Webhook processor for status updates
+
+
+5. Live Chat / Inbox
+What it does: Respond to customer replies in real-time
+Features:
+
+Inbox View
+
+List of conversations
+Unread count badge
+Last message preview
+Contact name & number
+Timestamp
+Filter (all, unread, assigned to me, unassigned)
+Search conversations
+
+
+Chat Interface
+
+WhatsApp-style chat UI
+Message bubbles (sent vs received)
+Timestamps
+Delivery/read status (single tick, double tick, blue ticks)
+Message types:
+
+Text
+Images (with preview)
+Documents (with download)
+Location (with map)
+Audio/Video
+
+
+
+
+Sending Messages
+
+Text input
+Emoji picker
+File upload (images, documents)
+Quick replies (saved responses)
+Use templates (for 24hr window rule)
+
+
+24-Hour Rule Handling
+
+If contact hasn't messaged in 24hrs:
+
+Show warning: "Can only send templates"
+Template selector appears
+Regular messages disabled
+
+
+If within 24hrs:
+
+Free-form messaging enabled
+
+
+
+
+Contact Info Sidebar
+
+Contact details
+Tags
+Custom fields
+Conversation history
+Campaign history (which campaigns they received)
+Notes (team can add internal notes)
+
+
+Auto-Assignment
+
+When contact replies:
+
+Check if conversation exists
+If new: auto-assign to available team member
+If exists: assign to previous handler
+
+
+Assignment rules:
+
+Round-robin
+By campaign owner
+By team member availability
+Manual assignment
+
+
+
+
+Conversation Actions
+
+Mark as read/unread
+Assign to team member
+Add tags to contact
+Close conversation
+Archive conversation
+Add internal note
+Block contact
+
+
+
+UI Components:
+
+Split view (conversation list + chat window)
+Contact info panel (collapsible)
+Message composer
+File upload modal
+Template selector modal
+Quick replies dropdown
+
+
+6. Analytics & Reporting
+What it does: Track performance across all campaigns and contacts
+Features:
+
+Overview Dashboard
+
+Total contacts
+Total campaigns (sent/scheduled)
+Messages sent (today/this week/this month)
+Delivery rate
+Read rate
+Reply rate
+Active conversations
+
+
+Campaign Analytics
+
+Best performing campaigns
+Worst performing campaigns
+Average open rate
+Average response rate
+Template performance comparison
+
+
+Contact Analytics
+
+Most engaged contacts
+Inactive contacts (no interaction in X days)
+Contact growth over time
+Segment distribution
+
+
+Message Analytics
+
+Messages sent per day/week/month
+Delivery success rate
+Failed message reasons
+Peak sending times
+
+
+Charts & Visualizations
+
+Line chart (messages sent over time)
+Bar chart (campaign comparison)
+Pie chart (message status distribution)
+Heatmap (best times to send)
+
+
+Export Reports
+
+CSV export of analytics data
+Date range filter
+Custom report builder
+
+
+
+UI Components:
+
+Dashboard with cards/widgets
+Interactive charts
+Data tables
+Export buttons
+
+
+7. WhatsApp Account Management
+What it does: Connect and manage WhatsApp Business numbers
+Features:
+
+Account Connection
+
+Connect WhatsApp Business number
+Store credentials (phone_number_id, access_token, waba_id)
+Verify connection status
+Test connection (send test message)
+
+
+Account Details
+
+Display phone number
+Display name (verified name from Meta)
+Quality rating (GREEN/YELLOW/RED)
+Messaging limit tier (TIER_1/2/3/4)
+Current usage (messages sent today vs limit)
+
+
+Account Health
+
+Quality rating monitor
+Warning if rating drops
+Tier upgrade tracking
+Tips to improve rating
+
+
+Multiple Accounts (if supporting)
+
+Switch between accounts
+Each business has own account
+Separate contact lists per account
+
+
+
+UI Components:
+
+Account setup wizard
+Account dashboard
+Health status indicators
+Usage progress bars
+
+
+8. Settings & Configuration
+What it does: Platform settings and preferences
+Features:
+
+Team Management
+
+Invite team members
+Role assignment (admin, agent, viewer)
+Permissions (who can send campaigns, who can chat)
+Remove team members
+
+
+Notification Settings
+
+Email notifications (campaign sent, new reply)
+In-app notifications
+Webhook notifications (to external systems)
+
+
+Quick Replies
+
+Save frequently used responses
+Use in live chat
+Categorize (greetings, FAQs, closing)
+
+
+Business Hours
+
+Set working hours
+Auto-reply outside business hours
+Timezone settings
+
+
+Integrations
+
+Webhook URLs (send events to external systems)
+API keys (for programmatic access)
+Zapier/Make.com integration
+
+
+Billing (if applicable)
+
+Current plan
+Usage limits
+Upgrade/downgrade
+Invoice history
+
+
+Key Technical Challenges
+1. 24-Hour Window Rule
+
+WhatsApp allows free-form messages only within 24 hours of customer's last message
+Outside 24 hours: must use approved templates
+Solution: Track last inbound message timestamp per contact
+
+2. Rate Limiting
+
+WhatsApp limits messages per second (80/sec for verified)
+Daily limits based on tier (1k/10k/100k unique recipients)
+Solution: Message queue with throttling
+
+3. Webhook Reliability
+
+Webhooks can fail or come out of order
+Need idempotency (don't process same message twice)
+Solution: Use message IDs, check for duplicates
+
+4. Real-time Chat
+
+Need instant message delivery to UI
+Solution: Supabase realtime subscriptions or websockets
+
+5. Media Handling
+
+Images/documents sent by customers need to be downloaded from WhatsApp
+WhatsApp media URLs expire after 5 minutes
+Solution: Download immediately and store in your own storage
+

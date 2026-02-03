@@ -31,11 +31,12 @@ export async function PATCH(
   }
 
   const role = body?.role;
-  if (!role || !ALLOWED_ROLES.includes(role)) {
+  const validRole = role && ALLOWED_ROLES.find((r) => r === role);
+  if (!validRole) {
     return NextResponse.json({ error: "Invalid role. Must be admin, editor, or viewer." }, { status: 400 });
   }
 
-  const { error } = await updateMemberRole(supabase, projectId, memberUserId, role, user.id);
+  const { error } = await updateMemberRole(supabase, projectId, memberUserId, validRole, user.id);
 
   if (error) {
     return NextResponse.json({ error }, { status: error.includes("owner") ? 403 : 500 });
