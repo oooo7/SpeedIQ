@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useCallback, useState } from "react";
 
 import { ChevronRight } from "lucide-react";
 
@@ -26,8 +27,36 @@ import {
 } from "@/components/ui/sidebar";
 import { type NavGroup, type NavMainItem } from "@/navigation/sidebar-items";
 
+const SIDEBAR_OPEN_STORAGE_KEY = "speediq-sidebar-nav-open";
+
+const DEFAULT_OPEN_SECTIONS: Record<string, boolean> = {
+  "WhatsApp Marketing": true,
+  "Email Marketing": true,
+  Contacts: true,
+};
+
+function getStoredOpenState(): Record<string, boolean> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(SIDEBAR_OPEN_STORAGE_KEY);
+    const stored = raw ? JSON.parse(raw) : {};
+    return { ...DEFAULT_OPEN_SECTIONS, ...stored };
+  } catch {
+    return { ...DEFAULT_OPEN_SECTIONS };
+  }
+}
+
+function setStoredOpenState(state: Record<string, boolean>) {
+  try {
+    window.localStorage.setItem(SIDEBAR_OPEN_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // ignore
+  }
+}
+
 interface NavMainProps {
   readonly items: readonly NavGroup[];
+  readonly isProjectSelected: boolean;
 }
 
 const IsComingSoon = () => (
@@ -37,14 +66,22 @@ const IsComingSoon = () => (
 const NavItemExpanded = ({
   item,
   isActive,
-  isSubmenuOpen,
+  open,
+  onOpenChange,
 }: {
   item: NavMainItem;
   isActive: (url: string, subItems?: NavMainItem["subItems"]) => boolean;
-  isSubmenuOpen: (subItems?: NavMainItem["subItems"]) => boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) => {
   return (
-    <Collapsible key={item.title} asChild defaultOpen={isSubmenuOpen(item.subItems)} className="group/collapsible">
+    <Collapsible
+      key={item.title}
+      asChild
+      open={open}
+      onOpenChange={onOpenChange}
+      className="group/collapsible"
+    >
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
           {item.subItems ? (
@@ -140,21 +177,29 @@ const NavItemCollapsed = ({
   );
 };
 
-export function NavMain({ items }: NavMainProps) {
+export function NavMain({ items, isProjectSelected }: NavMainProps) {
   const path = usePathname();
   const { state, isMobile } = useSidebar();
 
-  const isItemActive = (url: string, subItems?: NavMainItem["subItems"]) => {
-    if (subItems?.length) {
-      return subItems.some((sub) => path.startsWith(sub.url));
-    }
-    return path === url;
-  };
+  const [openState, setOpenState] = useState<Record<string, boolean>>(() => getStoredOpenState());
 
-  const isSubmenuOpen = (subItems?: NavMainItem["subItems"]) => {
-    // Open dropdowns by default if they have subItems
-    return subItems?.length ? true : false;
-  };
+  const isItemActive = useCallback(
+    (url: string, subItems?: NavMainItem["subItems"]) => {
+      if (subItems?.length) {
+        return subItems.some((sub) => path.startsWith(sub.url));
+      }
+      return path === url;
+    },
+    [path]
+  );
+
+  const handleOpenChange = useCallback((itemTitle: string, open: boolean) => {
+    setOpenState((prev) => {
+      const next = { ...prev, [itemTitle]: open };
+      setStoredOpenState(next);
+      return next;
+    });
+  }, []);
 
   return (
     <>
@@ -163,9 +208,10 @@ export function NavMain({ items }: NavMainProps) {
           {group.label && <SidebarGroupLabel>{group.label}</SidebarGroupLabel>}
           <SidebarGroupContent className="flex flex-col gap-2">
             <SidebarMenu>
-              {group.items.map((item) => {
+              {group.items
+                .filter((item) => (item.requiresProject ? isProjectSelected : true))
+                .map((item) => {
                 if (state === "collapsed" && !isMobile) {
-                  // If no subItems, just render the button as a link
                   if (!item.subItems) {
                     return (
                       <SidebarMenuItem key={item.title}>
@@ -183,12 +229,16 @@ export function NavMain({ items }: NavMainProps) {
                       </SidebarMenuItem>
                     );
                   }
-                  // Otherwise, render the dropdown as before
                   return <NavItemCollapsed key={item.title} item={item} isActive={isItemActive} />;
                 }
-                // Expanded view
                 return (
-                  <NavItemExpanded key={item.title} item={item} isActive={isItemActive} isSubmenuOpen={isSubmenuOpen} />
+                  <NavItemExpanded
+                    key={item.title}
+                    item={item}
+                    isActive={isItemActive}
+                    open={item.subItems ? (openState[item.title] ?? false) : false}
+                    onOpenChange={item.subItems ? (open) => handleOpenChange(item.title, open) : () => {}}
+                  />
                 );
               })}
             </SidebarMenu>

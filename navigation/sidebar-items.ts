@@ -1,11 +1,12 @@
 import {
   LayoutDashboard,
-  FileText,
-  Database,
-  Users,
   MessageSquare,
-  Palette,
+  Mail,
+  Users,
+  UsersRound,
+  BarChart3,
   CreditCard,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,6 +27,7 @@ export interface NavMainItem {
   comingSoon?: boolean;
   newTab?: boolean;
   isNew?: boolean;
+  requiresProject?: boolean;
 }
 
 export interface NavGroup {
@@ -37,75 +39,131 @@ export interface NavGroup {
 export const sidebarItems: NavGroup[] = [
   {
     id: 1,
-    label: "Dashboards",
+    label: "Main",
     items: [
       {
-        title: "Dashboards",
+        title: "Dashboard",
         url: "/dashboard",
         icon: LayoutDashboard,
+        requiresProject: true,
       },
       {
-        title: "Reports",
-        url: "/dashboard/reports",
-        icon: FileText,
+        title: "WhatsApp Marketing",
+        url: "/dashboard/whatsapp",
+        icon: MessageSquare,
+        requiresProject: true,
         subItems: [
           {
-            title: "All Reports",
-            url: "/dashboard/reports",
+            title: "Campaigns",
+            url: "/dashboard/whatsapp/campaigns",
           },
           {
-            title: "Create Report",
-            url: "/dashboard/reports/create",
+            title: "Contacts",
+            url: "/dashboard/whatsapp/contacts",
           },
           {
             title: "Templates",
-            url: "/dashboard/reports/templates",
+            url: "/dashboard/whatsapp/templates",
+          },
+          {
+            title: "Live Chat",
+            url: "/dashboard/whatsapp/live-chat",
           },
         ],
       },
       {
-        title: "Data",
-        url: "/dashboard/data",
-        icon: Database,
+        title: "Email Marketing",
+        url: "/dashboard/email",
+        icon: Mail,
+        requiresProject: true,
         subItems: [
           {
-            title: "Connections",
-            url: "/dashboard/data/connections",
+            title: "Campaigns",
+            url: "/dashboard/email/campaigns",
           },
           {
-            title: "CSV Uploads",
-            url: "/dashboard/data/uploads",
+            title: "Subscribers",
+            url: "/dashboard/email/subscribers",
           },
           {
-            title: "Sync Logs",
-            url: "/dashboard/data/sync-logs",
+            title: "Templates",
+            url: "/dashboard/email/templates",
           },
         ],
       },
       {
-        title: "Clients",
-        url: "/dashboard/clients",
+        title: "Contacts",
+        url: "/dashboard/contacts",
         icon: Users,
+        requiresProject: true,
         subItems: [
           {
-            title: "Client List",
-            url: "/dashboard/clients",
+            title: "All Contacts",
+            url: "/dashboard/contacts",
           },
           {
-            title: "Shareable Links",
-            url: "/dashboard/clients/shareable-links",
+            title: "Upload CSV",
+            url: "/dashboard/contacts/upload",
           },
         ],
       },
       {
-        title: "Chat",
-        url: "/dashboard/chat",
-        icon: MessageSquare,
+        title: "Analytics",
+        url: "/dashboard/analytics",
+        icon: BarChart3,
+        requiresProject: true,
+        subItems: [
+          {
+            title: "Overview",
+            url: "/dashboard/analytics",
+          },
+          {
+            title: "WhatsApp",
+            url: "/dashboard/analytics/whatsapp",
+          },
+          {
+            title: "Email",
+            url: "/dashboard/analytics/email",
+          },
+        ],
       },
       {
-        title: "Branding",
-        url: "/dashboard/branding",
-        icon: Palette,
+        title: "Team",
+        url: "/dashboard/team",
+        icon: UsersRound,
+        requiresProject: true,
+      },
+      {
+        title: "Settings",
+        url: "/dashboard/settings",
+        icon: Settings,
+        requiresProject: true,
+        subItems: [
+          {
+            title: "Template Message",
+            url: "/dashboard/settings/template-message",
+          },
+          {
+            title: "Optin Management",
+            url: "/dashboard/settings/optin-management",
+          },
+          {
+            title: "Live Chat Settings",
+            url: "/dashboard/settings/live-chat",
+          },
+          {
+            title: "Campaign Settings",
+            url: "/dashboard/settings/campaign",
+          },
+          {
+            title: "Canned Message",
+            url: "/dashboard/settings/canned-message",
+          },
+          {
+            title: "Tags",
+            url: "/dashboard/settings/tags",
+          },
+        ],
       },
       {
         title: "Billing",

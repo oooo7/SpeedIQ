@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,8 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const { signIn } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect") ?? "/projects";
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
@@ -45,9 +47,9 @@ export function LoginForm() {
       });
     } else {
       toast.success("Login successful", {
-        description: "Redirecting to dashboard...",
+        description: "Redirecting...",
       });
-      router.push("/dashboard");
+      router.push(redirect.startsWith("/") ? redirect : "/projects");
     }
     
     setIsLoading(false);

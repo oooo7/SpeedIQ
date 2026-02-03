@@ -12,6 +12,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { APP_CONFIG } from "@/config/app-config";
+import { useProjectContext } from "@/lib/projects/project-context";
 import { sidebarItems } from "@/navigation/sidebar-items";
 import { cn } from "@/lib/utils";
 
@@ -30,12 +31,13 @@ export function AppSidebar({
 }) {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const { activeProject } = useProjectContext();
 
   return (
     <Sidebar {...props}>
       <SidebarHeader className="h-12 border-b border-gray-200 dark:border-gray-800 p-0">
         <Link
-          href="/dashboard"
+          href={activeProject ? "/projects" : "/projects"}
           className={cn(
             "flex items-center h-full hover:opacity-80 transition-opacity",
             isCollapsed ? "justify-center px-2" : "gap-2 px-4"
@@ -53,7 +55,10 @@ export function AppSidebar({
         </Link>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={sidebarItems} />
+        <NavMain
+          items={sidebarItems}
+          isProjectSelected={Boolean(activeProject)}
+        />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

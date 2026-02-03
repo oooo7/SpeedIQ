@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { Globe } from "lucide-react";
 
@@ -20,7 +21,9 @@ export default function LoginV2() {
           <div className="after:border-gray-200 dark:after:border-gray-800 relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
             <span className="bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 relative z-10 px-2">Or continue with</span>
           </div>
-          <LoginForm />
+          <Suspense fallback={<div className="h-[200px] animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />}>
+            <LoginForm />
+          </Suspense>
         </div>
       </div>
 
