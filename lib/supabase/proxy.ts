@@ -50,6 +50,11 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
+  // Webhooks (e.g. WhatsApp) are called by external services without a user session
+  if (pathname.startsWith("/api/webhooks")) {
+    return supabaseResponse;
+  }
+
   if (
     pathname !== "/" &&
     !user &&
