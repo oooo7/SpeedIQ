@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
+// Must match the "Verify token" value you set in Meta App Dashboard → WhatsApp → Configuration → Webhook.
+// Set this in Vercel: Project → Settings → Environment Variables → WHATSAPP_VERIFY_TOKEN
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 
 export async function GET(request: Request) {
@@ -10,12 +12,17 @@ export async function GET(request: Request) {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  if (mode === "subscribe" && token === VERIFY_TOKEN && challenge) {
-    return new NextResponse(challenge, {
-      headers: { "Content-Type": "text/plain" },
-    });
+  // Meta sends GET with hub.mode=subscribe, hub.verify_token=<your token>, hub.challenge=<string to echo>
+  if (mode === "subscribe" && typeof challenge === "string" && challenge.length > 0) {
+    if (VERIFY_TOKEN && token === VERIFY_TOKEN) {
+      return new NextResponse(challenge, {
+        headers: { "Content-Type": "text/plain" },
+      });
+    }
+    // Token missing or mismatch: verification fails (e.g. WHATSAPP_VERIFY_TOKEN not set in Vercel)
   }
 
+  // No query params = e.g. opening URL in browser; 403 is expected
   return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 }
 
