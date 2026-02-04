@@ -133,6 +133,18 @@ export async function PATCH(
         { status: 400 }
       );
     }
+    const { data: templateRow } = await supabase
+      .from("whatsapp_templates")
+      .select("status")
+      .eq("project_id", projectId)
+      .eq("id", effectiveTemplateId)
+      .single();
+    if (templateRow?.status !== "approved") {
+      return NextResponse.json(
+        { error: "Only approved templates can be used for sending or scheduling. Get your template approved first." },
+        { status: 400 }
+      );
+    }
   }
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };

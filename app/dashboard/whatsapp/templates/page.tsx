@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Loader2, MoreVertical, Plus, Send, Trash2 } from "lucide-react";
+import { LayoutTemplate, Loader2, MoreVertical, Plus, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/empty-state";
+import { LoadingState } from "@/components/ui/loading-state";
 import { Label } from "@/components/ui/label";
 import { useProjectContext } from "@/lib/projects/project-context";
 
@@ -68,8 +70,14 @@ export default function WhatsAppTemplatesPage() {
     if (!activeProject?.id) return;
     setLoading(true);
     try {
-      const params = statusFilter ? `?status=${encodeURIComponent(statusFilter)}` : "";
-      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/templates${params}`);
+      // When "All statuses" is selected (no filter), include drafts so new templates are visible
+      const params = new URLSearchParams();
+      if (statusFilter) {
+        params.set("status", statusFilter);
+      } else {
+        params.set("include_drafts", "1");
+      }
+      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/templates?${params}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load");
       setTemplates(data.templates ?? []);
@@ -226,14 +234,19 @@ export default function WhatsAppTemplatesPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading…
-        </div>
+        <LoadingState message="Loading templates…" />
       ) : templates.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No templates yet. Create one to use in campaigns or for 24-hour window messaging.
-        </p>
+        <EmptyState
+          icon={<LayoutTemplate className="h-6 w-6" />}
+          title="No templates yet"
+          description="Create a template to use in campaigns or for 24-hour window messaging. Templates must be approved before use."
+          actions={
+            <Button onClick={openAdd} className="gap-1">
+              <Plus className="h-4 w-4" />
+              New template
+            </Button>
+          }
+        />
       ) : (
         <div className="space-y-2">
           {templates.map((t) => (

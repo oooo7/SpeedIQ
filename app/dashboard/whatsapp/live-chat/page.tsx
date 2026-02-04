@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LoadingState } from "@/components/ui/loading-state";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 interface Conversation {
@@ -204,9 +205,7 @@ export default function WhatsAppLiveChatPage() {
         </div>
         <div className="overflow-y-auto">
           {loading ? (
-            <div className="flex items-center justify-center p-6">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
+            <LoadingState message="Loading conversations…" className="py-8 max-w-none" />
           ) : conversations.length === 0 ? (
             <p className="p-4 text-sm text-muted-foreground">No conversations yet.</p>
           ) : (
@@ -258,9 +257,7 @@ export default function WhatsAppLiveChatPage() {
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {messagesLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
+                <LoadingState message="Loading messages…" className="py-8 max-w-none" />
               ) : (
                 messages.map((msg) => (
                   <div

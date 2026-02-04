@@ -28,6 +28,7 @@ export async function GET(
 
   const { searchParams } = new URL(request.url);
   const statusFilter = searchParams.get("status")?.trim();
+  const includeDrafts = searchParams.get("include_drafts") === "1" || searchParams.get("include_drafts") === "true";
 
   let query = supabase
     .from("whatsapp_templates")
@@ -35,8 +36,9 @@ export async function GET(
     .eq("project_id", projectId)
     .order("updated_at", { ascending: false });
 
-  if (statusFilter) {
-    query = query.eq("status", statusFilter);
+  // When include_drafts=true, return all templates (no status filter). Otherwise filter by status or default to approved.
+  if (!includeDrafts) {
+    query = query.eq("status", statusFilter || "approved");
   }
 
   const { data: templates, error } = await query;

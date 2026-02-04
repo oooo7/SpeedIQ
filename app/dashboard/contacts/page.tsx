@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LoadingState } from "@/components/ui/loading-state";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 type ChannelFilter = "all" | "whatsapp" | "email";
@@ -141,10 +142,7 @@ export default function AllContactsPage() {
           <p className="text-xs text-muted-foreground">Coming soon</p>
         </div>
       ) : loading ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading…
-        </div>
+        <LoadingState message="Loading contacts…" />
       ) : contacts.length === 0 ? (
         <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-8 text-center">
           <p className="text-sm text-muted-foreground">

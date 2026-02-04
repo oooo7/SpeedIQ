@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { LoadingState } from "@/components/ui/loading-state";
 import { useProjectContext } from "@/lib/projects/project-context";
 import { useProjectTeam } from "@/hooks/use-project-team";
 
@@ -164,12 +165,9 @@ export default function TeamPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
         <h1 className="text-xl font-semibold">Team</h1>
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <Loader2 className="size-4 animate-spin" />
-          Loading...
-        </div>
+        <LoadingState message="Loading team…" />
       </div>
     );
   }

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { BarChart3, Loader2, Mail, MessageSquare } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadingState } from "@/components/ui/loading-state";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 type AnalyticsTab = "whatsapp" | "email";
@@ -108,10 +109,7 @@ export default function AnalyticsPage() {
 
       {tab === "whatsapp" ? (
         loading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading…
-          </div>
+          <LoadingState message="Loading analytics…" />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Card className="border border-gray-200 dark:border-gray-800">

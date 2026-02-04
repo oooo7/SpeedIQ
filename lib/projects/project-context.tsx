@@ -24,7 +24,10 @@ interface ProjectProviderProps {
 }
 
 async function fetchJSON<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
-  const response = await fetch(input, init);
+  const response = await fetch(input, {
+    ...init,
+    credentials: "include",
+  });
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(errorText || "Request failed");

@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
+import { ACTIVE_PROJECT_COOKIE } from "@/lib/projects/constants";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -63,8 +64,8 @@ export async function updateSession(request: NextRequest) {
 
   const isDashboardRoute = pathname.startsWith("/dashboard");
   if (isDashboardRoute) {
-    const selectedProjectId = request.cookies.get("selected_project_id")?.value;
-    if (!selectedProjectId) {
+    const activeProjectId = request.cookies.get(ACTIVE_PROJECT_COOKIE)?.value;
+    if (!activeProjectId) {
       const url = request.nextUrl.clone();
       url.pathname = "/projects";
       return NextResponse.redirect(url);

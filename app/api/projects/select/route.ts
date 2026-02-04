@@ -15,8 +15,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
-  const projectId = typeof body?.projectId === "string" ? body.projectId : null;
+  const body = await request.json().catch(() => ({}));
+  const projectId = typeof body?.projectId === "string" ? body.projectId.trim() || null : null;
 
   if (projectId) {
     const { data, error } = await fetchProjectById(supabase, projectId);

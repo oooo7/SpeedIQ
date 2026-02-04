@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { LayoutGrid, List, Loader2, MoreVertical, Plus, Search, Trash2 } from "lucide-react";
+import { FolderOpen, LayoutGrid, List, Loader2, MoreVertical, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { useProjectContext } from "@/lib/projects/project-context";
 import type { Project } from "@/types/project";
@@ -30,17 +31,17 @@ function ProjectCard({
   project: Project;
   isActive: boolean;
   isSwitching: boolean;
-  onSelect: (id: string) => void;
+  onSelect: (id: string) => Promise<void>;
   onDelete: (id: string, name: string) => void;
 }) {
   const router = useRouter();
 
-  const handleSelect = useCallback(() => {
+  const handleSelect = useCallback(async () => {
     if (isActive) {
       router.push("/dashboard");
       return;
     }
-    onSelect(project.id);
+    await onSelect(project.id);
   }, [project.id, isActive, onSelect, router]);
 
   const handleDelete = useCallback(
@@ -112,17 +113,17 @@ function ProjectCardList({
   project: Project;
   isActive: boolean;
   isSwitching: boolean;
-  onSelect: (id: string) => void;
+  onSelect: (id: string) => Promise<void>;
   onDelete: (id: string, name: string) => void;
 }) {
   const router = useRouter();
 
-  const handleSelect = useCallback(() => {
+  const handleSelect = useCallback(async () => {
     if (isActive) {
       router.push("/dashboard");
       return;
     }
-    onSelect(project.id);
+    await onSelect(project.id);
   }, [project.id, isActive, onSelect, router]);
 
   const handleDelete = useCallback(
@@ -211,23 +212,14 @@ export function ProjectSelector() {
     [filteredProjects]
   );
 
-  const handleSelectProject = useCallback(
-    async (projectId: string) => {
-      if (projectId === activeProject?.id) {
-        router.push("/dashboard");
-        return;
-      }
-      try {
-        await selectProject(projectId);
-        router.push("/dashboard");
-      } catch (error) {
-        toast.error("Unable to switch project", {
-          description: error instanceof Error ? error.message : "Please try again.",
-        });
-      }
-    },
-    [activeProject?.id, selectProject, router]
-  );
+  const handleSelectProject = useCallback(async (projectId: string) => {
+    if (projectId === activeProject?.id) {
+      window.location.href = "/dashboard";
+      return;
+    }
+    await selectProject(projectId);
+    window.location.href = "/dashboard";
+  }, [activeProject?.id, selectProject]);
 
   const handleDeleteProject = useCallback(
     async (projectId: string, projectName: string) => {
@@ -364,22 +356,19 @@ export function ProjectSelector() {
       )}
 
       {sortedProjects.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {searchQuery
-              ? "No projects match your search."
-              : "You have no projects yet. Create one to get started."}
-          </p>
-          {!searchQuery && (
-            <Button
-              onClick={() => setShowCreateForm(true)}
-              className="mt-4 gap-2"
-            >
-              <Plus className="size-4" />
-              New project
-            </Button>
-          )}
-        </div>
+        <EmptyState
+          icon={<FolderOpen className="h-6 w-6" />}
+          title={searchQuery ? "No projects match your search" : "No projects yet"}
+          description={searchQuery ? "Try a different search term." : "Create a project to get started."}
+          actions={
+            !searchQuery ? (
+              <Button onClick={() => setShowCreateForm(true)} className="gap-1">
+                <Plus className="h-4 w-4" />
+                New project
+              </Button>
+            ) : undefined
+          }
+        />
       )}
 
       {sortedProjects.length > 0 && (

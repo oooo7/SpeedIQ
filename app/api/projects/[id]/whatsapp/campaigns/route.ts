@@ -59,14 +59,14 @@ export async function GET(
       .select("campaign_id, status")
       .in("campaign_id", campaignIds),
     templateIds.length > 0
-      ? supabase.from("whatsapp_templates").select("id, name").in("id", templateIds)
+      ? supabase.from("whatsapp_templates").select("id, name, status").in("id", templateIds)
       : Promise.resolve({ data: [] }),
   ]);
 
   const recCounts = (recCountsRes.data ?? []) as Array<{ campaign_id: string; status: string }>;
-  const templatesMap: Record<string, string> = {};
+  const templatesMap: Record<string, { name: string; status: string }> = {};
   for (const t of templatesRes.data ?? []) {
-    templatesMap[t.id] = t.name;
+    templatesMap[t.id] = { name: t.name, status: t.status ?? "draft" };
   }
 
   const statsByCampaign: Record<string, { total: number; sent: number; delivered: number; read: number; failed: number; pending: number }> = {};
@@ -85,15 +85,19 @@ export async function GET(
     }
   }
 
-  const campaignsWithMeta = list.map((c: { id: string; template_id: string | null; [k: string]: unknown }) => ({
-    ...c,
-    template_name: c.template_id ? templatesMap[c.template_id] ?? null : null,
+  const campaignsWithMeta = list.map((c: { id: string; template_id: string | null; [k: string]: unknown }) => {
+    const templateMeta = c.template_id ? templatesMap[c.template_id] : null;
+    return {
+      ...c,
+      template_name: templateMeta?.name ?? null,
+      template_status: templateMeta?.status ?? null,
     recipient_count: statsByCampaign[c.id]?.total ?? 0,
     sent_count: (statsByCampaign[c.id]?.sent ?? 0) + (statsByCampaign[c.id]?.delivered ?? 0) + (statsByCampaign[c.id]?.read ?? 0),
     delivered_count: (statsByCampaign[c.id]?.delivered ?? 0) + (statsByCampaign[c.id]?.read ?? 0),
     failed_count: statsByCampaign[c.id]?.failed ?? 0,
     pending_count: statsByCampaign[c.id]?.pending ?? 0,
-  }));
+  };
+  });
 
   return NextResponse.json({ campaigns: campaignsWithMeta });
 }
@@ -158,6 +162,21 @@ export async function POST(
   const isDraft = save_as_draft || (!send_now && !scheduled_at);
   if (contactIdList.length === 0 && !isDraft) {
     return NextResponse.json({ error: "At least one contact or a segment with contacts is required" }, { status: 400 });
+  }
+
+  if (!isDraft && template_id) {
+    const { data: templateRow } = await supabase
+      .from("whatsapp_templates")
+      .select("status")
+      .eq("project_id", projectId)
+      .eq("id", template_id)
+      .single();
+    if (templateRow?.status !== "approved") {
+      return NextResponse.json(
+        { error: "Only approved templates can be used for sending or scheduling. Submit your draft template for approval first." },
+        { status: 400 }
+      );
+    }
   }
 
   const status = send_now ? "sending" : save_as_draft || !scheduled_at ? "draft" : "scheduled";

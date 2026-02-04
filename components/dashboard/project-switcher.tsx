@@ -34,6 +34,7 @@ export function ProjectSwitcher() {
         return;
       }
       await selectProject(projectId);
+      window.location.reload();
     },
     [activeProject?.id, selectProject],
   );

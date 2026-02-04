@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Loader2, MoreVertical, Plus, Trash2, Upload } from "lucide-react";
+import { Loader2, MoreVertical, Plus, Trash2, Upload, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/empty-state";
+import { LoadingState } from "@/components/ui/loading-state";
 import { Label } from "@/components/ui/label";
 import { useProjectContext } from "@/lib/projects/project-context";
 
@@ -230,14 +232,25 @@ export default function WhatsAppContactsPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading…
-        </div>
+        <LoadingState message="Loading contacts…" />
       ) : contacts.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No contacts yet. Add one manually or import a CSV.
-        </p>
+        <EmptyState
+          icon={<Users className="h-6 w-6" />}
+          title="No contacts yet"
+          description="Add contacts manually or import a CSV to start sending messages and running campaigns."
+          actions={
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-1">
+                <Upload className="h-4 w-4" />
+                Import CSV
+              </Button>
+              <Button onClick={openAdd} className="gap-1">
+                <Plus className="h-4 w-4" />
+                Add contact
+              </Button>
+            </div>
+          }
+        />
       ) : (
         <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
           <div className="overflow-x-auto">

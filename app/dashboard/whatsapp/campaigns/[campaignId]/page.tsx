@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LoadingState } from "@/components/ui/loading-state";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 interface Template {
@@ -187,6 +188,10 @@ export default function CampaignDetailPage() {
       toast.error("Add a template (Edit campaign) before you can send.");
       return;
     }
+    if (data?.template?.status && data.template.status !== "approved") {
+      toast.error("Only approved templates can be used for sending. Get your template approved first.");
+      return;
+    }
     if (data?.stats?.total === 0) {
       toast.error("Add at least one recipient first");
       return;
@@ -300,12 +305,9 @@ export default function CampaignDetailPage() {
 
   if (loading || !data) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
         <h1 className="text-xl font-semibold">Campaign</h1>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading…
-        </div>
+        <LoadingState message="Loading campaign…" />
       </div>
     );
   }
@@ -313,263 +315,307 @@ export default function CampaignDetailPage() {
   const { campaign, template, recipients, stats } = data;
   const canEdit = campaign.status === "draft" || campaign.status === "scheduled" || campaign.status === "failed";
   const canSendOrSchedule = campaign.status === "draft" || campaign.status === "scheduled";
+  const hasAlerts =
+    (canSendOrSchedule && !campaign.template_id) ||
+    (canSendOrSchedule && campaign.template_id && stats.total === 0) ||
+    template?.status !== "approved" ||
+    stats.failed > 0 ||
+    debugResult;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="ghost" size="sm" onClick={() => router.back()} className="gap-1">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-          <h1 className="text-xl font-semibold">{campaign.name}</h1>
-          <Badge variant={STATUS_VARIANTS[campaign.status] ?? "outline"}>{campaign.status}</Badge>
-          {canEdit && (
-            <Button variant="outline" size="sm" onClick={openEdit} className="gap-1">
-              <Pencil className="h-4 w-4" />
-              Edit
+    <div className="flex flex-col gap-8">
+      {/* Page header */}
+      <header className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3 flex-wrap min-w-0">
+            <Button variant="ghost" size="sm" onClick={() => router.back()} className="gap-1 shrink-0">
+              <ArrowLeft className="h-4 w-4" />
+              Back
             </Button>
-          )}
-        </div>
-        {canSendOrSchedule && stats.total > 0 && campaign.template_id && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              onClick={handleSendNow}
-              disabled={debugLoading || stats.total === 0}
-              className="gap-1"
-            >
-              {debugLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-              Send now
-            </Button>
-            {campaign.status === "draft" && (
-              <Button
-                variant="outline"
-                onClick={() => setScheduleDialogOpen(true)}
-                disabled={triggering}
-                className="gap-1"
-              >
-                <Calendar className="h-4 w-4" />
-                Schedule for later
-              </Button>
-            )}
-            {campaign.status === "scheduled" && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setScheduleAt(campaign.scheduled_at ? new Date(campaign.scheduled_at).toISOString().slice(0, 16) : "");
-                  setScheduleDialogOpen(true);
-                }}
-                disabled={triggering}
-                className="gap-1"
-              >
-                <Calendar className="h-4 w-4" />
-                Reschedule
+            <div className="flex items-center gap-2 min-w-0">
+              <h1 className="text-xl font-semibold truncate">{campaign.name}</h1>
+              <Badge variant={STATUS_VARIANTS[campaign.status] ?? "outline"} className="shrink-0">{campaign.status}</Badge>
+            </div>
+            {canEdit && (
+              <Button variant="outline" size="sm" onClick={openEdit} className="gap-1 shrink-0">
+                <Pencil className="h-4 w-4" />
+                Edit
               </Button>
             )}
           </div>
-        )}
-      </div>
-
-      {campaign.description && (
-        <p className="text-sm text-muted-foreground">{campaign.description}</p>
-      )}
-
-      {canSendOrSchedule && !campaign.template_id && (
-        <p className="text-sm text-amber-600 dark:text-amber-500">
-          Add a template (Edit campaign) before you can send or schedule this campaign.
-        </p>
-      )}
-      {canSendOrSchedule && campaign.template_id && stats.total === 0 && (
-        <p className="text-sm text-amber-600 dark:text-amber-500">
-          Add at least one recipient (via Edit) before you can send or schedule this campaign.
-        </p>
-      )}
-
-      {(stats.failed > 0 || debugResult) && (
-        <div className={`rounded-lg border p-4 ${debugResult && debugResult.failed > 0 ? "border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30" : "border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30"}`}>
-          <h2 className="text-sm font-medium mb-2">Send results</h2>
-          {(recipients.some((r) => r.status === "failed" && (String(r.error_code ?? "").includes("132001") || String(r.error_code ?? "").includes("Template name does not exist"))) ||
-            debugResult?.errors?.some((e) => String(e.error).includes("132001") || String(e.error).includes("Template name does not exist"))) && (
-            <p className="text-sm text-amber-800 dark:text-amber-300 mb-2">
-              <strong>Template not found in WhatsApp.</strong> The template you chose is not approved or doesn&apos;t exist in your WhatsApp Business Account. Approve your template in Meta Business Manager or choose another template in Edit campaign.
-            </p>
-          )}
-          {recipients.filter((r) => r.status === "failed").length > 0 && (
-            <div className="mb-2">
-              <p className="text-xs font-medium text-muted-foreground mb-1">Failed recipients (from DB):</p>
-              <ul className="text-sm list-disc list-inside">
-                {recipients
-                  .filter((r) => r.status === "failed")
-                  .map((r) => (
-                    <li key={r.id}>
-                      {r.phone ?? r.contact_name ?? r.contact_id}: {r.error_code ?? "Unknown error"}
-                    </li>
-                  ))}
-              </ul>
-            </div>
-          )}
-          {debugResult && (
-            <div className="mt-2">
-              <p className="text-xs font-medium mb-1">
-                Last run: {debugResult.sent} sent, {debugResult.failed} failed
-              </p>
-              {debugResult.errors.length > 0 ? (
-                <pre className="text-xs bg-white dark:bg-black/20 p-2 rounded border border-gray-200 dark:border-gray-800 overflow-auto max-h-40">
-                  {debugResult.errors.map((e) => `${e.phone}: ${e.error}`).join("\n")}
-                </pre>
-              ) : (
-                <p className="text-xs text-muted-foreground">No errors from last run.</p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border border-gray-200 dark:border-gray-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total recipients</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold">{stats.total}</p>
-          </CardContent>
-        </Card>
-        <Card className="border border-gray-200 dark:border-gray-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Sent</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold">{stats.sent + stats.delivered + stats.read}</p>
-          </CardContent>
-        </Card>
-        <Card className="border border-gray-200 dark:border-gray-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Delivered / Read</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold">{stats.delivered + stats.read}</p>
-          </CardContent>
-        </Card>
-        <Card className="border border-gray-200 dark:border-gray-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Failed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold">{stats.failed}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="space-y-2">
-        <h2 className="text-sm font-medium">Details</h2>
-        <div className="text-sm text-muted-foreground space-y-1">
-          <p><strong>Template:</strong> {template ? `${template.name} (${template.status})` : "—"}</p>
-          {template?.body && (
-            <p className="mt-2"><strong>Template body:</strong> <span className="block mt-1 p-2 rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">{template.body}</span></p>
-          )}
-          <p><strong>Created:</strong> {new Date(campaign.created_at).toLocaleString()}</p>
-          {campaign.scheduled_at && (
-            <p><strong>Scheduled:</strong> {new Date(campaign.scheduled_at).toLocaleString()}</p>
-          )}
-          {campaign.started_at && (
-            <p><strong>Started:</strong> {new Date(campaign.started_at).toLocaleString()}</p>
-          )}
-          {campaign.completed_at && (
-            <p><strong>Completed:</strong> {new Date(campaign.completed_at).toLocaleString()}</p>
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <h2 className="text-sm font-medium">Recipients ({recipients.length})</h2>
-        <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
-                <tr>
-                  <th className="text-left p-3 font-medium">Contact</th>
-                  <th className="text-left p-3 font-medium">Phone</th>
-                  <th className="text-left p-3 font-medium">Status</th>
-                  <th className="text-right p-3 font-medium">Retries</th>
-                  <th className="text-left p-3 font-medium">Sent at</th>
-                  <th className="text-left p-3 font-medium">Error</th>
-                  <th className="text-left p-3 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recipients.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="p-4 text-center text-muted-foreground">
-                      No recipients.
-                    </td>
-                  </tr>
+          {canSendOrSchedule && (
+            <div className="flex items-center gap-2 flex-wrap shrink-0">
+              <Button
+                onClick={handleSendNow}
+                disabled={debugLoading || stats.total === 0 || !campaign.template_id || template?.status !== "approved"}
+                className="gap-1"
+              >
+                {debugLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  recipients.map((r) => (
-                    <tr
-                      key={r.id}
-                      className="border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-900/30"
-                    >
-                      <td className="p-3">{r.contact_name ?? "—"}</td>
-                      <td className="p-3">{r.phone ?? "—"}</td>
-                      <td className="p-3">
-                        <Badge variant={STATUS_VARIANTS[r.status] ?? "outline"}>{r.status}</Badge>
-                      </td>
-                      <td className="p-3 text-right text-muted-foreground">
-                        {r.retry_count ?? 0}
-                      </td>
-                      <td className="p-3 text-muted-foreground whitespace-nowrap">
-                        {r.sent_at ? new Date(r.sent_at).toLocaleString() : "—"}
-                      </td>
-                      <td className="p-3 text-muted-foreground max-w-[200px] truncate" title={r.error_code ?? undefined}>
-                        {r.error_code ?? "—"}
-                      </td>
-                      <td className="p-3">
-                        {r.status === "pending" && canSendOrSchedule && campaign.template_id ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={sendingToContactId === r.contact_id}
-                            onClick={() => handleSendToContact(r.contact_id)}
-                            className="gap-1"
-                          >
-                            {sendingToContactId === r.contact_id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Send className="h-3.5 w-3.5" />
-                            )}
-                            Send
-                          </Button>
-                        ) : r.status === "failed" ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={sendingToContactId === r.contact_id}
-                            onClick={() => handleSendToContact(r.contact_id)}
-                            className="gap-1"
-                            title="Retry sending to this contact"
-                          >
-                            {sendingToContactId === r.contact_id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <RefreshCw className="h-3.5 w-3.5" />
-                            )}
-                            Retry
-                          </Button>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                  <Send className="h-4 w-4" />
                 )}
-              </tbody>
-            </table>
-          </div>
+                Send now
+              </Button>
+              {campaign.status === "draft" && (
+                <Button
+                  variant="outline"
+                  onClick={() => setScheduleDialogOpen(true)}
+                  disabled={triggering}
+                  className="gap-1"
+                >
+                  <Calendar className="h-4 w-4" />
+                  Schedule for later
+                </Button>
+              )}
+              {campaign.status === "scheduled" && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setScheduleAt(campaign.scheduled_at ? new Date(campaign.scheduled_at).toISOString().slice(0, 16) : "");
+                    setScheduleDialogOpen(true);
+                  }}
+                  disabled={triggering}
+                  className="gap-1"
+                >
+                  <Calendar className="h-4 w-4" />
+                  Reschedule
+                </Button>
+              )}
+            </div>
+          )}
         </div>
+        {campaign.description && (
+          <p className="text-sm text-muted-foreground max-w-2xl">{campaign.description}</p>
+        )}
+      </header>
+
+      {/* Alerts: template approval, missing template/recipients, send results */}
+      {hasAlerts && (
+        <section className="space-y-3">
+          {canSendOrSchedule && !campaign.template_id && (
+            <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+              Add a template (Edit campaign) before you can send or schedule this campaign.
+            </div>
+          )}
+          {canSendOrSchedule && campaign.template_id && stats.total === 0 && (
+            <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+              Add at least one recipient (via Edit) before you can send or schedule this campaign.
+            </div>
+          )}
+          {canSendOrSchedule && campaign.template_id && template?.status !== "approved" && (
+            <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+              Approve the template first to send. Use the Templates page to submit your draft for approval.
+            </div>
+          )}
+          {(stats.failed > 0 || debugResult) && (
+            <div className={`rounded-lg border px-4 py-4 ${debugResult && debugResult.failed > 0 ? "border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30" : "border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30"}`}>
+              <h3 className="text-sm font-semibold mb-2">Send results</h3>
+              {(recipients.some((r) => r.status === "failed" && (String(r.error_code ?? "").includes("132001") || String(r.error_code ?? "").includes("Template name does not exist"))) ||
+                debugResult?.errors?.some((e) => String(e.error).includes("132001") || String(e.error).includes("Template name does not exist"))) && (
+                <p className="text-sm text-amber-800 dark:text-amber-300 mb-2">
+                  <strong>Template not found in WhatsApp.</strong> The template is not approved or doesn&apos;t exist in your WhatsApp Business Account. Approve it in Meta Business Manager or choose another template in Edit campaign.
+                </p>
+              )}
+              {recipients.filter((r) => r.status === "failed").length > 0 && (
+                <div className="mb-2">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Failed recipients:</p>
+                  <ul className="text-sm list-disc list-inside">
+                    {recipients
+                      .filter((r) => r.status === "failed")
+                      .map((r) => (
+                        <li key={r.id}>
+                          {r.phone ?? r.contact_name ?? r.contact_id}: {r.error_code ?? "Unknown error"}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              )}
+              {debugResult && (
+                <div className="mt-2">
+                  <p className="text-xs font-medium mb-1">
+                    Last run: {debugResult.sent} sent, {debugResult.failed} failed
+                  </p>
+                  {debugResult.errors.length > 0 ? (
+                    <pre className="text-xs bg-white dark:bg-black/20 p-2 rounded border border-gray-200 dark:border-gray-800 overflow-auto max-h-40">
+                      {debugResult.errors.map((e) => `${e.phone}: ${e.error}`).join("\n")}
+                    </pre>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No errors from last run.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Overview metrics */}
+      <section>
+        <h2 className="text-sm font-medium text-muted-foreground mb-3">Overview</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card className="border border-gray-200 dark:border-gray-800">
+            <CardContent className="pt-4">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total recipients</p>
+              <p className="text-2xl font-semibold mt-1">{stats.total}</p>
+            </CardContent>
+          </Card>
+          <Card className="border border-gray-200 dark:border-gray-800">
+            <CardContent className="pt-4">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sent</p>
+              <p className="text-2xl font-semibold mt-1">{stats.sent + stats.delivered + stats.read}</p>
+            </CardContent>
+          </Card>
+          <Card className="border border-gray-200 dark:border-gray-800">
+            <CardContent className="pt-4">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Delivered / Read</p>
+              <p className="text-2xl font-semibold mt-1">{stats.delivered + stats.read}</p>
+            </CardContent>
+          </Card>
+          <Card className="border border-gray-200 dark:border-gray-800">
+            <CardContent className="pt-4">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Failed</p>
+              <p className="text-2xl font-semibold mt-1">{stats.failed}</p>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* Details + Recipients: two-column on large screens */}
+      <div className="grid gap-8 lg:grid-cols-12">
+        <section className="lg:col-span-5 xl:col-span-4">
+          <Card className="border border-gray-200 dark:border-gray-800">
+            <CardHeader>
+              <CardTitle className="text-base">Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+
+              <div className="flex flex-row items-center gap-2 justify-between">
+              <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">Template Name</p>
+
+              {template && (
+                  <Badge variant="outline" className="text-xs">{template.status}</Badge>
+                )}
+
+               
+              </div>
+              <p className="font-medium text-sm">{template ? `${template.name}` : "—"}</p>
+
+              {template?.body && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Message preview</p>
+                  <div className="rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 p-3 text-muted-foreground whitespace-pre-wrap">
+                    {template.body}
+                  </div>
+                </div>
+              )}
+              <div className="border-t border-gray-200 dark:border-gray-800 pt-4 space-y-2">
+                <p><span className="text-muted-foreground">Created</span> {new Date(campaign.created_at).toLocaleString()}</p>
+                {campaign.scheduled_at && (
+                  <p><span className="text-muted-foreground">Scheduled</span> {new Date(campaign.scheduled_at).toLocaleString()}</p>
+                )}
+                {campaign.started_at && (
+                  <p><span className="text-muted-foreground">Started</span> {new Date(campaign.started_at).toLocaleString()}</p>
+                )}
+                {campaign.completed_at && (
+                  <p><span className="text-muted-foreground">Completed</span> {new Date(campaign.completed_at).toLocaleString()}</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section className="lg:col-span-7 xl:col-span-8">
+          <Card className="border border-gray-200 dark:border-gray-800">
+            <CardHeader>
+              <CardTitle className="text-base">Recipients ({recipients.length})</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
+                    <tr>
+                      <th className="text-left p-3 font-medium">Contact</th>
+                      <th className="text-left p-3 font-medium">Phone</th>
+                      <th className="text-left p-3 font-medium">Status</th>
+                      <th className="text-right p-3 font-medium">Retries</th>
+                      <th className="text-left p-3 font-medium">Sent at</th>
+                      <th className="text-left p-3 font-medium">Error</th>
+                      <th className="text-left p-3 font-medium w-28">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recipients.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                          No recipients.
+                        </td>
+                      </tr>
+                    ) : (
+                      recipients.map((r) => (
+                        <tr
+                          key={r.id}
+                          className="border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-900/30"
+                        >
+                          <td className="p-3">{r.contact_name ?? "—"}</td>
+                          <td className="p-3">{r.phone ?? "—"}</td>
+                          <td className="p-3">
+                            <Badge variant={STATUS_VARIANTS[r.status] ?? "outline"}>{r.status}</Badge>
+                          </td>
+                          <td className="p-3 text-right text-muted-foreground">
+                            {r.retry_count ?? 0}
+                          </td>
+                          <td className="p-3 text-muted-foreground whitespace-nowrap">
+                            {r.sent_at ? new Date(r.sent_at).toLocaleString() : "—"}
+                          </td>
+                          <td className="p-3 text-muted-foreground max-w-[200px] truncate" title={r.error_code ?? undefined}>
+                            {r.error_code ?? "—"}
+                          </td>
+                          <td className="p-3">
+                            {r.status === "pending" && canSendOrSchedule && campaign.template_id ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={sendingToContactId === r.contact_id}
+                                onClick={() => handleSendToContact(r.contact_id)}
+                                className="gap-1"
+                              >
+                                {sendingToContactId === r.contact_id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Send className="h-3.5 w-3.5" />
+                                )}
+                                Send
+                              </Button>
+                            ) : r.status === "failed" ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={sendingToContactId === r.contact_id}
+                                onClick={() => handleSendToContact(r.contact_id)}
+                                className="gap-1"
+                                title="Retry sending to this contact"
+                              >
+                                {sendingToContactId === r.contact_id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-3.5 w-3.5" />
+                                )}
+                                Retry
+                              </Button>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
       </div>
 
       <Dialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen}>

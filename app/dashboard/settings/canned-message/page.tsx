@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Loader2, MoreVertical, Plus, Trash2 } from "lucide-react";
+import { Loader2, MessageSquare, MoreVertical, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { EmptyState } from "@/components/ui/empty-state";
+import { LoadingState } from "@/components/ui/loading-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useProjectContext } from "@/lib/projects/project-context";
@@ -153,12 +155,19 @@ export default function CannedMessagePage() {
       </p>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading…
-        </div>
+        <LoadingState message="Loading canned messages…" />
       ) : quickReplies.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No canned messages yet. Add one to use in live chat.</p>
+        <EmptyState
+          icon={<MessageSquare className="h-6 w-6" />}
+          title="No canned messages yet"
+          description="Add quick replies to use in Live Chat. Use categories like Greetings, FAQs, or Closing."
+          actions={
+            <Button onClick={openAdd} className="gap-1">
+              <Plus className="h-4 w-4" />
+              Add canned message
+            </Button>
+          }
+        />
       ) : (
         <div className="space-y-2">
           {quickReplies.map((r) => (

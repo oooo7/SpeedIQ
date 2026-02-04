@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Loader2, MoreVertical, Plus, Trash2 } from "lucide-react";
+import { Loader2, MoreVertical, Plus, Tag, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { EmptyState } from "@/components/ui/empty-state";
+import { LoadingState } from "@/components/ui/loading-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useProjectContext } from "@/lib/projects/project-context";
@@ -149,12 +151,19 @@ export default function TagsPage() {
       </p>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading…
-        </div>
+        <LoadingState message="Loading tags…" />
       ) : tags.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No tags yet. Add one to use on contacts.</p>
+        <EmptyState
+          icon={<Tag className="h-6 w-6" />}
+          title="No tags yet"
+          description="Define tags to assign to WhatsApp contacts (e.g. VIP, New Customer). Use them to filter contacts and build segments."
+          actions={
+            <Button onClick={openAdd} className="gap-1">
+              <Plus className="h-4 w-4" />
+              Add tag
+            </Button>
+          }
+        />
       ) : (
         <div className="flex flex-wrap gap-2">
           {tags.map((t) => (

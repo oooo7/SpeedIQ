@@ -75,6 +75,18 @@ export async function POST(
     .eq("id", campaign.template_id)
     .single();
 
+  if (template?.status !== "approved") {
+    return NextResponse.json(
+      {
+        error: "Only approved templates can be used for sending. Get your template approved first.",
+        sent: 0,
+        failed: 0,
+        errors: [{ phone: "(all)", error: "Template must be approved before sending." }],
+      },
+      { status: 400 }
+    );
+  }
+
   if (!template?.name) {
     return NextResponse.json(
       { error: "Campaign template not found.", sent: 0, failed: 0, errors: [{ phone: "(all)", error: "Template not found in database." }] },
