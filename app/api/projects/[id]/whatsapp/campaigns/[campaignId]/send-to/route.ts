@@ -102,7 +102,7 @@ export async function POST(
 
   const { data: template } = await admin
     .from("whatsapp_templates")
-    .select("name, language, status")
+    .select("name, language, status, variables")
     .eq("id", campaign.template_id)
     .single();
 
@@ -115,13 +115,18 @@ export async function POST(
 
   const templateName = template.name;
   const templateLanguage = template.language ?? "en";
+  const variableValues =
+    Array.isArray(template.variables) && template.variables.length > 0
+      ? (template.variables as string[]).map(String)
+      : undefined;
 
   const result = await sendTemplateMessage(
     creds.access_token,
     creds.phone_number_id,
     phone,
     templateName,
-    templateLanguage
+    templateLanguage,
+    variableValues ? { variableValues } : undefined
   );
 
   if ("error" in result) {

@@ -27,7 +27,52 @@ interface WhatsAppAccountData {
   display_name?: string | null;
   quality_rating?: string | null;
   tier?: string | null;
+  platform_type?: string | null;
+  verified_name?: string | null;
+  code_verification_status?: string | null;
+  status?: string | null;
   connected: boolean;
+}
+
+function formatDisplayPhone(raw: string | null | undefined): string {
+  if (!raw?.trim()) return "—";
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length <= 3) return raw;
+  if (digits.length <= 6) return `+${digits.slice(0, digits.length - 3)} ${digits.slice(-3)}`;
+  if (digits.length <= 10)
+    return `+${digits.slice(0, digits.length - 7)} ${digits.slice(-7, -4)} ${digits.slice(-4)}`;
+  return `+${digits.slice(0, -10)} ${digits.slice(-10, -7)} ${digits.slice(-7, -4)} ${digits.slice(-4)}`;
+}
+
+function qualityLabel(rating: string | null | undefined): string {
+  if (!rating) return "—";
+  const labels: Record<string, string> = {
+    GREEN: "Good",
+    YELLOW: "Medium",
+    RED: "Low",
+    UNKNOWN: "Unknown",
+    NA: "N/A",
+  };
+  return labels[rating] ?? rating;
+}
+
+function statusLabel(status: string | null | undefined): string {
+  if (!status) return "—";
+  const labels: Record<string, string> = {
+    CONNECTED: "Connected",
+    FLAGGED: "Flagged",
+    RESTRICTED: "Restricted",
+  };
+  return labels[status] ?? status;
+}
+
+function codeVerificationLabel(code: string | null | undefined): string {
+  if (!code) return "—";
+  const labels: Record<string, string> = {
+    VERIFIED: "Verified",
+    UNVERIFIED: "Unverified",
+  };
+  return labels[code] ?? code;
 }
 
 export default function WhatsAppAccountPage() {
@@ -211,6 +256,10 @@ export default function WhatsAppAccountPage() {
                           ...prev,
                           quality_rating: data.quality_rating ?? prev.quality_rating,
                           phone_number: data.display_phone_number ?? prev.phone_number,
+                          platform_type: data.platform_type ?? prev.platform_type,
+                          verified_name: data.verified_name ?? prev.verified_name,
+                          code_verification_status: data.code_verification_status ?? prev.code_verification_status,
+                          status: data.status ?? prev.status,
                         }
                       : prev
                   );
@@ -225,45 +274,63 @@ export default function WhatsAppAccountPage() {
               {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Refresh health"}
             </Button>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid gap-2 text-sm">
-              {account.phone_number && (
-                <p>
-                  <span className="text-muted-foreground">Phone:</span> {account.phone_number}
-                </p>
-              )}
-              {account.display_name && (
-                <p>
-                  <span className="text-muted-foreground">Display name:</span> {account.display_name}
-                </p>
-              )}
-              {account.quality_rating && (
-                <p>
-                  <span className="text-muted-foreground">Quality:</span>{" "}
-                  <span
-                    className={
-                      account.quality_rating === "GREEN"
-                        ? "text-green-600 dark:text-green-500"
-                        : account.quality_rating === "YELLOW"
-                          ? "text-amber-600 dark:text-amber-500"
-                          : "text-red-600 dark:text-red-500"
-                    }
-                  >
-                    {account.quality_rating}
-                  </span>
-                </p>
-              )}
-              {account.quality_rating && account.quality_rating !== "GREEN" && (
-                <p className="text-xs text-muted-foreground">
-                  Keep response times low and avoid user reports to improve quality rating.
-                </p>
-              )}
-              {account.tier && (
-                <p>
-                  <span className="text-muted-foreground">Tier:</span> {account.tier}
-                </p>
-              )}
-            </div>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              Click &quot;Refresh health&quot; to fetch the latest data from Meta. Some fields (e.g. verified name, status) only appear after a refresh.
+            </p>
+            <dl className="grid gap-3 text-sm sm:grid-cols-[auto_1fr] sm:gap-x-4">
+              <dt className="text-muted-foreground font-medium">Phone number</dt>
+              <dd className="font-mono tabular-nums">
+                {formatDisplayPhone(account.phone_number)}
+              </dd>
+
+              <dt className="text-muted-foreground font-medium">Verified name</dt>
+              <dd>{account.verified_name?.trim() || "—"}</dd>
+
+              <dt className="text-muted-foreground font-medium">Display name (optional)</dt>
+              <dd>{account.display_name?.trim() || "—"}</dd>
+
+              <dt className="text-muted-foreground font-medium">Quality rating</dt>
+              <dd>
+                <span
+                  className={
+                    account.quality_rating === "GREEN"
+                      ? "text-green-600 dark:text-green-500 font-medium"
+                      : account.quality_rating === "YELLOW"
+                        ? "text-amber-600 dark:text-amber-500 font-medium"
+                        : account.quality_rating === "RED"
+                          ? "text-red-600 dark:text-red-500 font-medium"
+                          : "text-muted-foreground"
+                  }
+                >
+                  {qualityLabel(account.quality_rating)}
+                </span>
+              </dd>
+
+              <dt className="text-muted-foreground font-medium">Status</dt>
+              <dd>{statusLabel(account.status)}</dd>
+
+              <dt className="text-muted-foreground font-medium">Code verification</dt>
+              <dd>{codeVerificationLabel(account.code_verification_status)}</dd>
+
+              <dt className="text-muted-foreground font-medium">Platform</dt>
+              <dd>{account.platform_type?.replace(/_/g, " ") ?? "—"}</dd>
+
+              <dt className="text-muted-foreground font-medium">Tier</dt>
+              <dd>{account.tier?.trim() || "—"}</dd>
+            </dl>
+
+            {account.quality_rating === "UNKNOWN" && (
+              <p className="text-xs text-muted-foreground">
+                Meta shows &quot;Unknown&quot; for new or test numbers until there is enough messaging history. Send messages and wait; the rating will update to Good, Medium, or Low.
+              </p>
+            )}
+            {account.quality_rating && account.quality_rating !== "GREEN" && account.quality_rating !== "UNKNOWN" && (
+              <p className="text-xs text-muted-foreground">
+                Keep response times low and avoid user reports to improve quality rating.
+              </p>
+            )}
+
             <p className="text-sm text-muted-foreground">
               To update credentials, use the form below and submit again. Leave access token empty to keep the
               current one.
@@ -367,6 +434,9 @@ export default function WhatsAppAccountPage() {
             placeholder="From Meta Business Suite"
             required
           />
+          <p className="text-xs text-muted-foreground">
+            Business Manager → Business Settings → Accounts → WhatsApp Business Accounts. Required for template submission and status.
+          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="access_token">Access Token *</Label>

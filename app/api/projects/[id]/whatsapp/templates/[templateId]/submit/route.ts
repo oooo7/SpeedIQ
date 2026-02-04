@@ -29,7 +29,7 @@ export async function POST(
 
   const { data: template, error: templateError } = await supabase
     .from("whatsapp_templates")
-    .select("id, name, category, language, body, header, footer, buttons, status")
+    .select("id, name, category, language, body, header, footer, buttons, status, variables")
     .eq("project_id", projectId)
     .eq("id", templateId)
     .single();
@@ -40,10 +40,25 @@ export async function POST(
   if (template.status !== "draft") {
     return NextResponse.json({ error: "Only draft templates can be submitted" }, { status: 400 });
   }
+  if (!template.body?.trim()) {
+    return NextResponse.json({ error: "Template body is required by Meta. Add body text before submitting." }, { status: 400 });
+  }
 
   const creds = await getWhatsAppAccountToken(supabase, projectId);
   if (!creds) {
     return NextResponse.json({ error: "WhatsApp account not connected" }, { status: 400 });
+  }
+
+  const variableExamples = Array.isArray(template.variables)
+    ? (template.variables as string[]).map((v) => String(v ?? "").slice(0, 100))
+    : [];
+
+  function bodyVariableCount(text: string | null): number {
+    if (!text) return 0;
+    const matches = text.match(/\{\{(\d+)\}\}/g);
+    if (!matches) return 0;
+    const indices = [...new Set(matches.map((m) => m.replace(/\{\{|\}\}/g, "")))].map(Number);
+    return Math.max(0, ...indices);
   }
 
   const categoryMap = {
@@ -55,14 +70,37 @@ export async function POST(
     type: "HEADER" | "BODY" | "FOOTER" | "BUTTONS";
     format?: string;
     text?: string;
+    example?: { body_text?: string[][]; header_text?: string[] };
     buttons?: Array<{ type: "QUICK_REPLY" | "URL" | "PHONE_NUMBER"; text: string; url?: string; phone_number?: string }>;
   }> = [];
 
   if (template.header) {
-    components.push({ type: "HEADER", format: "TEXT", text: template.header });
+    const headerHasVar = /\{\{1\}\}/.test(template.header);
+    const headerComp: { type: "HEADER"; format: string; text: string; example?: { header_text: string[] } } = {
+      type: "HEADER",
+      format: "TEXT",
+      text: template.header,
+    };
+    if (headerHasVar && variableExamples.length > 0) {
+      headerComp.example = { header_text: [variableExamples[0].slice(0, 60)] };
+    }
+    components.push(headerComp);
   }
   if (template.body) {
-    components.push({ type: "BODY", text: template.body });
+    const bodyVarCount = bodyVariableCount(template.body);
+    const bodyComp: { type: "BODY"; text: string; example?: { body_text: string[][] } } = {
+      type: "BODY",
+      text: template.body,
+    };
+    if (bodyVarCount > 0) {
+      const examples = variableExamples
+        .slice(0, bodyVarCount)
+        .map((s) => (s.trim() ? s.slice(0, 100) : null));
+      const filled = examples.map((s, i) => (s ?? `Sample ${i + 1}`));
+      while (filled.length < bodyVarCount) filled.push(`Sample ${filled.length + 1}`);
+      bodyComp.example = { body_text: [filled] };
+    }
+    components.push(bodyComp);
   }
   if (template.footer) {
     components.push({ type: "FOOTER", text: template.footer });
@@ -83,7 +121,7 @@ export async function POST(
 
   const result = await submitTemplateToMeta(creds.access_token, creds.waba_id, {
     name: template.name,
-    language: template.language,
+    language: template.language ?? "en",
     category: categoryMap[template.category as keyof typeof categoryMap] ?? "MARKETING",
     components,
   });

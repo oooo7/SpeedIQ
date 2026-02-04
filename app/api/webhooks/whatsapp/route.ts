@@ -61,6 +61,42 @@ export async function POST(request: Request) {
   for (const entry of entries) {
     const changes = entry.changes ?? [];
     for (const change of changes) {
+      if (change.field === "message_template_status_update") {
+        const value = change.value as {
+          event?: string;
+          message_template_id?: number | string;
+          reason?: string;
+          rejection_info?: { reason?: string; recommendation?: string };
+        } | undefined;
+        if (!value?.message_template_id) continue;
+        const metaId = String(value.message_template_id);
+        const event = (value.event ?? "").toLowerCase();
+        const status =
+          event === "approved"
+            ? "approved"
+            : event === "rejected"
+              ? "rejected"
+              : event === "pending"
+                ? "pending"
+                : event === "disabled" || event === "paused"
+                  ? "disabled"
+                  : null;
+        if (status) {
+          const rejectionReason =
+            status === "rejected"
+              ? value.rejection_info?.reason ?? value.reason ?? "Rejected by Meta"
+              : null;
+          await supabase
+            .from("whatsapp_templates")
+            .update({
+              status,
+              rejection_reason: status === "approved" ? null : rejectionReason,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("meta_template_id", metaId);
+        }
+        continue;
+      }
       if (change.field !== "messages") continue;
       const value = change.value;
       if (!value || value.messaging_product !== "whatsapp") continue;

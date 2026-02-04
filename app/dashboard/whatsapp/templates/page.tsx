@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { LayoutTemplate, Loader2, MoreVertical, Plus, Send, Trash2 } from "lucide-react";
+import { Info, LayoutTemplate, Loader2, MoreVertical, Plus, RefreshCw, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 interface WhatsAppTemplate {
@@ -50,6 +52,15 @@ const CATEGORIES = [
   { value: "authentication", label: "Authentication" },
 ] as const;
 
+/** Returns ordered variable indices (1-based) found in body text, e.g. [1, 2] for {{1}} and {{2}}. */
+function getBodyVariableIndices(body: string): number[] {
+  if (!body?.trim()) return [];
+  const matches = body.match(/\{\{(\d+)\}\}/g);
+  if (!matches) return [];
+  const indices = [...new Set(matches.map((m) => parseInt(m.replace(/\{\{|\}\}/g, ""), 10)))].sort((a, b) => a - b);
+  return indices;
+}
+
 export default function WhatsAppTemplatesPage() {
   const { activeProject } = useProjectContext();
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
@@ -58,6 +69,7 @@ export default function WhatsAppTemplatesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<WhatsAppTemplate | null>(null);
   const [submitting, setSubmitting] = useState<string | null>(null);
+  const [refreshingStatus, setRefreshingStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [formName, setFormName] = useState("");
   const [formCategory, setFormCategory] = useState<"marketing" | "utility" | "authentication">("marketing");
@@ -65,6 +77,7 @@ export default function WhatsAppTemplatesPage() {
   const [formBody, setFormBody] = useState("");
   const [formHeader, setFormHeader] = useState("");
   const [formFooter, setFormFooter] = useState("");
+  const [formVariableExamples, setFormVariableExamples] = useState<string[]>([]);
 
   const fetchTemplates = useCallback(async () => {
     if (!activeProject?.id) return;
@@ -100,6 +113,7 @@ export default function WhatsAppTemplatesPage() {
     setFormBody("");
     setFormHeader("");
     setFormFooter("");
+    setFormVariableExamples([]);
     setDialogOpen(true);
   };
 
@@ -115,6 +129,7 @@ export default function WhatsAppTemplatesPage() {
     setFormBody(t.body ?? "");
     setFormHeader(t.header ?? "");
     setFormFooter(t.footer ?? "");
+    setFormVariableExamples(Array.isArray(t.variables) ? (t.variables as string[]).map(String) : []);
     setDialogOpen(true);
   };
 
@@ -131,6 +146,8 @@ export default function WhatsAppTemplatesPage() {
         ? `/api/projects/${activeProject.id}/whatsapp/templates/${editing.id}`
         : `/api/projects/${activeProject.id}/whatsapp/templates`;
       const method = editing ? "PATCH" : "POST";
+      const bodyVarIndices = getBodyVariableIndices(formBody);
+      const variables = bodyVarIndices.map((i) => formVariableExamples[i - 1] ?? "").map((s) => s.trim().slice(0, 100));
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
@@ -142,7 +159,7 @@ export default function WhatsAppTemplatesPage() {
           header: formHeader.trim() || null,
           footer: formFooter.trim() || null,
           buttons: [],
-          variables: [],
+          variables,
         }),
       });
       const data = await res.json();
@@ -173,6 +190,25 @@ export default function WhatsAppTemplatesPage() {
       toast.error(err instanceof Error ? err.message : "Could not submit");
     } finally {
       setSubmitting(null);
+    }
+  };
+
+  const handleRefreshStatus = async (templateId: string) => {
+    if (!activeProject?.id) return;
+    setRefreshingStatus(templateId);
+    try {
+      const res = await fetch(
+        `/api/projects/${activeProject.id}/whatsapp/templates/${templateId}/refresh-status`,
+        { method: "POST" }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Refresh failed");
+      toast.success(data.status ? `Status: ${data.status}` : "Status refreshed");
+      fetchTemplates();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not refresh status");
+    } finally {
+      setRefreshingStatus(null);
     }
   };
 
@@ -209,10 +245,72 @@ export default function WhatsAppTemplatesPage() {
     );
   }
 
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-semibold">Templates</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-semibold">Templates</h1>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                aria-label="Template help and test example"
+              >
+                <Info className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[min(90vw,400px)] p-4" align="start" side="bottom">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Test template to try</h3>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Copy these values into a new template to test approval. Use <strong>Utility</strong> and simple, clear text for faster approval (Meta review can take up to 24 hours).
+                  </p>
+                  <div className="grid gap-1 text-sm sm:grid-cols-[auto_1fr] rounded-md border border-gray-200 dark:border-gray-800 p-3">
+                    <span className="text-muted-foreground">Name</span>
+                    <code className="font-mono text-xs">request_received</code>
+                    <span className="text-muted-foreground">Category</span>
+                    <span>Utility</span>
+                    <span className="text-muted-foreground">Language</span>
+                    <span>en</span>
+                    <span className="text-muted-foreground">Body</span>
+                    <code className="font-mono text-xs whitespace-pre-wrap break-words">Hi {"{{1}}"}, your request has been received. Reference: {"{{2}}"}. We will get back to you soon.</code>
+                    <span className="text-muted-foreground">Example {"{{1}}"}</span>
+                    <span>Customer</span>
+                    <span className="text-muted-foreground">Example {"{{2}}"}</span>
+                    <span>REF-001</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Create a new template, paste the body, choose Utility and language <strong>en</strong>, fill the two variable examples, then Submit for approval.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium mb-2">How do I know if my template is approved?</h3>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Meta reviews templates automatically; review can take up to 24 hours (see{" "}
+                    <a href="https://developers.facebook.com/documentation/business-messaging/whatsapp/templates/overview" target="_blank" rel="noopener noreferrer" className="underline">
+                      Meta Templates overview
+                    </a>
+                    ).
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    <strong>In this app:</strong> When Meta approves or rejects your template, we update the status automatically if your webhook is subscribed to <code className="rounded bg-muted px-1 text-xs">message_template_status_update</code>. You can also use <strong>Refresh status from Meta</strong> in the template menu (⋯) to fetch the latest status.
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    <strong>In WhatsApp Manager:</strong> Go to{" "}
+                    <a href="https://business.facebook.com/latest/whatsapp_manager/message_templates" target="_blank" rel="noopener noreferrer" className="underline">
+                      Manage templates
+                    </a>{" "}
+                    to see In-Review, Approved, or Rejected. Once approved, the template badge here will show <strong>approved</strong> and you can use it in campaigns.
+                  </p>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
         <Button onClick={openAdd} className="gap-1">
           <Plus className="h-4 w-4" />
           New template
@@ -291,6 +389,19 @@ export default function WhatsAppTemplatesPage() {
                         Submit for approval
                       </DropdownMenuItem>
                     </>
+                  )}
+                  {t.meta_template_id && t.status !== "draft" && (
+                    <DropdownMenuItem
+                      onClick={() => handleRefreshStatus(t.id)}
+                      disabled={refreshingStatus === t.id}
+                    >
+                      {refreshingStatus === t.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                      )}
+                      Refresh status from Meta
+                    </DropdownMenuItem>
                   )}
                   {t.status === "draft" && (
                     <DropdownMenuItem
@@ -372,7 +483,35 @@ export default function WhatsAppTemplatesPage() {
                 rows={4}
                 className="flex w-full rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-2 text-sm min-h-[80px]"
               />
+              <p className="text-xs text-muted-foreground">
+                Use {"{{1}}"}, {"{{2}}"}, etc. for variables. Add example values below for Meta approval.
+              </p>
             </div>
+            {getBodyVariableIndices(formBody).length > 0 && (
+              <div className="space-y-2">
+                <Label>Example values for variables (required for approval)</Label>
+                <p className="text-xs text-muted-foreground">
+                  Meta requires sample values for each variable when submitting. These are also used as defaults when sending.
+                </p>
+                <div className="flex flex-col gap-2">
+                  {getBodyVariableIndices(formBody).map((idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className="text-muted-foreground text-sm w-8">{"{{" + idx + "}}"}</span>
+                      <Input
+                        value={formVariableExamples[idx - 1] ?? ""}
+                        onChange={(e) => {
+                          const next = [...formVariableExamples];
+                          next[idx - 1] = e.target.value;
+                          setFormVariableExamples(next);
+                        }}
+                        placeholder={`Example for {{${idx}}}`}
+                        className="flex-1"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="form-footer">Footer (optional)</Label>
               <Input

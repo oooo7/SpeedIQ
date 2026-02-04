@@ -57,10 +57,11 @@ export async function POST(
   let name: string;
   let language: string;
 
+  let variableValues: string[] | undefined;
   if (templateId) {
     const { data: template, error: tErr } = await supabase
       .from("whatsapp_templates")
-      .select("name, language, status")
+      .select("name, language, status, variables")
       .eq("project_id", projectId)
       .eq("id", templateId)
       .single();
@@ -73,6 +74,9 @@ export async function POST(
     }
     name = template.name;
     language = template.language ?? "en_US";
+    if (Array.isArray(template.variables) && template.variables.length > 0) {
+      variableValues = (template.variables as string[]).map(String);
+    }
   } else {
     name = templateName as string;
     language = name === "hello_world" ? "en_US" : "en";
@@ -83,7 +87,8 @@ export async function POST(
     creds.phone_number_id,
     to,
     name,
-    language
+    language,
+    variableValues ? { variableValues } : undefined
   );
 
   if ("error" in result) {

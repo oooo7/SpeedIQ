@@ -54,5 +54,9 @@ export async function POST(
     success: true,
     quality_rating: result.quality_rating,
     display_phone_number: result.display_phone_number,
+    platform_type: result.platform_type,
+    verified_name: result.verified_name,
+    code_verification_status: result.code_verification_status,
+    status: result.status,
   });
 }

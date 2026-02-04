@@ -51,7 +51,7 @@ export async function GET(request: Request) {
 
     const { data: template } = await supabase
       .from("whatsapp_templates")
-      .select("name, language, status")
+      .select("name, language, status, variables")
       .eq("id", campaign.template_id)
       .single();
 
@@ -65,6 +65,10 @@ export async function GET(request: Request) {
 
     const templateName = template.name;
     const templateLanguage = template.language ?? "en";
+    const variableValues =
+      Array.isArray(template.variables) && template.variables.length > 0
+        ? (template.variables as string[]).map(String)
+        : undefined;
 
     const { data: recipients } = await supabase
       .from("whatsapp_campaign_recipients")
@@ -97,7 +101,8 @@ export async function GET(request: Request) {
         creds.phone_number_id,
         phone,
         templateName,
-        templateLanguage
+        templateLanguage,
+        variableValues ? { variableValues } : undefined
       );
 
       if ("error" in result) {
