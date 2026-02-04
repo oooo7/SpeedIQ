@@ -36,6 +36,7 @@ interface Campaign {
   name: string;
   description: string | null;
   template_id: string | null;
+  use_hello_world?: boolean;
   template_name: string | null;
   template_status?: string | null;
   status: string;
@@ -66,10 +67,11 @@ interface Contact {
   name: string | null;
 }
 
-interface Segment {
+interface TagDefinition {
   id: string;
   name: string;
-  filter_json: Record<string, unknown>;
+  color: string | null;
+  contact_count?: number;
 }
 
 const WIZARD_STEPS = [
@@ -97,15 +99,17 @@ export default function WhatsAppCampaignsPage() {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [audienceType, setAudienceType] = useState<"contacts" | "segment">("contacts");
+  const [audienceType, setAudienceType] = useState<"contacts" | "tags">("contacts");
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
-  const [segmentId, setSegmentId] = useState("");
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [templateId, setTemplateId] = useState("");
+  const [useHelloWorld, setUseHelloWorld] = useState(false);
   const [scheduleOption, setScheduleOption] = useState<"send_now" | "schedule" | "draft">("send_now");
   const [scheduledAt, setScheduledAt] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [segments, setSegments] = useState<Segment[]>([]);
+  const [tagDefinitions, setTagDefinitions] = useState<TagDefinition[]>([]);
+  const [tagAudienceCount, setTagAudienceCount] = useState<number | null>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [includeDraftTemplates, setIncludeDraftTemplates] = useState(false);
   const [showPreviewOnReview, setShowPreviewOnReview] = useState(false);
@@ -134,16 +138,28 @@ export default function WhatsAppCampaignsPage() {
   useEffect(() => {
     if (!activeProject?.id || !wizardOpen) return;
     (async () => {
-      const [contactsRes, segmentsRes] = await Promise.all([
+      const [contactsRes, tagsRes] = await Promise.all([
         fetch(`/api/projects/${activeProject.id}/whatsapp/contacts?limit=500`),
-        fetch(`/api/projects/${activeProject.id}/whatsapp/segments`),
+        fetch(`/api/projects/${activeProject.id}/whatsapp/tag-definitions`),
       ]);
       const contactsData = await contactsRes.json();
-      const segmentsData = await segmentsRes.json();
+      const tagsData = await tagsRes.json();
       setContacts(contactsData.contacts ?? []);
-      setSegments(segmentsData.segments ?? []);
+      setTagDefinitions(tagsData.tags ?? []);
     })();
   }, [activeProject?.id, wizardOpen]);
+
+  useEffect(() => {
+    if (!activeProject?.id || selectedTagIds.length === 0) {
+      setTagAudienceCount(null);
+      return;
+    }
+    const params = new URLSearchParams({ tag_ids: selectedTagIds.join(",") });
+    fetch(`/api/projects/${activeProject.id}/whatsapp/audience-count?${params}`)
+      .then((res) => res.json())
+      .then((data) => setTagAudienceCount(typeof data.count === "number" ? data.count : null))
+      .catch(() => setTagAudienceCount(null));
+  }, [activeProject?.id, selectedTagIds]);
 
   useEffect(() => {
     if (!activeProject?.id || !wizardOpen) return;
@@ -168,7 +184,7 @@ export default function WhatsAppCampaignsPage() {
     setDescription("");
     setAudienceType("contacts");
     setSelectedContactIds([]);
-    setSegmentId("");
+    setSelectedTagIds([]);
     setTemplateId("");
     setScheduleOption("send_now");
     setScheduledAt("");
@@ -181,7 +197,7 @@ export default function WhatsAppCampaignsPage() {
   const isDraft = scheduleOption === "draft";
 
   const selectedTemplate = templateId ? templates.find((t) => t.id === templateId) : null;
-  const isTemplateApproved = selectedTemplate?.status === "approved";
+  const isTemplateApproved = useHelloWorld || selectedTemplate?.status === "approved";
 
   const validateStep = (s: number): boolean => {
     const err: Record<string, string> = {};
@@ -191,11 +207,11 @@ export default function WhatsAppCampaignsPage() {
     if ((s === 1 || s === 4) && !isDraft) {
       if (audienceType === "contacts" && selectedContactIds.length === 0)
         err.audience = "Select at least one contact or save as draft.";
-      if (audienceType === "segment" && !segmentId)
-        err.audience = "Select a segment or save as draft.";
+      if (audienceType === "tags" && selectedTagIds.length === 0)
+        err.audience = "Select at least one tag or save as draft.";
     }
     if ((s === 2 || s === 4) && !isDraft) {
-      if (!templateId) err.template = "Select a template when sending or scheduling.";
+      if (!useHelloWorld && !templateId) err.template = "Select a template or use the default Hello World template when sending or scheduling.";
     }
     if (s === 3 || s === 4) {
       if (scheduleOption === "schedule" && !scheduledAt.trim())
@@ -209,10 +225,10 @@ export default function WhatsAppCampaignsPage() {
     if (s === 0) return !!name.trim();
     if (s === 1 && !isDraft) {
       if (audienceType === "contacts") return selectedContactIds.length > 0;
-      if (audienceType === "segment") return !!segmentId;
+      if (audienceType === "tags") return selectedTagIds.length > 0;
       return false;
     }
-    if (s === 2 && !isDraft) return !!templateId;
+    if (s === 2 && !isDraft) return useHelloWorld || !!templateId;
     if (s === 3) {
       if (scheduleOption === "schedule") return !!scheduledAt.trim();
     }
@@ -220,8 +236,8 @@ export default function WhatsAppCampaignsPage() {
       if (!name.trim()) return false;
       if (!isDraft) {
         if (audienceType === "contacts" && selectedContactIds.length === 0) return false;
-        if (audienceType === "segment" && !segmentId) return false;
-        if (!templateId) return false;
+        if (audienceType === "tags" && selectedTagIds.length === 0) return false;
+        if (!useHelloWorld && !templateId) return false;
       }
       if (scheduleOption === "schedule" && !scheduledAt.trim()) return false;
     }
@@ -235,8 +251,8 @@ export default function WhatsAppCampaignsPage() {
   };
 
   const recipientCount =
-    audienceType === "segment" && segmentId
-      ? "Segment"
+    audienceType === "tags" && selectedTagIds.length > 0
+      ? `${selectedTagIds.length} tag(s)`
       : audienceType === "contacts"
         ? selectedContactIds.length
         : 0;
@@ -293,12 +309,12 @@ export default function WhatsAppCampaignsPage() {
         toast.error("Select at least one contact");
         return;
       }
-      if (audienceType === "segment" && !segmentId) {
-        toast.error("Select a segment");
+      if (audienceType === "tags" && selectedTagIds.length === 0) {
+        toast.error("Select at least one tag");
         return;
       }
-      if (!templateId) {
-        toast.error("Select a template when sending or scheduling");
+      if (!useHelloWorld && !templateId) {
+        toast.error("Select a template or use the default Hello World template when sending or scheduling");
         return;
       }
     }
@@ -316,9 +332,10 @@ export default function WhatsAppCampaignsPage() {
         body: JSON.stringify({
           name: name.trim(),
           description: description.trim() || null,
-          template_id: templateId || null,
+          template_id: useHelloWorld ? null : (templateId || null),
+          use_hello_world: useHelloWorld,
           contact_ids: audienceType === "contacts" ? selectedContactIds : [],
-          segment_id: audienceType === "segment" ? segmentId : null,
+          tag_ids: audienceType === "tags" ? selectedTagIds : [],
           send_now: scheduleOption === "send_now" && isTemplateApproved,
           save_as_draft: isDraft || createAsDraftBecauseTemplateNotApproved,
           scheduled_at: scheduleOption === "schedule" && isTemplateApproved ? (scheduledAt || null) : null,
@@ -452,7 +469,7 @@ export default function WhatsAppCampaignsPage() {
                               View / Edit
                             </Link>
                           </DropdownMenuItem>
-                          {c.status === "draft" && (c.recipient_count ?? 0) > 0 && c.template_id && c.template_status === "approved" && (
+                          {c.status === "draft" && (c.recipient_count ?? 0) > 0 && (c.use_hello_world || (c.template_id && c.template_status === "approved")) && (
                             <DropdownMenuItem
                               disabled={sendingId === c.id}
                               onClick={() => handleSendNow(c)}
@@ -534,7 +551,7 @@ export default function WhatsAppCampaignsPage() {
                   <DialogTitle className="text-xl">{WIZARD_STEPS[step].title}</DialogTitle>
                   <DialogDescription className="text-left mt-1">
                     {step === 0 && "Name your campaign and add an optional internal description."}
-                    {step === 1 && "Choose who will receive this campaign — contacts or a segment."}
+                    {step === 1 && "Choose who will receive this campaign — select contacts or send to everyone with selected tags."}
                     {step === 2 && "Pick a WhatsApp template. Optionally include draft templates."}
                     {step === 3 && "Send now, schedule for later, or save as draft."}
                     {step === 4 && "Review your choices and create the campaign."}
@@ -609,38 +626,62 @@ export default function WhatsAppCampaignsPage() {
                   <input
                     type="radio"
                     name="audience-type"
-                    checked={audienceType === "segment"}
+                    checked={audienceType === "tags"}
                     onChange={() => {
-                      setAudienceType("segment");
+                      setAudienceType("tags");
                       if (fieldErrors.audience) setFieldErrors((prev) => ({ ...prev, audience: "" }));
                     }}
                     className="h-4 w-4 rounded-full border-gray-300 text-gray-800 dark:text-gray-200"
                   />
-                  <span className="font-medium">Use segment</span>
+                  <span className="font-medium">Send to contacts with tags</span>
                 </label>
               </div>
-              {audienceType === "segment" && (
+              {audienceType === "tags" && (
                 <div className="space-y-2">
                   <Label>
-                    Segment {!isDraft && <span className="text-red-600 dark:text-red-400">*</span>}
+                    Tags {!isDraft && <span className="text-red-600 dark:text-red-400">*</span>}
                   </Label>
-                  <select
-                    value={segmentId}
-                    onChange={(e) => {
-                      setSegmentId(e.target.value);
-                      if (fieldErrors.audience) setFieldErrors((prev) => ({ ...prev, audience: "" }));
-                    }}
-                    className={`flex h-10 w-full max-w-md rounded-md border bg-white dark:bg-gray-900 px-3 py-2 text-sm ${
+                  <p className="text-xs text-muted-foreground">Contacts with any of the selected tags will receive the campaign.</p>
+                  <div
+                    className={`flex flex-wrap gap-3 border rounded-md p-3 bg-white dark:bg-gray-900 min-h-[44px] ${
                       fieldErrors.audience ? "border-red-500 dark:border-red-500" : "border-gray-200 dark:border-gray-800"
                     }`}
                   >
-                    <option value="">Choose segment</option>
-                    {segments.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
+                    {tagDefinitions.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No tags yet. Create tags in Settings → Tags first.</p>
+                    ) : (
+                      tagDefinitions.map((t) => (
+                        <label key={t.id} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedTagIds.includes(t.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) setSelectedTagIds((prev) => [...prev, t.id]);
+                              else setSelectedTagIds((prev) => prev.filter((id) => id !== t.id));
+                              if (fieldErrors.audience) setFieldErrors((prev) => ({ ...prev, audience: "" }));
+                            }}
+                            className="rounded border-gray-300"
+                          />
+                          <span className="text-sm">
+                            {t.name}
+                            {typeof t.contact_count === "number" && (
+                              <span className="text-muted-foreground ml-1">({t.contact_count} contact{t.contact_count === 1 ? "" : "s"})</span>
+                            )}
+                          </span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                  {selectedTagIds.length > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      {tagAudienceCount !== null ? (
+                        <strong className="text-foreground">{tagAudienceCount}</strong>
+                      ) : (
+                        <span className="animate-pulse">…</span>
+                      )}
+                      {tagAudienceCount !== null && ` contact${tagAudienceCount === 1 ? "" : "s"} will receive this campaign`}
+                    </p>
+                  )}
                 </div>
               )}
               {audienceType === "contacts" && (
@@ -670,7 +711,7 @@ export default function WhatsAppCampaignsPage() {
                       ))
                     )}
                     {contacts.length > 100 && (
-                      <p className="text-xs text-muted-foreground pt-2">Showing first 100. Use a segment for more.</p>
+                      <p className="text-xs text-muted-foreground pt-2">Showing first 100. Use tags to target more contacts.</p>
                     )}
                   </div>
                 </div>
@@ -687,6 +728,23 @@ export default function WhatsAppCampaignsPage() {
             <div className="space-y-5">
               <div className="flex items-center space-x-3 rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 px-4 py-3">
                 <Checkbox
+                  id="use-hello-world"
+                  checked={useHelloWorld}
+                  onCheckedChange={(checked) => {
+                    setUseHelloWorld(checked === true);
+                    if (checked) setTemplateId("");
+                    if (fieldErrors.template) setFieldErrors((prev) => ({ ...prev, template: "" }));
+                  }}
+                />
+                <Label htmlFor="use-hello-world" className="cursor-pointer text-sm font-normal">
+                  Use default Hello World template
+                </Label>
+              </div>
+              <p className="text-xs text-muted-foreground -mt-2">
+                Meta&apos;s built-in &quot;Hello World&quot; message. Good for testing, including sending to a single contact.
+              </p>
+              <div className="flex items-center space-x-3 rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 px-4 py-3">
+                <Checkbox
                   id="include-draft-templates"
                   checked={includeDraftTemplates}
                   onCheckedChange={(checked) => setIncludeDraftTemplates(checked === true)}
@@ -697,27 +755,28 @@ export default function WhatsAppCampaignsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="camp-template">
-                  Template {!isDraft && <span className="text-red-600 dark:text-red-400">*</span>}
+                  Template {!isDraft && !useHelloWorld && <span className="text-red-600 dark:text-red-400">*</span>}
                 </Label>
                 <select
                   id="camp-template"
                   value={templateId}
+                  disabled={useHelloWorld}
                   onChange={(e) => {
                     setTemplateId(e.target.value);
                     if (fieldErrors.template) setFieldErrors((prev) => ({ ...prev, template: "" }));
                   }}
-                  className={`flex h-10 w-full max-w-md rounded-md border bg-white dark:bg-gray-900 px-3 py-2 text-sm ${
+                  className={`flex h-10 w-full max-w-md rounded-md border bg-white dark:bg-gray-900 px-3 py-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed ${
                     fieldErrors.template ? "border-red-500 dark:border-red-500" : "border-gray-200 dark:border-gray-800"
                   }`}
                 >
-                  <option value="">{isDraft ? "No template (optional)" : "Choose template"}</option>
+                  <option value="">{isDraft && !useHelloWorld ? "No template (optional)" : "Choose template"}</option>
                   {templates.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name} ({t.status})
                     </option>
                   ))}
                 </select>
-                {!isDraft && selectedTemplate?.status && selectedTemplate.status !== "approved" && (
+                {!isDraft && !useHelloWorld && selectedTemplate?.status && selectedTemplate.status !== "approved" && (
                   <p className="text-xs text-amber-600 dark:text-amber-500" role="alert">
                     Only approved templates can be used for sending or scheduling. Submit this template for approval first.
                   </p>
@@ -727,7 +786,7 @@ export default function WhatsAppCampaignsPage() {
                     {fieldErrors.template}
                   </p>
                 )}
-                {templates.length === 0 && (
+                {templates.length === 0 && !useHelloWorld && (
                   <p className="text-sm text-muted-foreground">
                     Create templates in Templates. Use the checkbox above to include drafts.
                   </p>
@@ -830,12 +889,16 @@ export default function WhatsAppCampaignsPage() {
                 <div className="space-y-1">
                   <p className="text-muted-foreground">Audience</p>
                   <p className="font-medium">
-                    {audienceType === "segment" ? (segmentId ? `${segments.find((s) => s.id === segmentId)?.name ?? segmentId}` : "—") : `${selectedContactIds.length} contact(s)`}
+                    {audienceType === "tags"
+                      ? selectedTagIds.length > 0
+                        ? `${selectedTagIds.length} tag(s): ${selectedTagIds.map((id) => tagDefinitions.find((t) => t.id === id)?.name ?? id).join(", ")}`
+                        : "—"
+                      : `${selectedContactIds.length} contact(s)`}
                   </p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-muted-foreground">Template</p>
-                  <p className="font-medium">{templateId ? templates.find((t) => t.id === templateId)?.name ?? templateId : "None"}</p>
+                  <p className="font-medium">{useHelloWorld ? "Hello World (default)" : templateId ? templates.find((t) => t.id === templateId)?.name ?? templateId : "None"}</p>
                 </div>
                 <div className="space-y-1 sm:col-span-2">
                   <p className="text-muted-foreground">When</p>
@@ -846,21 +909,18 @@ export default function WhatsAppCampaignsPage() {
               </div>
               {showPreviewOnReview && (
                 <div className="rounded-md border border-gray-200 dark:border-gray-800 p-4 space-y-4 text-sm">
-                  {templateId && (() => {
-                    const t = templates.find((tpl) => tpl.id === templateId);
-                    return t ? (
-                      <div>
-                        <p className="font-medium text-muted-foreground mb-2">Template preview</p>
-                        <div className="bg-gray-50 dark:bg-gray-900/50 rounded-md p-3 whitespace-pre-wrap break-words">
-                          {t.body || "(No body)"}
-                        </div>
+                  {(useHelloWorld || templateId) && (
+                    <div>
+                      <p className="font-medium text-muted-foreground mb-2">Template preview</p>
+                      <div className="bg-gray-50 dark:bg-gray-900/50 rounded-md p-3 whitespace-pre-wrap break-words">
+                        {useHelloWorld ? "Hello World" : (templates.find((tpl) => tpl.id === templateId)?.body ?? "(No body)")}
                       </div>
-                    ) : null;
-                  })()}
+                    </div>
+                  )}
                   <div>
                     <p className="font-medium text-muted-foreground mb-2">Audience</p>
-                    {audienceType === "segment" && segmentId ? (
-                      <p>{segments.find((s) => s.id === segmentId)?.name ?? segmentId} (segment)</p>
+                    {audienceType === "tags" && selectedTagIds.length > 0 ? (
+                      <p>Contacts with tags: {selectedTagIds.map((id) => tagDefinitions.find((t) => t.id === id)?.name ?? id).join(", ")}</p>
                     ) : selectedContactIds.length > 0 ? (
                       <ul className="max-h-32 overflow-y-auto list-disc list-inside space-y-0.5">
                         {selectedContactIds.slice(0, 50).map((id) => {
@@ -872,7 +932,7 @@ export default function WhatsAppCampaignsPage() {
                         )}
                       </ul>
                     ) : (
-                      <p className="text-muted-foreground">No contacts selected (draft or segment).</p>
+                      <p className="text-muted-foreground">No contacts or tags selected (draft).</p>
                     )}
                   </div>
                 </div>

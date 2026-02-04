@@ -28,7 +28,7 @@ export async function GET(
 
   const { data: contact, error } = await supabase
     .from("whatsapp_contacts")
-    .select("id, project_id, phone, name, email, custom_fields, tags, source, last_inbound_at, created_at, updated_at")
+    .select("id, project_id, phone, name, email, custom_fields, source, last_inbound_at, created_at, updated_at")
     .eq("project_id", projectId)
     .eq("id", contactId)
     .single();
@@ -37,7 +37,22 @@ export async function GET(
     return NextResponse.json({ error: "Contact not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ contact });
+  const { data: links } = await supabase
+    .from("whatsapp_contact_tags")
+    .select("tag_id")
+    .eq("contact_id", contactId);
+  const tagIds = (links ?? []).map((r: { tag_id: string }) => r.tag_id);
+  let tags: Array<{ id: string; name: string }> = [];
+  if (tagIds.length > 0) {
+    const { data: defs } = await supabase
+      .from("whatsapp_tag_definitions")
+      .select("id, name")
+      .eq("project_id", projectId)
+      .in("id", tagIds);
+    tags = (defs ?? []).map((d: { id: string; name: string }) => ({ id: d.id, name: d.name }));
+  }
+
+  return NextResponse.json({ contact: { ...contact, tags } });
 }
 
 export async function PATCH(
@@ -69,7 +84,6 @@ export async function PATCH(
   if (body.name !== undefined) updates.name = body.name?.trim() ?? null;
   if (body.email !== undefined) updates.email = body.email?.trim() ?? null;
   if (body.custom_fields !== undefined && typeof body.custom_fields === "object") updates.custom_fields = body.custom_fields;
-  if (Array.isArray(body.tags)) updates.tags = body.tags.filter((t: unknown) => typeof t === "string").map((t: string) => t.trim()).filter(Boolean);
   if (body.source !== undefined) updates.source = body.source?.trim() ?? null;
 
   const { data: contact, error } = await supabase
@@ -77,7 +91,7 @@ export async function PATCH(
     .update(updates)
     .eq("project_id", projectId)
     .eq("id", contactId)
-    .select("id, project_id, phone, name, email, custom_fields, tags, source, last_inbound_at, created_at, updated_at")
+    .select("id, project_id, phone, name, email, custom_fields, source, last_inbound_at, created_at, updated_at")
     .single();
 
   if (error) {
@@ -87,7 +101,40 @@ export async function PATCH(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ contact });
+  if (Array.isArray(body.tag_ids)) {
+    const tag_ids = body.tag_ids.filter((t: unknown) => typeof t === "string").map((t: string) => t.trim()).filter(Boolean);
+    await supabase.from("whatsapp_contact_tags").delete().eq("contact_id", contactId);
+    if (tag_ids.length > 0) {
+      const { data: valid } = await supabase
+        .from("whatsapp_tag_definitions")
+        .select("id")
+        .eq("project_id", projectId)
+        .in("id", tag_ids);
+      const validIds = (valid ?? []).map((t: { id: string }) => t.id);
+      if (validIds.length > 0) {
+        await supabase.from("whatsapp_contact_tags").insert(
+          validIds.map((tag_id: string) => ({ contact_id: contactId, tag_id }))
+        );
+      }
+    }
+  }
+
+  const { data: links } = await supabase
+    .from("whatsapp_contact_tags")
+    .select("tag_id")
+    .eq("contact_id", contactId);
+  const tagIds = (links ?? []).map((r: { tag_id: string }) => r.tag_id);
+  let tags: Array<{ id: string; name: string }> = [];
+  if (tagIds.length > 0) {
+    const { data: defs } = await supabase
+      .from("whatsapp_tag_definitions")
+      .select("id, name")
+      .eq("project_id", projectId)
+      .in("id", tagIds);
+    tags = (defs ?? []).map((d: { id: string; name: string }) => ({ id: d.id, name: d.name }));
+  }
+
+  return NextResponse.json({ contact: { ...contact, tags } });
 }
 
 export async function DELETE(

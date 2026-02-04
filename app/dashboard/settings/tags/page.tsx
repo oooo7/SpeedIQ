@@ -32,6 +32,7 @@ interface TagDefinition {
   name: string;
   color: string | null;
   created_at: string;
+  contact_count?: number;
 }
 
 export default function TagsPage() {
@@ -111,7 +112,7 @@ export default function TagsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!activeProject?.id || !window.confirm("Delete this tag? Contacts may still have this tag name.")) return;
+    if (!activeProject?.id || !window.confirm("Delete this tag? It will be removed from all contacts.")) return;
     try {
       const res = await fetch(
         `/api/projects/${activeProject.id}/whatsapp/tag-definitions/${id}`,
@@ -177,6 +178,11 @@ export default function TagsPage() {
               >
                 {t.name}
               </Badge>
+              {typeof t.contact_count === "number" && (
+                <span className="text-xs text-muted-foreground ml-1">
+                  {t.contact_count} contact{t.contact_count === 1 ? "" : "s"}
+                </span>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">

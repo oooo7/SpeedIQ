@@ -1,7 +1,8 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Loader2, MoreVertical, Plus, Trash2, Upload, Users } from "lucide-react";
+import Link from "next/link";
+import { Loader2, MoreVertical, Plus, Trash2, Upload, Users, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,11 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { Label } from "@/components/ui/label";
 import { useProjectContext } from "@/lib/projects/project-context";
 
+interface ContactTag {
+  id: string;
+  name: string;
+}
+
 interface WhatsAppContact {
   id: string;
   project_id: string;
@@ -33,7 +39,7 @@ interface WhatsAppContact {
   name: string | null;
   email: string | null;
   custom_fields: Record<string, unknown>;
-  tags: string[];
+  tags: ContactTag[];
   source: string | null;
   last_inbound_at: string | null;
   created_at: string;
@@ -47,6 +53,7 @@ export default function WhatsAppContactsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editContact, setEditContact] = useState<WhatsAppContact | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -56,8 +63,11 @@ export default function WhatsAppContactsPage() {
   const [formPhone, setFormPhone] = useState("");
   const [formName, setFormName] = useState("");
   const [formEmail, setFormEmail] = useState("");
-  const [formTags, setFormTags] = useState("");
+  const [formTagIds, setFormTagIds] = useState<string[]>([]);
   const [formSource, setFormSource] = useState("manual");
+  const [tagDefinitions, setTagDefinitions] = useState<Array<{ id: string; name: string; color: string | null }>>([]);
+  const [addingTagContactId, setAddingTagContactId] = useState<string | null>(null);
+  const [updatingTagsContactId, setUpdatingTagsContactId] = useState<string | null>(null);
 
   const fetchContacts = useCallback(async () => {
     if (!activeProject?.id) return;
@@ -66,6 +76,7 @@ export default function WhatsAppContactsPage() {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (sourceFilter) params.set("source", sourceFilter);
+      if (tagFilter) params.set("tag", tagFilter);
       const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/contacts?${params}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load");
@@ -76,17 +87,86 @@ export default function WhatsAppContactsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeProject?.id, search, sourceFilter]);
+  }, [activeProject?.id, search, sourceFilter, tagFilter]);
 
   useEffect(() => {
     fetchContacts();
   }, [fetchContacts]);
 
+  const fetchTagDefinitions = useCallback(async () => {
+    if (!activeProject?.id) return;
+    try {
+      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/tag-definitions`);
+      const data = await res.json();
+      if (res.ok) setTagDefinitions(data.tags ?? []);
+    } catch {
+      setTagDefinitions([]);
+    }
+  }, [activeProject?.id]);
+
+  useEffect(() => {
+    fetchTagDefinitions();
+  }, [fetchTagDefinitions]);
+
+  const handleAddTagToContact = async (contactId: string, tagId: string) => {
+    if (!activeProject?.id) return;
+    const contact = contacts.find((c) => c.id === contactId);
+    if (!contact) return;
+    const currentIds = Array.isArray(contact.tags) ? contact.tags.map((t) => t.id) : [];
+    if (currentIds.includes(tagId)) {
+      setAddingTagContactId(null);
+      return;
+    }
+    setUpdatingTagsContactId(contactId);
+    try {
+      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/contacts/${contactId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tag_ids: [...currentIds, tagId] }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Failed to add tag");
+      }
+      setAddingTagContactId(null);
+      fetchContacts();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not add tag");
+    } finally {
+      setUpdatingTagsContactId(null);
+    }
+  };
+
+  const handleRemoveTagFromContact = async (contactId: string, tagIdToRemove: string) => {
+    if (!activeProject?.id) return;
+    const contact = contacts.find((c) => c.id === contactId);
+    if (!contact) return;
+    const currentIds = Array.isArray(contact.tags) ? contact.tags.map((t) => t.id) : [];
+    const next = currentIds.filter((id) => id !== tagIdToRemove);
+    setUpdatingTagsContactId(contactId);
+    try {
+      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/contacts/${contactId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tag_ids: next }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Failed to remove tag");
+      }
+      fetchContacts();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not remove tag");
+    } finally {
+      setUpdatingTagsContactId(null);
+    }
+  };
+
   const openAdd = () => {
     setFormPhone("");
     setFormName("");
     setFormEmail("");
-    setFormTags("");
+    setFormTagIds([]);
     setFormSource("manual");
     setEditContact(null);
     setAddOpen(true);
@@ -97,7 +177,7 @@ export default function WhatsAppContactsPage() {
     setFormPhone(c.phone);
     setFormName(c.name ?? "");
     setFormEmail(c.email ?? "");
-    setFormTags(Array.isArray(c.tags) ? c.tags.join(", ") : "");
+    setFormTagIds(Array.isArray(c.tags) ? c.tags.map((t) => t.id) : []);
     setFormSource(c.source ?? "manual");
     setAddOpen(true);
   };
@@ -111,15 +191,11 @@ export default function WhatsAppContactsPage() {
     }
     setSaving(true);
     try {
-      const tags = formTags
-        .split(/[,;]/)
-        .map((t) => t.trim())
-        .filter(Boolean);
       const payload = {
         phone: formPhone.trim(),
         name: formName.trim() || null,
         email: formEmail.trim() || null,
-        tags,
+        tag_ids: formTagIds,
         source: formSource.trim() || "manual",
       };
       const url = editContact
@@ -229,7 +305,26 @@ export default function WhatsAppContactsPage() {
           <option value="import">Import</option>
           <option value="campaign">Campaign</option>
         </select>
+        <select
+          value={tagFilter}
+          onChange={(e) => setTagFilter(e.target.value)}
+          className="flex h-9 rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-1 text-sm"
+        >
+          <option value="">All tags</option>
+          {tagDefinitions.map((t) => (
+            <option key={t.id} value={t.name}>
+              {t.name}
+            </option>
+          ))}
+        </select>
       </div>
+
+      <p className="text-sm text-muted-foreground">
+        <Link href="/dashboard/settings/tags" className="underline hover:no-underline">
+          Manage tags
+        </Link>
+        {" "}to create or delete tags, then assign them to contacts below or when adding a contact.
+      </p>
 
       {loading ? (
         <LoadingState message="Loading contacts…" />
@@ -275,14 +370,69 @@ export default function WhatsAppContactsPage() {
                     <td className="p-3">{c.name ?? "—"}</td>
                     <td className="p-3">{c.email ?? "—"}</td>
                     <td className="p-3">
-                      <div className="flex flex-wrap gap-1">
-                        {Array.isArray(c.tags) && c.tags.length > 0
-                          ? c.tags.map((t) => (
-                              <Badge key={t} variant="secondary" className="text-xs">
-                                {t}
-                              </Badge>
-                            ))
-                          : "—"}
+                      <div className="flex flex-wrap items-center gap-1 min-w-[140px]">
+                        {Array.isArray(c.tags) &&
+                          c.tags.map((t) => (
+                            <Badge
+                              key={t.id}
+                              variant="secondary"
+                              className="text-xs gap-0.5 pr-1 pl-2 py-0"
+                            >
+                              {t.name}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveTagFromContact(c.id, t.id)}
+                                disabled={updatingTagsContactId === c.id}
+                                className="rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-50"
+                                aria-label={`Remove ${t.name}`}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                        {addingTagContactId === c.id ? (
+                          <div className="flex flex-wrap items-center gap-1">
+                            {tagDefinitions
+                              .filter((t) => !(c.tags ?? []).some((ct) => ct.id === t.id))
+                              .map((t) => (
+                                <Button
+                                  key={t.id}
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={() => handleAddTagToContact(c.id, t.id)}
+                                  disabled={updatingTagsContactId === c.id}
+                                >
+                                  + {t.name}
+                                </Button>
+                              ))}
+                            {tagDefinitions.filter((t) => !(c.tags ?? []).some((ct) => ct.id === t.id)).length === 0 && (
+                              <span className="text-xs text-muted-foreground">All tags assigned</span>
+                            )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => setAddingTagContactId(null)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs text-muted-foreground"
+                            onClick={() => setAddingTagContactId(c.id)}
+                            disabled={updatingTagsContactId === c.id}
+                          >
+                            <Plus className="h-3 w-3 mr-0.5" />
+                            Add
+                          </Button>
+                        )}
                       </div>
                     </td>
                     <td className="p-3">{c.source ?? "—"}</td>
@@ -358,13 +508,28 @@ export default function WhatsAppContactsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="form-tags">Tags (comma-separated)</Label>
-              <Input
-                id="form-tags"
-                value={formTags}
-                onChange={(e) => setFormTags(e.target.value)}
-                placeholder="VIP, New"
-              />
+              <Label>Tags</Label>
+              <p className="text-xs text-muted-foreground">Select one or more tags. Create tags in Settings → Tags first.</p>
+              <div className="flex flex-wrap gap-3 border border-gray-200 dark:border-gray-800 rounded-md p-3 min-h-[44px]">
+                {tagDefinitions.length === 0 ? (
+                  <span className="text-sm text-muted-foreground">No tags yet. Create tags in Settings → Tags.</span>
+                ) : (
+                  tagDefinitions.map((t) => (
+                    <label key={t.id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formTagIds.includes(t.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setFormTagIds((prev) => [...prev, t.id]);
+                          else setFormTagIds((prev) => prev.filter((id) => id !== t.id));
+                        }}
+                        className="rounded border-gray-300"
+                      />
+                      <span className="text-sm">{t.name}</span>
+                    </label>
+                  ))
+                )}
+              </div>
             </div>
             {!editContact && (
               <div className="space-y-2">

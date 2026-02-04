@@ -36,7 +36,27 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ tags: tags ?? [] });
+  const list = tags ?? [];
+  const tagIds = list.map((t: { id: string }) => t.id);
+  let contactCountByTagId: Record<string, number> = {};
+  if (tagIds.length > 0) {
+    const { data: counts } = await supabase
+      .from("whatsapp_contact_tags")
+      .select("tag_id");
+    const map: Record<string, number> = {};
+    for (const row of counts ?? []) {
+      const tid = (row as { tag_id: string }).tag_id;
+      map[tid] = (map[tid] ?? 0) + 1;
+    }
+    contactCountByTagId = map;
+  }
+
+  const tagsWithCount = list.map((t: { id: string; [k: string]: unknown }) => ({
+    ...t,
+    contact_count: contactCountByTagId[t.id] ?? 0,
+  }));
+
+  return NextResponse.json({ tags: tagsWithCount });
 }
 
 export async function POST(

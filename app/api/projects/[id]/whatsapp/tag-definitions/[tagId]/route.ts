@@ -72,6 +72,8 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  await supabase.from("whatsapp_contact_tags").delete().eq("tag_id", tagId);
+
   const { error } = await supabase
     .from("whatsapp_tag_definitions")
     .delete()

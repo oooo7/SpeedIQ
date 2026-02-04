@@ -126,6 +126,65 @@ export async function PATCH(
   }
 
   const body = await request.json().catch(() => ({}));
+  const tagIds = Array.isArray(body.tag_ids)
+    ? (body.tag_ids as unknown[]).filter((id): id is string => typeof id === "string").map((id) => id.trim()).filter(Boolean)
+    : undefined;
+  const contactIds = Array.isArray(body.contact_ids)
+    ? (body.contact_ids as unknown[]).filter((id): id is string => typeof id === "string").map((id) => id.trim()).filter(Boolean)
+    : undefined;
+
+  const { data: existingCampaign } = await supabase
+    .from("whatsapp_campaigns")
+    .select("status")
+    .eq("project_id", projectId)
+    .eq("id", campaignId)
+    .single();
+
+  const wantsRecipientUpdate = tagIds !== undefined || contactIds !== undefined;
+  if (wantsRecipientUpdate && existingCampaign) {
+    const allowed = ["draft", "scheduled", "failed"].includes(existingCampaign.status);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Only draft, scheduled, or failed campaigns can update recipients." },
+        { status: 400 }
+      );
+    }
+    const { error: delErr } = await supabase
+      .from("whatsapp_campaign_recipients")
+      .delete()
+      .eq("campaign_id", campaignId);
+    if (delErr) {
+      return NextResponse.json({ error: delErr.message }, { status: 500 });
+    }
+    const contactIdSet = new Set<string>();
+    if (tagIds && tagIds.length > 0) {
+      const { data: links } = await supabase
+        .from("whatsapp_contact_tags")
+        .select("contact_id")
+        .in("tag_id", tagIds);
+      for (const r of links ?? []) {
+        contactIdSet.add((r as { contact_id: string }).contact_id);
+      }
+    }
+    if (contactIds && contactIds.length > 0) {
+      for (const id of contactIds) contactIdSet.add(id);
+    }
+    const contactIdList = [...contactIdSet];
+    if (contactIdList.length > 0) {
+      const recipients = contactIdList.map((contact_id: string) => ({
+        campaign_id: campaignId,
+        contact_id,
+        status: "pending",
+      }));
+      const { error: insErr } = await supabase
+        .from("whatsapp_campaign_recipients")
+        .insert(recipients);
+      if (insErr) {
+        return NextResponse.json({ error: insErr.message }, { status: 500 });
+      }
+    }
+  }
+
   const newStatus = body.status !== undefined ? body.status?.trim() : undefined;
   if (newStatus === "sending" || newStatus === "scheduled") {
     const { data: existing } = await supabase

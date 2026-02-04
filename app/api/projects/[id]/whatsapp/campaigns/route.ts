@@ -31,7 +31,7 @@ export async function GET(
 
   let query = supabase
     .from("whatsapp_campaigns")
-    .select("id, project_id, name, description, template_id, status, scheduled_at, started_at, completed_at, created_at, updated_at")
+    .select("id, project_id, name, description, template_id, use_hello_world, status, scheduled_at, started_at, completed_at, created_at, updated_at")
     .eq("project_id", projectId)
     .order("created_at", { ascending: false });
 
@@ -129,8 +129,9 @@ export async function POST(
   const name = body?.name?.trim();
   const description = body?.description?.trim() ?? null;
   const template_id = body?.template_id?.trim() ?? null;
+  const use_hello_world = !!body?.use_hello_world;
   const contact_ids = Array.isArray(body?.contact_ids) ? body.contact_ids.filter((id: unknown) => typeof id === "string") : [];
-  const segment_id = body?.segment_id?.trim() ?? null;
+  const tag_ids = Array.isArray(body?.tag_ids) ? body.tag_ids.filter((id: unknown) => typeof id === "string").map((id: string) => id.trim()).filter(Boolean) : [];
   const send_now = body?.send_now === true;
   const save_as_draft = body?.save_as_draft === true;
   const scheduled_at = body?.scheduled_at?.trim() ?? null;
@@ -140,31 +141,20 @@ export async function POST(
   }
 
   let contactIdList: string[] = contact_ids;
-  if (segment_id && contact_ids.length === 0) {
-    const { data: segment } = await supabase
-      .from("contact_segments")
-      .select("filter_json")
-      .eq("project_id", projectId)
-      .eq("id", segment_id)
-      .single();
-    if (segment?.filter_json && typeof segment.filter_json === "object") {
-      const filter = segment.filter_json as { tags?: string[] };
-      if (filter.tags?.length) {
-        const { data: contactsInSegment } = await supabase
-          .from("whatsapp_contacts")
-          .select("id")
-          .eq("project_id", projectId)
-          .contains("tags", filter.tags);
-        contactIdList = (contactsInSegment ?? []).map((c: { id: string }) => c.id);
-      }
-    }
-  }
-  const isDraft = save_as_draft || (!send_now && !scheduled_at);
-  if (contactIdList.length === 0 && !isDraft) {
-    return NextResponse.json({ error: "At least one contact or a segment with contacts is required" }, { status: 400 });
+  if (contactIdList.length === 0 && tag_ids.length > 0) {
+    const { data: links } = await supabase
+      .from("whatsapp_contact_tags")
+      .select("contact_id")
+      .in("tag_id", tag_ids);
+    contactIdList = [...new Set((links ?? []).map((r: { contact_id: string }) => r.contact_id))];
   }
 
-  if (!isDraft && template_id) {
+  const isDraft = save_as_draft || (!send_now && !scheduled_at);
+  if (contactIdList.length === 0 && !isDraft) {
+    return NextResponse.json({ error: "Select at least one contact or one or more tags so the campaign has recipients." }, { status: 400 });
+  }
+
+  if (!isDraft && !use_hello_world && template_id) {
     const { data: templateRow } = await supabase
       .from("whatsapp_templates")
       .select("status")
@@ -186,11 +176,12 @@ export async function POST(
       project_id: projectId,
       name,
       description,
-      template_id: template_id || null,
+      template_id: use_hello_world ? null : (template_id || null),
+      use_hello_world,
       status,
       scheduled_at: scheduled_at || null,
     })
-    .select("id, project_id, name, description, template_id, status, scheduled_at, created_at, updated_at")
+    .select("id, project_id, name, description, template_id, use_hello_world, status, scheduled_at, created_at, updated_at")
     .single();
 
   if (campaignError || !campaign) {

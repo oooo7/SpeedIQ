@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadingState } from "@/components/ui/loading-state";
+import { Separator } from "@/components/ui/separator";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 interface Template {
@@ -98,6 +100,11 @@ export default function CampaignDetailPage() {
   const [debugResult, setDebugResult] = useState<{ sent: number; failed: number; errors: Array<{ phone: string; error: string }> } | null>(null);
   const [debugLoading, setDebugLoading] = useState(false);
   const [sendingToContactId, setSendingToContactId] = useState<string | null>(null);
+  const [editTagIds, setEditTagIds] = useState<string[]>([]);
+  const [editContactIds, setEditContactIds] = useState<string[]>([]);
+  const [editTagDefinitions, setEditTagDefinitions] = useState<Array<{ id: string; name: string; color: string | null; contact_count?: number }>>([]);
+  const [editContacts, setEditContacts] = useState<Array<{ id: string; phone: string; name: string | null }>>([]);
+  const [editRecipientsLoading, setEditRecipientsLoading] = useState(false);
 
   const fetchDetail = useCallback(async () => {
     if (!activeProject?.id || !campaignId) return;
@@ -128,10 +135,12 @@ export default function CampaignDetailPage() {
 
   useEffect(() => {
     if (!activeProject?.id || !editOpen) return;
-    fetch(`/api/projects/${activeProject.id}/whatsapp/templates`)
-      .then((r) => r.json())
-      .then((d) => setTemplates(d.templates ?? []))
-      .catch(() => setTemplates([]));
+    setEditRecipientsLoading(true);
+    Promise.all([
+      fetch(`/api/projects/${activeProject.id}/whatsapp/templates`).then((r) => r.json()).then((d) => setTemplates(d.templates ?? [])).catch(() => setTemplates([])),
+      fetch(`/api/projects/${activeProject.id}/whatsapp/tag-definitions`).then((r) => r.json()).then((d) => setEditTagDefinitions(d?.tags ?? [])).catch(() => setEditTagDefinitions([])),
+      fetch(`/api/projects/${activeProject.id}/whatsapp/contacts?limit=200`).then((r) => r.json()).then((d) => setEditContacts(d.contacts ?? [])).catch(() => setEditContacts([])),
+    ]).finally(() => setEditRecipientsLoading(false));
   }, [activeProject?.id, editOpen]);
 
   const openEdit = () => {
@@ -173,6 +182,8 @@ export default function CampaignDetailPage() {
           use_hello_world: editUseHelloWorld,
           status,
           scheduled_at,
+          tag_ids: editTagIds,
+          contact_ids: editContactIds,
         }),
       });
       const json = await res.json();
@@ -408,7 +419,7 @@ export default function CampaignDetailPage() {
           )}
           {canSendOrSchedule && hasTemplate && stats.total === 0 && (
             <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
-              Add at least one recipient (via Edit) before you can send or schedule this campaign.
+              Add at least one recipient before you can send or schedule. Open Edit and select one or more tags under Recipients.
             </div>
           )}
           {canSendOrSchedule && campaign.template_id && !campaign.use_hello_world && template?.status !== "approved" && (
@@ -667,107 +678,219 @@ export default function CampaignDetailPage() {
       </Dialog>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit campaign</DialogTitle>
-            <DialogDescription>
-              Change name, description, template, or when to send. Draft and scheduled campaigns can be edited.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">Name *</Label>
-              <Input
-                id="edit-name"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                placeholder="Campaign name"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-desc">Description</Label>
-              <Input
-                id="edit-desc"
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                placeholder="Internal note"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={editUseHelloWorld}
-                  onChange={(e) => setEditUseHelloWorld(e.target.checked)}
-                />
-                <span className="text-sm font-medium">Use default hello_world template</span>
-              </label>
-              <p className="text-xs text-muted-foreground">
-                Send Meta&apos;s built-in &quot;Hello World&quot; message to all recipients for testing.
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+          <div className="p-6 pb-4 shrink-0">
+            <DialogHeader>
+              <DialogTitle className="text-xl">Edit campaign</DialogTitle>
+              <DialogDescription>
+                Change name, description, template, recipients, or when to send. Save to update.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <Separator />
+          <div className="flex-1 overflow-y-auto p-6 space-y-8">
+            {/* Details */}
+            <section className="space-y-4">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Details</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Name *</Label>
+                  <Input
+                    id="edit-name"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Campaign name"
+                    required
+                    className="h-10"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-desc">Description</Label>
+                  <Input
+                    id="edit-desc"
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    placeholder="Internal note"
+                    className="h-10"
+                  />
+                </div>
+              </div>
+            </section>
+
+            <Separator />
+
+            {/* Template */}
+            <section className="space-y-4">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Template</h3>
+              <div className="space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer rounded-md border border-gray-200 dark:border-gray-800 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                  <input
+                    type="checkbox"
+                    checked={editUseHelloWorld}
+                    onChange={(e) => setEditUseHelloWorld(e.target.checked)}
+                  />
+                  <div>
+                    <span className="text-sm font-medium">Use default Hello World template</span>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Send Meta&apos;s built-in &quot;Hello World&quot; message to all recipients for testing.
+                    </p>
+                  </div>
+                </label>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-template">Custom template</Label>
+                  <select
+                    id="edit-template"
+                    value={editTemplateId}
+                    onChange={(e) => setEditTemplateId(e.target.value)}
+                    disabled={editUseHelloWorld}
+                    className="flex h-10 w-full max-w-md rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <option value="">No template</option>
+                    {templates.filter((t) => t.status === "approved").map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                    {templates.filter((t) => t.status !== "approved").map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} ({t.status})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </section>
+
+            <Separator />
+
+            {/* Recipients */}
+            <section className="space-y-4">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Recipients</h3>
+              <p className="text-sm text-muted-foreground">
+                Add recipients by selecting tags and/or individual contacts. Contacts from tags and the manual list are combined. Save to update the recipient list.
               </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-template">Template</Label>
-              <select
-                id="edit-template"
-                value={editTemplateId}
-                onChange={(e) => setEditTemplateId(e.target.value)}
-                disabled={editUseHelloWorld}
-                className="flex h-9 w-full rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="">No template</option>
-                {templates.filter((t) => t.status === "approved").map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-                {templates.filter((t) => t.status !== "approved").map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} ({t.status})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>When to send</Label>
-              <div className="space-y-2">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    checked={editScheduleOption === "draft"}
-                    onChange={() => setEditScheduleOption("draft")}
-                  />
-                  Keep as draft
+
+              {editRecipientsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading tags and contacts…
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* By tags */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-base font-medium">By tags</Label>
+                      {editTagDefinitions.length > 0 && (
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditTagIds(editTagDefinitions.map((t) => t.id))}
+                          >
+                            Select all
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditTagIds([])}
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    {editTagDefinitions.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-2">No tags yet. Create tags in Settings → Tags first.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-800 p-3 bg-gray-50 dark:bg-gray-900/30">
+                        {editTagDefinitions.map((t) => (
+                          <label key={t.id} className="flex items-center gap-2 cursor-pointer shrink-0">
+                            <Checkbox
+                              checked={editTagIds.includes(t.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) setEditTagIds((prev) => [...prev, t.id]);
+                                else setEditTagIds((prev) => prev.filter((id) => id !== t.id));
+                              }}
+                            />
+                            <span className="text-sm whitespace-nowrap">
+                              {t.name}
+                              {typeof t.contact_count === "number" && (
+                                <span className="text-muted-foreground ml-1">({t.contact_count})</span>
+                              )}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Manual contacts */}
+                  <div className="space-y-3">
+                    <Label className="text-base font-medium">Add contacts manually</Label>
+                    {editContacts.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-2">No contacts in this project yet.</p>
+                    ) : (
+                      <div className="max-h-40 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-800 p-3 space-y-1.5 bg-gray-50 dark:bg-gray-900/30">
+                        {editContacts.slice(0, 100).map((c) => (
+                          <label key={c.id} className="flex items-center gap-2 cursor-pointer py-1">
+                            <Checkbox
+                              checked={editContactIds.includes(c.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) setEditContactIds((prev) => [...prev, c.id]);
+                                else setEditContactIds((prev) => prev.filter((id) => id !== c.id));
+                              }}
+                            />
+                            <span className="text-sm truncate">{c.name || c.phone || c.id}</span>
+                            <span className="text-xs text-muted-foreground truncate">{c.phone}</span>
+                          </label>
+                        ))}
+                        {editContacts.length > 100 && (
+                          <p className="text-xs text-muted-foreground pt-1">Showing first 100. Use tags to target more.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <Separator />
+
+            {/* When to send */}
+            <section className="space-y-4">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">When to send</h3>
+              <div className="space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="radio" checked={editScheduleOption === "draft"} onChange={() => setEditScheduleOption("draft")} />
+                  <span className="text-sm font-medium">Keep as draft</span>
                 </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    checked={editScheduleOption === "send_now"}
-                    onChange={() => setEditScheduleOption("send_now")}
-                  />
-                  Send now
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="radio" checked={editScheduleOption === "send_now"} onChange={() => setEditScheduleOption("send_now")} />
+                  <span className="text-sm font-medium">Send now</span>
                 </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    checked={editScheduleOption === "schedule"}
-                    onChange={() => setEditScheduleOption("schedule")}
-                  />
-                  Schedule for later
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="radio" checked={editScheduleOption === "schedule"} onChange={() => setEditScheduleOption("schedule")} />
+                  <span className="text-sm font-medium">Schedule for later</span>
                 </label>
                 {editScheduleOption === "schedule" && (
-                  <Input
-                    type="datetime-local"
-                    value={editScheduledAt}
-                    onChange={(e) => setEditScheduledAt(e.target.value)}
-                    className="mt-2"
-                  />
+                  <div className="pl-6 pt-1">
+                    <Input
+                      type="datetime-local"
+                      value={editScheduledAt}
+                      onChange={(e) => setEditScheduledAt(e.target.value)}
+                      className="h-10 max-w-xs"
+                    />
+                  </div>
                 )}
               </div>
-            </div>
+            </section>
           </div>
-          <DialogFooter>
+
+          <Separator />
+          <DialogFooter className="p-6 shrink-0">
             <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
               Cancel
             </Button>
