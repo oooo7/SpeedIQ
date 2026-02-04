@@ -114,16 +114,12 @@ export const sidebarItems: NavGroup[] = [
         requiresProject: true,
         subItems: [
           {
-            title: "Overview",
-            url: "/dashboard/analytics",
-          },
-          {
             title: "WhatsApp",
-            url: "/dashboard/analytics/whatsapp",
+            url: "/dashboard/analytics?tab=whatsapp",
           },
           {
             title: "Email",
-            url: "/dashboard/analytics/email",
+            url: "/dashboard/analytics?tab=email",
           },
         ],
       },
@@ -139,6 +135,10 @@ export const sidebarItems: NavGroup[] = [
         icon: Settings,
         requiresProject: true,
         subItems: [
+          {
+            title: "WhatsApp Account",
+            url: "/dashboard/settings/whatsapp-account",
+          },
           {
             title: "Template Message",
             url: "/dashboard/settings/template-message",

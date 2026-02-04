@@ -1,0 +1,219 @@
+import { NextResponse } from "next/server";
+
+import { createClient } from "@/lib/supabase/server";
+import { getProjectRole } from "@/lib/team";
+import { getWhatsAppAccountToken, isWithin24hWindow, sendTemplateMessage } from "@/lib/whatsapp/api";
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string; contactId: string }> }
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id: projectId, contactId } = await params;
+  if (!projectId || !contactId) {
+    return NextResponse.json({ error: "Project ID and contact ID are required" }, { status: 400 });
+  }
+
+  const role = await getProjectRole(supabase, projectId, user.id);
+  if (!role) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const limit = Math.min(Math.max(parseInt(searchParams.get("limit") ?? "50", 10), 1), 200);
+
+  const { data: contact } = await supabase
+    .from("whatsapp_contacts")
+    .select("id, phone, name, last_inbound_at")
+    .eq("project_id", projectId)
+    .eq("id", contactId)
+    .single();
+
+  if (!contact) {
+    return NextResponse.json({ error: "Contact not found" }, { status: 404 });
+  }
+
+  const { data: messages, error } = await supabase
+    .from("whatsapp_messages")
+    .select("id, contact_id, direction, type, body, media_url, meta_message_id, status, created_at")
+    .eq("project_id", projectId)
+    .eq("contact_id", contactId)
+    .order("created_at", { ascending: true })
+    .range(0, limit - 1);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const within24h = isWithin24hWindow(contact.last_inbound_at);
+
+  await supabase
+    .from("whatsapp_conversations")
+    .update({ unread_count: 0, updated_at: new Date().toISOString() })
+    .eq("project_id", projectId)
+    .eq("contact_id", contactId);
+
+  return NextResponse.json({
+    contact: {
+      id: contact.id,
+      phone: contact.phone,
+      name: contact.name,
+      last_inbound_at: contact.last_inbound_at,
+      within_24h_window: within24h,
+    },
+    messages: messages ?? [],
+  });
+}
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string; contactId: string }> }
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id: projectId, contactId } = await params;
+  if (!projectId || !contactId) {
+    return NextResponse.json({ error: "Project ID and contact ID are required" }, { status: 400 });
+  }
+
+  const role = await getProjectRole(supabase, projectId, user.id);
+  if (!role || (role !== "owner" && role !== "admin" && role !== "editor")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const text = body?.text?.trim();
+  const template_name = body?.template_name?.trim();
+  const template_language = body?.template_language?.trim() ?? "en";
+
+  const { data: contact } = await supabase
+    .from("whatsapp_contacts")
+    .select("id, phone, last_inbound_at")
+    .eq("project_id", projectId)
+    .eq("id", contactId)
+    .single();
+
+  if (!contact) {
+    return NextResponse.json({ error: "Contact not found" }, { status: 404 });
+  }
+
+  const within24h = isWithin24hWindow(contact.last_inbound_at);
+
+  const creds = await getWhatsAppAccountToken(supabase, projectId);
+  if (!creds) {
+    return NextResponse.json({ error: "WhatsApp account not connected" }, { status: 400 });
+  }
+
+  if (template_name) {
+    const result = await sendTemplateMessage(
+      creds.access_token,
+      creds.phone_number_id,
+      contact.phone,
+      template_name,
+      template_language
+    );
+    if ("error" in result) {
+      return NextResponse.json(
+        { error: result.error.message },
+        { status: 400 }
+      );
+    }
+    const { data: msg, error: insertError } = await supabase
+      .from("whatsapp_messages")
+      .insert({
+        project_id: projectId,
+        contact_id: contactId,
+        direction: "out",
+        type: "text",
+        body: null,
+        meta_message_id: result.message_id,
+        status: "sent",
+      })
+      .select("id, direction, type, body, status, created_at")
+      .single();
+    if (insertError) {
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+    await supabase
+      .from("whatsapp_conversations")
+      .update({
+        last_message_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("project_id", projectId)
+      .eq("contact_id", contactId);
+    return NextResponse.json({ message: msg });
+  }
+
+  if (within24h && text) {
+    const url = `https://graph.facebook.com/v21.0/${creds.phone_number_id}/messages`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${creds.access_token}` },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: contact.phone.replace(/\D/g, ""),
+        type: "text",
+        text: { body: text },
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: data.error?.message ?? "Failed to send" },
+        { status: 400 }
+      );
+    }
+    const messageId = data.messages?.[0]?.id;
+    const { data: msg, error: insertError } = await supabase
+      .from("whatsapp_messages")
+      .insert({
+        project_id: projectId,
+        contact_id: contactId,
+        direction: "out",
+        type: "text",
+        body: text,
+        meta_message_id: messageId,
+        status: "sent",
+      })
+      .select("id, direction, type, body, status, created_at")
+      .single();
+    if (insertError) {
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+    await supabase
+      .from("whatsapp_conversations")
+      .update({
+        last_message_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("project_id", projectId)
+      .eq("contact_id", contactId);
+    return NextResponse.json({ message: msg });
+  }
+
+  if (!within24h) {
+    return NextResponse.json(
+      { error: "Outside 24h window. Send a template message only.", within_24h: false },
+      { status: 400 }
+    );
+  }
+
+  return NextResponse.json({ error: "Message text or template_name required" }, { status: 400 });
+}

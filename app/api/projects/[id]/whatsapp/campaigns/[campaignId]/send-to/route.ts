@@ -1,0 +1,158 @@
+import { NextResponse } from "next/server";
+
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getProjectRole } from "@/lib/team";
+import { getWhatsAppAccountToken, sendTemplateMessage } from "@/lib/whatsapp/api";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * Send campaign message to a single contact (for testing / dev).
+ * POST body: { contact_id: string } (the contact_id from campaign_recipients).
+ */
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string; campaignId: string }> }
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id: projectId, campaignId } = await params;
+  if (!projectId || !campaignId) {
+    return NextResponse.json({ error: "Project and campaign ID required" }, { status: 400 });
+  }
+
+  const role = await getProjectRole(supabase, projectId, user.id);
+  if (!role) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const contactId = body?.contact_id?.trim();
+  if (!contactId) {
+    return NextResponse.json({ error: "contact_id required" }, { status: 400 });
+  }
+
+  const admin = createAdminClient();
+
+  const { data: campaign, error: campError } = await admin
+    .from("whatsapp_campaigns")
+    .select("id, project_id, template_id")
+    .eq("project_id", projectId)
+    .eq("id", campaignId)
+    .single();
+
+  if (campError || !campaign) {
+    return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
+  }
+
+  if (!campaign.template_id) {
+    return NextResponse.json(
+      { error: "Campaign has no template selected. Add a template before sending." },
+      { status: 400 }
+    );
+  }
+
+  const { data: recipient, error: recError } = await admin
+    .from("whatsapp_campaign_recipients")
+    .select("id, contact_id, retry_count")
+    .eq("campaign_id", campaignId)
+    .eq("contact_id", contactId)
+    .single();
+
+  if (recError || !recipient) {
+    return NextResponse.json({ error: "Recipient not found in this campaign" }, { status: 404 });
+  }
+
+  const creds = await getWhatsAppAccountToken(admin, projectId);
+  if (!creds) {
+    return NextResponse.json({
+      ok: false,
+      error: "WhatsApp account not connected",
+      error_code: "no_account",
+    });
+  }
+
+  const { data: contact } = await admin
+    .from("whatsapp_contacts")
+    .select("phone")
+    .eq("id", contactId)
+    .single();
+
+  const phone = contact?.phone;
+  const nextRetryCount = (recipient.retry_count ?? 0) + 1;
+  if (!phone) {
+    await admin
+      .from("whatsapp_campaign_recipients")
+      .update({ status: "failed", error_code: "no_phone", retry_count: nextRetryCount })
+      .eq("id", recipient.id);
+    return NextResponse.json({
+      ok: false,
+      error: "Contact has no phone",
+      error_code: "no_phone",
+    });
+  }
+
+  const { data: template } = await admin
+    .from("whatsapp_templates")
+    .select("name, language, status")
+    .eq("id", campaign.template_id)
+    .single();
+
+  if (!template?.name) {
+    return NextResponse.json(
+      { ok: false, error: "Campaign template not found.", error_code: "template_not_found" },
+      { status: 400 }
+    );
+  }
+
+  const templateName = template.name;
+  const templateLanguage = template.language ?? "en";
+
+  const result = await sendTemplateMessage(
+    creds.access_token,
+    creds.phone_number_id,
+    phone,
+    templateName,
+    templateLanguage
+  );
+
+  if ("error" in result) {
+    const errorCode = String(result.error.code ?? result.error.message?.slice(0, 100));
+    await admin
+      .from("whatsapp_campaign_recipients")
+      .update({ status: "failed", error_code: errorCode, retry_count: nextRetryCount })
+      .eq("id", recipient.id);
+    const userHint =
+      result.error.code === 132001 || String(result.error.message ?? "").includes("Template name does not exist")
+        ? " Approve your template in Meta Business Manager or choose another template in Edit campaign."
+        : "";
+    return NextResponse.json({
+      ok: false,
+      error: result.error.message + userHint,
+      error_code: errorCode,
+    });
+  }
+
+  await admin
+    .from("whatsapp_campaign_recipients")
+    .update({
+      status: "sent",
+      sent_at: new Date().toISOString(),
+      meta_message_id: result.message_id,
+      retry_count: nextRetryCount,
+    })
+    .eq("id", recipient.id);
+
+  return NextResponse.json({
+    ok: true,
+    message_id: result.message_id,
+  });
+}

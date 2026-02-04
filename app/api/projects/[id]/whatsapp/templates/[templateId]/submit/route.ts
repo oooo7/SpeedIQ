@@ -1,0 +1,113 @@
+import { NextResponse } from "next/server";
+
+import { createClient } from "@/lib/supabase/server";
+import { getProjectRole } from "@/lib/team";
+import { getWhatsAppAccountToken, submitTemplateToMeta } from "@/lib/whatsapp/api";
+
+export async function POST(
+  _request: Request,
+  { params }: { params: Promise<{ id: string; templateId: string }> }
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id: projectId, templateId } = await params;
+  if (!projectId || !templateId) {
+    return NextResponse.json({ error: "Project ID and template ID are required" }, { status: 400 });
+  }
+
+  const role = await getProjectRole(supabase, projectId, user.id);
+  if (!role) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { data: template, error: templateError } = await supabase
+    .from("whatsapp_templates")
+    .select("id, name, category, language, body, header, footer, buttons, status")
+    .eq("project_id", projectId)
+    .eq("id", templateId)
+    .single();
+
+  if (templateError || !template) {
+    return NextResponse.json({ error: "Template not found" }, { status: 404 });
+  }
+  if (template.status !== "draft") {
+    return NextResponse.json({ error: "Only draft templates can be submitted" }, { status: 400 });
+  }
+
+  const creds = await getWhatsAppAccountToken(supabase, projectId);
+  if (!creds) {
+    return NextResponse.json({ error: "WhatsApp account not connected" }, { status: 400 });
+  }
+
+  const categoryMap = {
+    marketing: "MARKETING" as const,
+    utility: "UTILITY" as const,
+    authentication: "AUTHENTICATION" as const,
+  };
+  const components: Array<{
+    type: "HEADER" | "BODY" | "FOOTER" | "BUTTONS";
+    format?: string;
+    text?: string;
+    buttons?: Array<{ type: "QUICK_REPLY" | "URL" | "PHONE_NUMBER"; text: string; url?: string; phone_number?: string }>;
+  }> = [];
+
+  if (template.header) {
+    components.push({ type: "HEADER", format: "TEXT", text: template.header });
+  }
+  if (template.body) {
+    components.push({ type: "BODY", text: template.body });
+  }
+  if (template.footer) {
+    components.push({ type: "FOOTER", text: template.footer });
+  }
+  const buttons = Array.isArray(template.buttons) ? template.buttons : [];
+  if (buttons.length > 0) {
+    const metaButtons = buttons.slice(0, 3).map((b: { type?: string; text?: string; url?: string; phone_number?: string }) => {
+      if (b.type === "url" && b.url) {
+        return { type: "URL" as const, text: (b.text ?? "Link").slice(0, 200), url: b.url };
+      }
+      if (b.type === "phone_number" && b.phone_number) {
+        return { type: "PHONE_NUMBER" as const, text: (b.text ?? "Call").slice(0, 200), phone_number: b.phone_number };
+      }
+      return { type: "QUICK_REPLY" as const, text: (b.text ?? "").slice(0, 200) };
+    });
+    components.push({ type: "BUTTONS", buttons: metaButtons });
+  }
+
+  const result = await submitTemplateToMeta(creds.access_token, creds.waba_id, {
+    name: template.name,
+    language: template.language,
+    category: categoryMap[template.category as keyof typeof categoryMap] ?? "MARKETING",
+    components,
+  });
+
+  if ("error" in result) {
+    return NextResponse.json(
+      { error: result.error.message, code: result.error.code },
+      { status: 400 }
+    );
+  }
+
+  const { error: updateError } = await supabase
+    .from("whatsapp_templates")
+    .update({
+      status: "pending",
+      meta_template_id: result.id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("project_id", projectId)
+    .eq("id", templateId);
+
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true, meta_template_id: result.id });
+}

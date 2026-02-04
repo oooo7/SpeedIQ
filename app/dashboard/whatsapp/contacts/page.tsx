@@ -1,0 +1,426 @@
+"use client";
+
+import { FormEvent, useCallback, useEffect, useState } from "react";
+import { Loader2, MoreVertical, Plus, Trash2, Upload } from "lucide-react";
+import { toast } from "sonner";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useProjectContext } from "@/lib/projects/project-context";
+
+interface WhatsAppContact {
+  id: string;
+  project_id: string;
+  phone: string;
+  name: string | null;
+  email: string | null;
+  custom_fields: Record<string, unknown>;
+  tags: string[];
+  source: string | null;
+  last_inbound_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export default function WhatsAppContactsPage() {
+  const { activeProject } = useProjectContext();
+  const [contacts, setContacts] = useState<WhatsAppContact[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [editContact, setEditContact] = useState<WhatsAppContact | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formPhone, setFormPhone] = useState("");
+  const [formName, setFormName] = useState("");
+  const [formEmail, setFormEmail] = useState("");
+  const [formTags, setFormTags] = useState("");
+  const [formSource, setFormSource] = useState("manual");
+
+  const fetchContacts = useCallback(async () => {
+    if (!activeProject?.id) return;
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      if (sourceFilter) params.set("source", sourceFilter);
+      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/contacts?${params}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load");
+      setContacts(data.contacts ?? []);
+      setTotal(data.total ?? 0);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not load contacts");
+    } finally {
+      setLoading(false);
+    }
+  }, [activeProject?.id, search, sourceFilter]);
+
+  useEffect(() => {
+    fetchContacts();
+  }, [fetchContacts]);
+
+  const openAdd = () => {
+    setFormPhone("");
+    setFormName("");
+    setFormEmail("");
+    setFormTags("");
+    setFormSource("manual");
+    setEditContact(null);
+    setAddOpen(true);
+  };
+
+  const openEdit = (c: WhatsAppContact) => {
+    setEditContact(c);
+    setFormPhone(c.phone);
+    setFormName(c.name ?? "");
+    setFormEmail(c.email ?? "");
+    setFormTags(Array.isArray(c.tags) ? c.tags.join(", ") : "");
+    setFormSource(c.source ?? "manual");
+    setAddOpen(true);
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!activeProject?.id) return;
+    if (!formPhone.trim()) {
+      toast.error("Phone is required");
+      return;
+    }
+    setSaving(true);
+    try {
+      const tags = formTags
+        .split(/[,;]/)
+        .map((t) => t.trim())
+        .filter(Boolean);
+      const payload = {
+        phone: formPhone.trim(),
+        name: formName.trim() || null,
+        email: formEmail.trim() || null,
+        tags,
+        source: formSource.trim() || "manual",
+      };
+      const url = editContact
+        ? `/api/projects/${activeProject.id}/whatsapp/contacts/${editContact.id}`
+        : `/api/projects/${activeProject.id}/whatsapp/contacts`;
+      const method = editContact ? "PATCH" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to save");
+      toast.success(editContact ? "Contact updated" : "Contact added");
+      setAddOpen(false);
+      fetchContacts();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!activeProject?.id || !window.confirm("Delete this contact?")) return;
+    try {
+      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/contacts/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Failed to delete");
+      }
+      toast.success("Contact deleted");
+      fetchContacts();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete");
+    }
+  };
+
+  const handleImport = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!activeProject?.id || !importFile) {
+      toast.error("Select a CSV file");
+      return;
+    }
+    setImporting(true);
+    try {
+      const text = await importFile.text();
+      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/contacts/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csv: text }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Import failed");
+      toast.success(`Imported ${data.imported ?? 0} contacts`);
+      setImportOpen(false);
+      setImportFile(null);
+      fetchContacts();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not import");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  if (!activeProject) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="text-xl font-semibold">WhatsApp Contacts</h1>
+        <p className="text-sm text-muted-foreground">Select a project to manage contacts.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-xl font-semibold">Contacts</h1>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="gap-1">
+            <Upload className="h-4 w-4" />
+            Import CSV
+          </Button>
+          <Button onClick={openAdd} className="gap-1">
+            <Plus className="h-4 w-4" />
+            Add contact
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Input
+          placeholder="Search by phone, name, email..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-xs"
+        />
+        <select
+          value={sourceFilter}
+          onChange={(e) => setSourceFilter(e.target.value)}
+          className="flex h-9 rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-1 text-sm"
+        >
+          <option value="">All sources</option>
+          <option value="manual">Manual</option>
+          <option value="import">Import</option>
+          <option value="campaign">Campaign</option>
+        </select>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading…
+        </div>
+      ) : contacts.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No contacts yet. Add one manually or import a CSV.
+        </p>
+      ) : (
+        <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
+                <tr>
+                  <th className="text-left p-3 font-medium">Phone</th>
+                  <th className="text-left p-3 font-medium">Name</th>
+                  <th className="text-left p-3 font-medium">Email</th>
+                  <th className="text-left p-3 font-medium">Tags</th>
+                  <th className="text-left p-3 font-medium">Source</th>
+                  <th className="w-10 p-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {contacts.map((c) => (
+                  <tr
+                    key={c.id}
+                    className="border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-900/30"
+                  >
+                    <td className="p-3">{c.phone}</td>
+                    <td className="p-3">{c.name ?? "—"}</td>
+                    <td className="p-3">{c.email ?? "—"}</td>
+                    <td className="p-3">
+                      <div className="flex flex-wrap gap-1">
+                        {Array.isArray(c.tags) && c.tags.length > 0
+                          ? c.tags.map((t) => (
+                              <Badge key={t} variant="secondary" className="text-xs">
+                                {t}
+                              </Badge>
+                            ))
+                          : "—"}
+                      </div>
+                    </td>
+                    <td className="p-3">{c.source ?? "—"}</td>
+                    <td className="p-3">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit(c)}>Edit</DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-red-600 dark:text-red-400"
+                            onClick={() => handleDelete(c.id)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {total > contacts.length && (
+            <p className="text-xs text-muted-foreground p-2 border-t border-gray-200 dark:border-gray-800">
+              Showing {contacts.length} of {total}
+            </p>
+          )}
+        </div>
+      )}
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editContact ? "Edit contact" : "Add contact"}</DialogTitle>
+            <DialogDescription>
+              {editContact ? "Update contact details." : "Add a new WhatsApp contact."}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="form-phone">Phone *</Label>
+              <Input
+                id="form-phone"
+                value={formPhone}
+                onChange={(e) => setFormPhone(e.target.value)}
+                placeholder="+1234567890"
+                required
+                disabled={!!editContact}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="form-name">Name</Label>
+              <Input
+                id="form-name"
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder="Full name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="form-email">Email</Label>
+              <Input
+                id="form-email"
+                type="email"
+                value={formEmail}
+                onChange={(e) => setFormEmail(e.target.value)}
+                placeholder="email@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="form-tags">Tags (comma-separated)</Label>
+              <Input
+                id="form-tags"
+                value={formTags}
+                onChange={(e) => setFormTags(e.target.value)}
+                placeholder="VIP, New"
+              />
+            </div>
+            {!editContact && (
+              <div className="space-y-2">
+                <Label htmlFor="form-source">Source</Label>
+                <Input
+                  id="form-source"
+                  value={formSource}
+                  onChange={(e) => setFormSource(e.target.value)}
+                  placeholder="manual"
+                />
+              </div>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving…
+                  </>
+                ) : editContact ? (
+                  "Update"
+                ) : (
+                  "Add"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Import contacts</DialogTitle>
+            <DialogDescription>
+              Upload a CSV with columns: phone (required), name, email. First row is treated as header.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleImport} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="import-file">CSV file</Label>
+              <Input
+                id="import-file"
+                type="file"
+                accept=".csv"
+                onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setImportOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={!importFile || importing}>
+                {importing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Importing…
+                  </>
+                ) : (
+                  "Import"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
