@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
-import { getWhatsAppAccountToken, isWithin24hWindow, sendTemplateMessage } from "@/lib/whatsapp/api";
+import { getWhatsAppAccountToken, isWithin24hWindow, sendTemplateMessage, sendTextMessage } from "@/lib/whatsapp/api";
 
 export async function GET(
   request: Request,
@@ -161,26 +161,19 @@ export async function POST(
   }
 
   if (within24h && text) {
-    const url = `https://graph.facebook.com/v21.0/${creds.phone_number_id}/messages`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${creds.access_token}` },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: contact.phone.replace(/\D/g, ""),
-        type: "text",
-        text: { body: text },
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
+    const result = await sendTextMessage(
+      creds.access_token,
+      creds.phone_number_id,
+      contact.phone,
+      text
+    );
+    if ("error" in result) {
       return NextResponse.json(
-        { error: data.error?.message ?? "Failed to send" },
+        { error: result.error.message },
         { status: 400 }
       );
     }
-    const messageId = data.messages?.[0]?.id;
+    const messageId = result.message_id;
     const { data: msg, error: insertError } = await supabase
       .from("whatsapp_messages")
       .insert({

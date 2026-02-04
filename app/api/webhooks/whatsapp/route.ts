@@ -114,6 +114,14 @@ export async function POST(request: Request) {
 
       const project_id = account.project_id;
 
+      const contactsList = (value.contacts ?? []) as Array<{ profile?: { name?: string }; wa_id?: string }>;
+      const contactNameByWaId: Record<string, string> = {};
+      for (const c of contactsList) {
+        if (c.wa_id && c.profile?.name?.trim()) {
+          contactNameByWaId[c.wa_id] = c.profile.name.trim().slice(0, 255);
+        }
+      }
+
       if (value.messages) {
         for (const msg of value.messages) {
           const meta_message_id = msg.id;
@@ -125,6 +133,7 @@ export async function POST(request: Request) {
           if (existing) continue;
 
           const from_wa = msg.from;
+          const incomingName = contactNameByWaId[from_wa] ?? null;
           const { data: contact } = await supabase
             .from("whatsapp_contacts")
             .select("id")
@@ -138,6 +147,7 @@ export async function POST(request: Request) {
             await supabase
               .from("whatsapp_contacts")
               .update({
+                ...(incomingName ? { name: incomingName } : {}),
                 last_inbound_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
               })
@@ -148,6 +158,7 @@ export async function POST(request: Request) {
               .insert({
                 project_id,
                 phone: from_wa,
+                name: incomingName,
                 source: "campaign",
                 last_inbound_at: new Date().toISOString(),
               })

@@ -206,6 +206,40 @@ export async function sendTemplateMessage(
   return { message_id: messageId };
 }
 
+/**
+ * Send a plain text message (for replying within the 24h customer-initiated window).
+ * See https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages#text-object
+ */
+export async function sendTextMessage(
+  accessToken: string,
+  phoneNumberId: string,
+  to: string,
+  text: string
+): Promise<{ message_id: string } | { error: { message: string; code?: number } }> {
+  const url = `${META_GRAPH_BASE}/v22.0/${phoneNumberId}/messages`;
+  const body = {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: to.replace(/\D/g, ""),
+    type: "text",
+    text: { body: text.slice(0, 4096), preview_url: false },
+  };
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    return { error: { message: data.error?.message ?? "Meta API error", code: data.error?.code } };
+  }
+  const messageId = data.messages?.[0]?.id;
+  if (!messageId) {
+    return { error: { message: "No message id in response" } };
+  }
+  return { message_id: messageId };
+}
+
 export function isWithin24hWindow(lastInboundAt: string | null): boolean {
   if (!lastInboundAt) return false;
   const last = new Date(lastInboundAt).getTime();

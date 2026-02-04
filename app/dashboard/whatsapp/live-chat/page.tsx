@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, MessageSquare, Send } from "lucide-react";
+import { Info, Loader2, MessageSquare, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingState } from "@/components/ui/loading-state";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 interface Conversation {
@@ -50,18 +51,18 @@ export default function WhatsAppLiveChatPage() {
   const [templates, setTemplates] = useState<Array<{ id: string; name: string; language: string }>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const fetchConversations = useCallback(async () => {
+  const fetchConversations = useCallback(async (silent = false) => {
     if (!activeProject?.id) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/conversations`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load");
       setConversations(data.conversations ?? []);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not load conversations");
+      if (!silent) toast.error(err instanceof Error ? err.message : "Could not load conversations");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [activeProject?.id]);
 
@@ -70,9 +71,9 @@ export default function WhatsAppLiveChatPage() {
   }, [fetchConversations]);
 
   const fetchMessages = useCallback(
-    async (contactId: string) => {
+    async (contactId: string, silent = false) => {
       if (!activeProject?.id) return;
-      setMessagesLoading(true);
+      if (!silent) setMessagesLoading(true);
       try {
         const res = await fetch(
           `/api/projects/${activeProject.id}/whatsapp/conversations/${contactId}/messages`
@@ -82,9 +83,9 @@ export default function WhatsAppLiveChatPage() {
         setContactInfo(data.contact ?? null);
         setMessages(data.messages ?? []);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Could not load messages");
+        if (!silent) toast.error(err instanceof Error ? err.message : "Could not load messages");
       } finally {
-        setMessagesLoading(false);
+        if (!silent) setMessagesLoading(false);
       }
     },
     [activeProject?.id]
@@ -113,6 +114,46 @@ export default function WhatsAppLiveChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Poll for new messages when tab is visible (live updates from webhook)
+  useEffect(() => {
+    if (!activeProject?.id) return;
+    const POLL_CONVERSATIONS_MS = 15000;
+    const POLL_MESSAGES_MS = 10000;
+    let convInterval: ReturnType<typeof setInterval> | null = null;
+    let msgInterval: ReturnType<typeof setInterval> | null = null;
+
+    const run = () => {
+      if (document.visibilityState !== "visible") return;
+      fetchConversations(true);
+      if (selectedContactId) {
+        fetchMessages(selectedContactId, true);
+      }
+    };
+
+    convInterval = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      fetchConversations(true);
+    }, POLL_CONVERSATIONS_MS);
+
+    if (selectedContactId) {
+      msgInterval = setInterval(() => {
+        if (document.visibilityState !== "visible") return;
+        fetchMessages(selectedContactId, true);
+      }, POLL_MESSAGES_MS);
+    }
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") run();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      if (convInterval) clearInterval(convInterval);
+      if (msgInterval) clearInterval(msgInterval);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [activeProject?.id, selectedContactId, fetchConversations, fetchMessages]);
 
   const handleSend = async () => {
     if (!activeProject?.id || !selectedContactId) return;
@@ -199,9 +240,43 @@ export default function WhatsAppLiveChatPage() {
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-0 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-800 md:flex-row">
       <div className="w-full border-b border-gray-200 dark:border-gray-800 md:w-80 md:border-b-0 md:border-r">
-        <div className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-800 p-3">
-          <MessageSquare className="h-5 w-5 text-green-600 dark:text-green-500" />
-          <h2 className="font-semibold">Conversations</h2>
+        <div className="flex items-center justify-between gap-2 border-b border-gray-200 dark:border-gray-800 p-3">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-green-600 dark:text-green-500" />
+            <h2 className="font-semibold">Conversations</h2>
+          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                aria-label="Webhook setup help"
+              >
+                <Info className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[min(90vw,340px)] p-3 text-sm" align="end">
+              <p className="font-medium mb-2">Live chat via webhook</p>
+              <p className="text-muted-foreground mb-2">
+                Incoming messages appear here when your webhook is configured. In{" "}
+                <a
+                  href="https://developers.facebook.com/apps"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >
+                  Meta App Dashboard
+                </a>{" "}
+                → WhatsApp → Configuration:
+              </p>
+              <ul className="list-disc list-inside text-muted-foreground space-y-1 text-xs">
+                <li>Callback URL: your site + <code className="rounded bg-muted px-1">/api/webhooks/whatsapp</code></li>
+                <li>Verify token: set <code className="rounded bg-muted px-1">WHATSAPP_VERIFY_TOKEN</code> in env</li>
+                <li>Subscribe to <strong>messages</strong> (and optionally <strong>message_template_status_update</strong>)</li>
+              </ul>
+            </PopoverContent>
+          </Popover>
         </div>
         <div className="overflow-y-auto">
           {loading ? (
