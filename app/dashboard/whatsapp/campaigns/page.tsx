@@ -196,8 +196,6 @@ export default function WhatsAppCampaignsPage() {
     }
     if ((s === 2 || s === 4) && !isDraft) {
       if (!templateId) err.template = "Select a template when sending or scheduling.";
-      else if (!isTemplateApproved)
-        err.template = "Only approved templates can be used for sending or scheduling. Submit your draft for approval first.";
     }
     if (s === 3 || s === 4) {
       if (scheduleOption === "schedule" && !scheduledAt.trim())
@@ -214,7 +212,7 @@ export default function WhatsAppCampaignsPage() {
       if (audienceType === "segment") return !!segmentId;
       return false;
     }
-    if (s === 2 && !isDraft) return !!templateId && !!isTemplateApproved;
+    if (s === 2 && !isDraft) return !!templateId;
     if (s === 3) {
       if (scheduleOption === "schedule") return !!scheduledAt.trim();
     }
@@ -223,7 +221,7 @@ export default function WhatsAppCampaignsPage() {
       if (!isDraft) {
         if (audienceType === "contacts" && selectedContactIds.length === 0) return false;
         if (audienceType === "segment" && !segmentId) return false;
-        if (!templateId || !isTemplateApproved) return false;
+        if (!templateId) return false;
       }
       if (scheduleOption === "schedule" && !scheduledAt.trim()) return false;
     }
@@ -303,15 +301,13 @@ export default function WhatsAppCampaignsPage() {
         toast.error("Select a template when sending or scheduling");
         return;
       }
-      if (!isTemplateApproved) {
-        toast.error("Only approved templates can be used for sending or scheduling. Submit your draft for approval first.");
-        return;
-      }
     }
     if (scheduleOption === "schedule" && !scheduledAt) {
       toast.error("Pick a date and time for scheduling");
       return;
     }
+    const willSendOrSchedule = !isDraft && (scheduleOption === "send_now" || scheduleOption === "schedule");
+    const createAsDraftBecauseTemplateNotApproved = willSendOrSchedule && !isTemplateApproved;
     setSaving(true);
     try {
       const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/campaigns`, {
@@ -323,14 +319,18 @@ export default function WhatsAppCampaignsPage() {
           template_id: templateId || null,
           contact_ids: audienceType === "contacts" ? selectedContactIds : [],
           segment_id: audienceType === "segment" ? segmentId : null,
-          send_now: scheduleOption === "send_now",
-          save_as_draft: isDraft,
-          scheduled_at: scheduleOption === "schedule" ? scheduledAt || null : null,
+          send_now: scheduleOption === "send_now" && isTemplateApproved,
+          save_as_draft: isDraft || createAsDraftBecauseTemplateNotApproved,
+          scheduled_at: scheduleOption === "schedule" && isTemplateApproved ? (scheduledAt || null) : null,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create campaign");
-      toast.success("Campaign created");
+      if (createAsDraftBecauseTemplateNotApproved) {
+        toast.success("Campaign saved as draft. Only approved templates can be used for sending or scheduling. Submit this template for approval first.");
+      } else {
+        toast.success("Campaign created");
+      }
       setWizardOpen(false);
       fetchCampaigns();
     } catch (err) {

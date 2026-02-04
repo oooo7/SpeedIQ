@@ -45,9 +45,33 @@ Copy the **https** URL (e.g. `https://abc123.ngrok-free.app`).
 4. Click **Verify and save**.
 5. Subscribe to **messages** (and **message_template_status_update** if needed).
 
-## 5. Test
+## 5. Test live chat (end-to-end)
 
-- Send a message to your WhatsApp Business number from your phone.
-- You should see the request in the ngrok terminal and the message in your app (e.g. Live Chat).
+### Prerequisites
+
+- **Terminal 1:** `npm run dev` (app on http://localhost:3000)
+- **Terminal 2:** `ngrok http 3000` (tunnel running; Callback URL in Meta points to this ngrok URL)
+- **In the app:** A project with WhatsApp account connected (Settings → WhatsApp account: Phone Number ID, WABA ID, Access Token saved)
+
+### Steps
+
+1. **Send a message to your Business number**
+   - From your **personal WhatsApp** (phone), send any text (e.g. "Hi") to your **WhatsApp Business** number (the one linked in Meta / your app).
+   - Meta will send a webhook POST to your ngrok URL → your local app stores the message and creates/updates the conversation.
+
+2. **Open Live Chat in the app**
+   - In the browser: http://localhost:3000 (log in if needed).
+   - Go to **Dashboard → WhatsApp → Live Chat**.
+   - Select the same **project** that has the WhatsApp account connected.
+   - You should see a **new conversation** (or an existing one) with your phone number / name and an **unread** badge.
+   - Click the conversation to open the thread; your incoming message ("Hi") should appear.
+
+3. **Reply (within 24h window)**
+   - While the conversation is open, type a message in the input at the bottom and click **Send**.
+   - Your reply is sent via the WhatsApp Cloud API and appears in the thread (and in WhatsApp on your phone).
+   - **Note:** You can only send **free-form text** if the contact messaged you in the last **24 hours**. After that, only **approved templates** can be sent (use the template buttons shown when "Template only" is displayed).
+
+4. **Optional: watch the webhook**
+   - Open **http://127.0.0.1:4040** (ngrok Inspect) to see the GET (verification) and POST (incoming message) requests from Meta.
 
 **Note:** The free ngrok URL changes each time you restart ngrok. After restarting, update the Callback URL in Meta and verify again.

@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Info, Loader2, MessageSquare, Send } from "lucide-react";
+import { Check, CheckCheck, Info, Loader2, MessageSquare, Send } from "lucide-react";
 import { toast } from "sonner";
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ interface Conversation {
   unread_count: number;
   contact_phone: string | null;
   contact_name: string | null;
+  contact_profile_picture_url: string | null;
 }
 
 interface Message {
@@ -28,6 +30,7 @@ interface Message {
   body: string | null;
   status: string;
   created_at: string;
+  meta_message_id?: string | null;
 }
 
 interface ContactInfo {
@@ -36,6 +39,8 @@ interface ContactInfo {
   name: string | null;
   last_inbound_at: string | null;
   within_24h_window: boolean;
+  last_inbound_meta_message_id?: string;
+  profile_picture_url?: string | null;
 }
 
 export default function WhatsAppLiveChatPage() {
@@ -50,6 +55,7 @@ export default function WhatsAppLiveChatPage() {
   const [sending, setSending] = useState(false);
   const [templates, setTemplates] = useState<Array<{ id: string; name: string; language: string }>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchConversations = useCallback(async (silent = false) => {
     if (!activeProject?.id) return;
@@ -70,6 +76,25 @@ export default function WhatsAppLiveChatPage() {
     fetchConversations();
   }, [fetchConversations]);
 
+  const markAsRead = useCallback(
+    async (contactId: string, messageId: string, typing: boolean) => {
+      if (!activeProject?.id) return;
+      try {
+        await fetch(
+          `/api/projects/${activeProject.id}/whatsapp/conversations/${contactId}/mark-read`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message_id: messageId, typing }),
+          }
+        );
+      } catch {
+        // ignore
+      }
+    },
+    [activeProject?.id]
+  );
+
   const fetchMessages = useCallback(
     async (contactId: string, silent = false) => {
       if (!activeProject?.id) return;
@@ -82,13 +107,16 @@ export default function WhatsAppLiveChatPage() {
         if (!res.ok) throw new Error(data.error ?? "Failed to load");
         setContactInfo(data.contact ?? null);
         setMessages(data.messages ?? []);
+        if (data.last_inbound_meta_message_id) {
+          markAsRead(contactId, data.last_inbound_meta_message_id, false);
+        }
       } catch (err) {
         if (!silent) toast.error(err instanceof Error ? err.message : "Could not load messages");
       } finally {
         if (!silent) setMessagesLoading(false);
       }
     },
-    [activeProject?.id]
+    [activeProject?.id, markAsRead]
   );
 
   useEffect(() => {
@@ -114,6 +142,19 @@ export default function WhatsAppLiveChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Send typing indicator when user types (debounced); Meta dismisses after ~25s or on send
+  useEffect(() => {
+    if (!selectedContactId || !contactInfo?.last_inbound_meta_message_id || !text.trim()) return;
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      markAsRead(selectedContactId, contactInfo.last_inbound_meta_message_id!, true);
+      typingTimeoutRef.current = null;
+    }, 1000);
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, [text, selectedContactId, contactInfo?.last_inbound_meta_message_id, markAsRead]);
 
   // Poll for new messages when tab is visible (live updates from webhook)
   useEffect(() => {
@@ -237,13 +278,50 @@ export default function WhatsAppLiveChatPage() {
     );
   }
 
+  function formatTime(iso: string) {
+    const d = new Date(iso);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    if (sameDay) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleDateString([], { month: "short", day: "numeric" });
+  }
+
+  function getInitial(name: string | null, phone: string | null) {
+    if (name?.trim()) return name.trim().slice(0, 1).toUpperCase();
+    if (phone?.trim()) return phone.slice(-1);
+    return "?";
+  }
+
+  function ContactAvatar({
+    name,
+    phone,
+    profilePictureUrl,
+    className,
+  }: {
+    name: string | null;
+    phone: string | null;
+    profilePictureUrl?: string | null;
+    className?: string;
+  }) {
+    return (
+      <Avatar className={className}>
+        {profilePictureUrl ? (
+          <AvatarImage src={profilePictureUrl} alt="" className="object-cover" />
+        ) : null}
+        <AvatarFallback className="bg-[#25D366] text-white">
+          {getInitial(name, phone)}
+        </AvatarFallback>
+      </Avatar>
+    );
+  }
+
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-0 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-800 md:flex-row">
-      <div className="w-full border-b border-gray-200 dark:border-gray-800 md:w-80 md:border-b-0 md:border-r">
-        <div className="flex items-center justify-between gap-2 border-b border-gray-200 dark:border-gray-800 p-3">
+      <div className="flex w-full flex-col border-b border-gray-200 dark:border-gray-800 md:w-80 md:border-b-0 md:border-r">
+        <div className="flex items-center justify-between gap-2 border-b border-gray-200 bg-[#f0f2f5] dark:border-gray-800 dark:bg-gray-900/80 p-3">
           <div className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-green-600 dark:text-green-500" />
-            <h2 className="font-semibold">Conversations</h2>
+            <MessageSquare className="h-5 w-5 text-[#25D366]" />
+            <h2 className="font-semibold">Chats</h2>
           </div>
           <Popover>
             <PopoverTrigger asChild>
@@ -278,7 +356,7 @@ export default function WhatsAppLiveChatPage() {
             </PopoverContent>
           </Popover>
         </div>
-        <div className="overflow-y-auto">
+        <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-950">
           {loading ? (
             <LoadingState message="Loading conversations…" className="py-8 max-w-none" />
           ) : conversations.length === 0 ? (
@@ -289,75 +367,116 @@ export default function WhatsAppLiveChatPage() {
                 key={conv.id}
                 type="button"
                 onClick={() => setSelectedContactId(conv.contact_id)}
-                className={`flex w-full flex-col gap-0.5 border-b border-gray-100 p-3 text-left hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/50 ${
+                className={`flex w-full items-center gap-3 border-b border-gray-100 p-3 text-left hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/50 ${
                   selectedContactId === conv.contact_id ? "bg-gray-100 dark:bg-gray-900/70" : ""
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="truncate font-medium">
-                    {conv.contact_name || conv.contact_phone || "Unknown"}
-                  </span>
-                  {conv.unread_count > 0 && (
-                    <Badge variant="default" className="shrink-0 text-xs">
-                      {conv.unread_count}
-                    </Badge>
-                  )}
+                <ContactAvatar
+                  name={conv.contact_name}
+                  phone={conv.contact_phone}
+                  profilePictureUrl={conv.contact_profile_picture_url}
+                  className="h-12 w-12 shrink-0 text-lg"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate font-medium">
+                      {conv.contact_name || conv.contact_phone || "Unknown"}
+                    </span>
+                    {conv.last_message_at && (
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {formatTime(conv.last_message_at)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm text-muted-foreground">
+                      {conv.contact_phone ?? ""}
+                    </span>
+                    {conv.unread_count > 0 && (
+                      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#25D366] px-1.5 text-xs font-medium text-white">
+                        {conv.unread_count}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <span className="truncate text-xs text-muted-foreground">
-                  {conv.contact_phone ?? conv.contact_id}
-                </span>
               </button>
             ))
           )}
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col min-h-0">
+      <div className="flex min-h-0 flex-1 flex-col bg-[#e5ddd5] dark:bg-gray-900">
         {!selectedContactId ? (
-          <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-            Select a conversation
+          <div className="flex flex-1 items-center justify-center bg-[#efeae2] dark:bg-gray-900">
+            <p className="text-sm text-muted-foreground">Select a conversation</p>
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-800 p-3">
-              <span className="font-medium">
-                {contactInfo?.name || contactInfo?.phone || selectedContactId}
-              </span>
+            <div className="flex items-center gap-3 border-b border-gray-200 bg-[#f0f2f5] px-4 py-3 dark:border-gray-800 dark:bg-gray-900/80">
+              <ContactAvatar
+                name={contactInfo?.name ?? null}
+                phone={contactInfo?.phone ?? null}
+                profilePictureUrl={contactInfo?.profile_picture_url}
+                className="h-10 w-10 shrink-0 text-sm"
+              />
+              <div className="min-w-0 flex-1">
+                <span className="block truncate font-medium">
+                  {contactInfo?.name || contactInfo?.phone || "Unknown"}
+                </span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {contactInfo?.within_24h_window ? "Available" : "Template only"}
+                </span>
+              </div>
               {contactInfo && !contactInfo.within_24h_window && (
-                <Badge variant="secondary" className="text-xs">
+                <Badge variant="secondary" className="shrink-0 text-xs">
                   Template only
                 </Badge>
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 overflow-y-auto bg-[#efeae2] p-2 dark:bg-gray-900 sm:p-4">
               {messagesLoading ? (
                 <LoadingState message="Loading messages…" className="py-8 max-w-none" />
               ) : (
-                messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${msg.direction === "out" ? "justify-end" : "justify-start"}`}
-                  >
+                <div className="space-y-1">
+                  {messages.map((msg) => (
                     <div
-                      className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                        msg.direction === "out"
-                          ? "bg-green-600 text-white dark:bg-green-700"
-                          : "bg-gray-200 dark:bg-gray-800"
-                      }`}
+                      key={msg.id}
+                      className={`flex ${msg.direction === "out" ? "justify-end" : "justify-start"}`}
                     >
-                      {msg.body && <p className="whitespace-pre-wrap">{msg.body}</p>}
-                      <span className="mt-1 block text-xs opacity-80">
-                        {new Date(msg.created_at).toLocaleTimeString()} {msg.status !== "sent" && `· ${msg.status}`}
-                      </span>
+                      <div
+                        className={`relative max-w-[85%] min-w-[100px] rounded-lg px-2 py-1 text-sm ${
+                          msg.direction === "out"
+                            ? "rounded-br-md bg-[#dcf8c6] text-gray-900 dark:bg-[#005c4b] dark:text-white"
+                            : "rounded-bl-md bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+                        }`}
+                      >
+                        {msg.body && <p className="whitespace-pre-wrap break-words">{msg.body}</p>}
+                        <div className="flex items-center justify-end gap-1">
+                          <span className="text-[10px] text-muted-foreground opacity-90">
+                            {formatTime(msg.created_at)}
+                          </span>
+                          {msg.direction === "out" && (
+                            <span className="inline-flex text-muted-foreground">
+                              {msg.status === "read" ? (
+                                <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
+                              ) : msg.status === "delivered" ? (
+                                <CheckCheck className="h-3.5 w-3.5" />
+                              ) : (
+                                <Check className="h-3.5 w-3.5" />
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
               <div ref={messagesEndRef} />
             </div>
 
-            <div className="border-t border-gray-200 dark:border-gray-800 p-3">
+            <div className="border-t border-gray-200 bg-[#f0f2f5] p-2 dark:border-gray-800 dark:bg-gray-900/80 sm:p-3">
               {contactInfo && !contactInfo.within_24h_window ? (
                 <div className="space-y-2">
                   <p className="text-xs text-amber-600 dark:text-amber-500">
@@ -386,20 +505,25 @@ export default function WhatsAppLiveChatPage() {
                     e.preventDefault();
                     handleSend();
                   }}
-                  className="flex gap-2"
+                  className="flex items-center gap-2"
                 >
                   <Input
                     value={text}
                     onChange={(e) => setText(e.target.value)}
-                    placeholder="Type a message..."
+                    placeholder="Type a message"
                     disabled={sending}
-                    className="flex-1"
+                    className="min-h-12 flex-1 rounded-full border-gray-300 bg-white px-4 dark:border-gray-700 dark:bg-gray-800"
                   />
-                  <Button type="submit" disabled={sending || !text.trim()}>
+                  <Button
+                    type="submit"
+                    size="icon"
+                    disabled={sending || !text.trim()}
+                    className="h-10 w-10 shrink-0 rounded-full bg-[#25D366] text-white hover:bg-[#20bd5a] dark:bg-[#25D366] dark:hover:bg-[#20bd5a]"
+                  >
                     {sending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
-                      <Send className="h-4 w-4" />
+                      <Send className="h-5 w-5" />
                     )}
                   </Button>
                 </form>

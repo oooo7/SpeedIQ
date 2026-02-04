@@ -50,14 +50,18 @@ export async function GET(
 
   const list = conversations ?? [];
   const contactIds = [...new Set(list.map((c: { contact_id: string }) => c.contact_id))];
-  const contactsMap: Record<string, { phone: string; name: string | null }> = {};
+  const contactsMap: Record<string, { phone: string; name: string | null; profile_picture_url: string | null }> = {};
   if (contactIds.length > 0) {
     const { data: contacts } = await supabase
       .from("whatsapp_contacts")
-      .select("id, phone, name")
+      .select("id, phone, name, profile_picture_url")
       .in("id", contactIds);
     for (const c of contacts ?? []) {
-      contactsMap[c.id] = { phone: c.phone, name: c.name };
+      contactsMap[c.id] = {
+        phone: c.phone,
+        name: c.name,
+        profile_picture_url: c.profile_picture_url ?? null,
+      };
     }
   }
 
@@ -65,6 +69,7 @@ export async function GET(
     ...c,
     contact_phone: contactsMap[c.contact_id]?.phone ?? null,
     contact_name: contactsMap[c.contact_id]?.name ?? null,
+    contact_profile_picture_url: contactsMap[c.contact_id]?.profile_picture_url ?? null,
   }));
 
   return NextResponse.json({ conversations: enriched });

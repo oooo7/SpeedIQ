@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getWhatsAppAccountToken, sendTemplateMessage } from "@/lib/whatsapp/api";
+import { getVariableValuesForContact, getWhatsAppAccountToken, sendTemplateMessage } from "@/lib/whatsapp/api";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const THROTTLE_MS = 15;
@@ -18,21 +18,46 @@ export async function GET(request: Request) {
   }
 
   const supabase = createAdminClient();
+  const now = new Date().toISOString();
+
+  // Start scheduled campaigns whose scheduled_at time has passed (same cron run, so no extra job needed)
+  const { data: dueScheduled } = await supabase
+    .from("whatsapp_campaigns")
+    .select("id")
+    .eq("status", "scheduled")
+    .not("scheduled_at", "is", null)
+    .lte("scheduled_at", now);
+  if (dueScheduled?.length) {
+    for (const c of dueScheduled) {
+      await supabase
+        .from("whatsapp_campaigns")
+        .update({
+          status: "sending",
+          started_at: now,
+          updated_at: now,
+        })
+        .eq("id", c.id);
+    }
+  }
 
   const { data: campaigns } = await supabase
     .from("whatsapp_campaigns")
-    .select("id, project_id, template_id")
+    .select("id, project_id, template_id, use_hello_world")
     .eq("status", "sending");
 
   if (!campaigns?.length) {
-    return NextResponse.json({ processed: 0, message: "No campaigns in sending state" });
+    return NextResponse.json({
+      processed: 0,
+      message: dueScheduled?.length ? "Started scheduled campaigns; send batches run next cron cycle" : "No campaigns in sending state",
+    });
   }
 
   let totalSent = 0;
   let totalFailed = 0;
 
   for (const campaign of campaigns) {
-    if (!campaign.template_id) {
+    const useHelloWorld = !!campaign.use_hello_world;
+    if (!useHelloWorld && !campaign.template_id) {
       await supabase
         .from("whatsapp_campaigns")
         .update({ status: "failed", updated_at: new Date().toISOString() })
@@ -49,26 +74,40 @@ export async function GET(request: Request) {
       continue;
     }
 
-    const { data: template } = await supabase
-      .from("whatsapp_templates")
-      .select("name, language, status, variables")
-      .eq("id", campaign.template_id)
-      .single();
+    let templateName: string;
+    let templateLanguage: string;
+    let fallbackVariables: string[] = [];
+    let mapping: string[] | null = null;
+    let hasVariables = false;
 
-    if (!template?.name) {
-      await supabase
-        .from("whatsapp_campaigns")
-        .update({ status: "failed", updated_at: new Date().toISOString() })
-        .eq("id", campaign.id);
-      continue;
+    if (useHelloWorld) {
+      templateName = "hello_world";
+      templateLanguage = "en_US";
+    } else {
+      const { data: template } = await supabase
+        .from("whatsapp_templates")
+        .select("name, language, status, variables, variable_field_mapping")
+        .eq("id", campaign.template_id)
+        .single();
+
+      if (!template?.name) {
+        await supabase
+          .from("whatsapp_campaigns")
+          .update({ status: "failed", updated_at: new Date().toISOString() })
+          .eq("id", campaign.id);
+        continue;
+      }
+      templateName = template.name;
+      templateLanguage = template.language ?? "en";
+      fallbackVariables =
+        Array.isArray(template.variables) && template.variables.length > 0
+          ? (template.variables as string[]).map(String)
+          : [];
+      mapping = Array.isArray(template.variable_field_mapping)
+        ? (template.variable_field_mapping as string[])
+        : null;
+      hasVariables = fallbackVariables.length > 0 || !!(mapping && mapping.length > 0);
     }
-
-    const templateName = template.name;
-    const templateLanguage = template.language ?? "en";
-    const variableValues =
-      Array.isArray(template.variables) && template.variables.length > 0
-        ? (template.variables as string[]).map(String)
-        : undefined;
 
     const { data: recipients } = await supabase
       .from("whatsapp_campaign_recipients")
@@ -82,7 +121,7 @@ export async function GET(request: Request) {
     for (const rec of list) {
       const { data: contact } = await supabase
         .from("whatsapp_contacts")
-        .select("phone")
+        .select("phone, name, email, custom_fields")
         .eq("id", rec.contact_id)
         .single();
       const phone = contact?.phone;
@@ -96,13 +135,21 @@ export async function GET(request: Request) {
         continue;
       }
 
+      const variableValues = hasVariables
+        ? getVariableValuesForContact(
+            { name: contact?.name, email: contact?.email, phone: contact?.phone, custom_fields: contact?.custom_fields },
+            mapping,
+            fallbackVariables
+          )
+        : undefined;
+
       const result = await sendTemplateMessage(
         creds.access_token,
         creds.phone_number_id,
         phone,
         templateName,
         templateLanguage,
-        variableValues ? { variableValues } : undefined
+        variableValues && variableValues.length > 0 ? { variableValues } : undefined
       );
 
       if ("error" in result) {

@@ -52,6 +52,7 @@ create table if not exists public.whatsapp_contacts (
   custom_fields jsonb default '{}',
   tags text[] default '{}',
   source text,
+  profile_picture_url text,
   last_inbound_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),

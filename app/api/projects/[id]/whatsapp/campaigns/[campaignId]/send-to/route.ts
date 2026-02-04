@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getProjectRole } from "@/lib/team";
-import { getWhatsAppAccountToken, sendTemplateMessage } from "@/lib/whatsapp/api";
+import { getVariableValuesForContact, getWhatsAppAccountToken, sendTemplateMessage } from "@/lib/whatsapp/api";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +44,7 @@ export async function POST(
 
   const { data: campaign, error: campError } = await admin
     .from("whatsapp_campaigns")
-    .select("id, project_id, template_id")
+    .select("id, project_id, template_id, use_hello_world")
     .eq("project_id", projectId)
     .eq("id", campaignId)
     .single();
@@ -53,9 +53,10 @@ export async function POST(
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   }
 
-  if (!campaign.template_id) {
+  const useHelloWorld = !!campaign.use_hello_world;
+  if (!useHelloWorld && !campaign.template_id) {
     return NextResponse.json(
-      { error: "Campaign has no template selected. Add a template before sending." },
+      { error: "Campaign has no template selected. Add a template or enable the default hello_world template." },
       { status: 400 }
     );
   }
@@ -82,7 +83,7 @@ export async function POST(
 
   const { data: contact } = await admin
     .from("whatsapp_contacts")
-    .select("phone")
+    .select("phone, name, email, custom_fields")
     .eq("id", contactId)
     .single();
 
@@ -100,25 +101,45 @@ export async function POST(
     });
   }
 
-  const { data: template } = await admin
-    .from("whatsapp_templates")
-    .select("name, language, status, variables")
-    .eq("id", campaign.template_id)
-    .single();
+  let templateName: string;
+  let templateLanguage: string;
+  let variableValues: string[] | undefined;
 
-  if (!template?.name) {
-    return NextResponse.json(
-      { ok: false, error: "Campaign template not found.", error_code: "template_not_found" },
-      { status: 400 }
-    );
-  }
+  if (useHelloWorld) {
+    templateName = "hello_world";
+    templateLanguage = "en_US";
+    variableValues = undefined;
+  } else {
+    const { data: template } = await admin
+      .from("whatsapp_templates")
+      .select("name, language, status, variables, variable_field_mapping")
+      .eq("id", campaign.template_id)
+      .single();
 
-  const templateName = template.name;
-  const templateLanguage = template.language ?? "en";
-  const variableValues =
-    Array.isArray(template.variables) && template.variables.length > 0
-      ? (template.variables as string[]).map(String)
+    if (!template?.name) {
+      return NextResponse.json(
+        { ok: false, error: "Campaign template not found.", error_code: "template_not_found" },
+        { status: 400 }
+      );
+    }
+    templateName = template.name;
+    templateLanguage = template.language ?? "en";
+    const fallbackVariables =
+      Array.isArray(template.variables) && template.variables.length > 0
+        ? (template.variables as string[]).map(String)
+        : [];
+    const mapping = Array.isArray(template.variable_field_mapping)
+      ? (template.variable_field_mapping as string[])
+      : null;
+    const hasVariables = fallbackVariables.length > 0 || (mapping && mapping.length > 0);
+    variableValues = hasVariables
+      ? getVariableValuesForContact(
+          { name: contact?.name, email: contact?.email, phone: contact?.phone, custom_fields: contact?.custom_fields },
+          mapping,
+          fallbackVariables
+        )
       : undefined;
+  }
 
   const result = await sendTemplateMessage(
     creds.access_token,
@@ -126,7 +147,7 @@ export async function POST(
     phone,
     templateName,
     templateLanguage,
-    variableValues ? { variableValues } : undefined
+    variableValues && variableValues.length > 0 ? { variableValues } : undefined
   );
 
   if ("error" in result) {

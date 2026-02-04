@@ -150,6 +150,59 @@ export async function getPhoneNumberInfo(
   return data as PhoneNumberInfo;
 }
 
+/** Contact fields used for template variable resolution. */
+export interface WhatsAppContactForVariables {
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  custom_fields?: Record<string, unknown> | null;
+}
+
+/**
+ * Resolve template variable values from a contact using variable_field_mapping.
+ * mapping[i] is the field key for {{i+1}}. Allowed keys: first_name, last_name, name, email, phone, custom:<key>.
+ * Falls back to fallbackExamples[i] when mapping is missing or contact has no value.
+ */
+export function getVariableValuesForContact(
+  contact: WhatsAppContactForVariables,
+  mapping: string[] | null | undefined,
+  fallbackExamples: string[] | null | undefined
+): string[] {
+  const fallback = Array.isArray(fallbackExamples) ? fallbackExamples.map(String) : [];
+  const keys = Array.isArray(mapping) ? mapping : [];
+  const name = (contact?.name ?? "").trim();
+  const parts = name ? name.split(/\s+/) : [];
+  const first = parts[0] ?? "";
+  const last = parts.slice(1).join(" ") ?? "";
+  const custom = contact?.custom_fields && typeof contact.custom_fields === "object" ? contact.custom_fields : {};
+
+  function getValueFromContact(key: string): string {
+    const k = String(key ?? "").trim();
+    if (!k) return "";
+    if (k === "first_name") return first;
+    if (k === "last_name") return last;
+    if (k === "name") return name;
+    if (k === "email") return (contact?.email ?? "").trim();
+    if (k === "phone") return (contact?.phone ?? "").trim();
+    if (k.startsWith("custom:")) {
+      const fieldKey = k.slice(7).trim();
+      const v = fieldKey ? custom[fieldKey] : "";
+      return typeof v === "string" ? v : String(v ?? "");
+    }
+    return "";
+  }
+
+  const len = Math.max(keys.length, fallback.length, 1);
+  const out: string[] = [];
+  for (let i = 0; i < len; i++) {
+    const key = keys[i];
+    const fromContact = key ? getValueFromContact(key) : "";
+    const val = fromContact || (fallback[i] ?? "");
+    out.push(String(val).slice(0, 1000));
+  }
+  return out.length > 0 ? out : fallback;
+}
+
 /**
  * Send a template message using Meta's format (v22.0).
  * Use language "en_US" for hello_world when testing from Meta dashboard.
@@ -238,6 +291,38 @@ export async function sendTextMessage(
     return { error: { message: "No message id in response" } };
   }
   return { message_id: messageId };
+}
+
+/**
+ * Mark an incoming message as read (and optionally show typing indicator).
+ * Use the message_id from the messages webhook (incoming message id).
+ * See https://developers.facebook.com/docs/whatsapp/cloud-api/guides/mark-message-as-read
+ */
+export async function markMessageAsRead(
+  accessToken: string,
+  phoneNumberId: string,
+  messageId: string,
+  options?: { typing?: boolean }
+): Promise<{ success: true } | { error: { message: string } }> {
+  const url = `${META_GRAPH_BASE}/v22.0/${phoneNumberId}/messages`;
+  const body: Record<string, unknown> = {
+    messaging_product: "whatsapp",
+    status: "read",
+    message_id: messageId,
+  };
+  if (options?.typing) {
+    body.typing_indicator = { type: "text" };
+  }
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    return { error: { message: data.error?.message ?? "Meta API error" } };
+  }
+  return { success: true };
 }
 
 export function isWithin24hWindow(lastInboundAt: string | null): boolean {

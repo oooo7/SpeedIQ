@@ -41,10 +41,21 @@ interface WhatsAppTemplate {
   footer: string | null;
   buttons: unknown[];
   variables: unknown[];
+  variable_field_mapping?: string[];
   meta_template_id: string | null;
   created_at: string;
   updated_at: string;
 }
+
+const CONTACT_FIELD_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "Use example value only" },
+  { value: "first_name", label: "First name" },
+  { value: "last_name", label: "Last name" },
+  { value: "name", label: "Full name" },
+  { value: "email", label: "Email" },
+  { value: "phone", label: "Phone" },
+  { value: "__custom__", label: "Custom field…" },
+];
 
 const CATEGORIES = [
   { value: "marketing", label: "Marketing" },
@@ -78,12 +89,12 @@ export default function WhatsAppTemplatesPage() {
   const [formHeader, setFormHeader] = useState("");
   const [formFooter, setFormFooter] = useState("");
   const [formVariableExamples, setFormVariableExamples] = useState<string[]>([]);
+  const [formVariableFieldMapping, setFormVariableFieldMapping] = useState<string[]>([]);
 
-  const fetchTemplates = useCallback(async () => {
+  const fetchTemplates = useCallback(async (silent = false) => {
     if (!activeProject?.id) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
-      // When "All statuses" is selected (no filter), include drafts so new templates are visible
       const params = new URLSearchParams();
       if (statusFilter) {
         params.set("status", statusFilter);
@@ -95,15 +106,26 @@ export default function WhatsAppTemplatesPage() {
       if (!res.ok) throw new Error(data.error ?? "Failed to load");
       setTemplates(data.templates ?? []);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not load templates");
+      if (!silent) toast.error(err instanceof Error ? err.message : "Could not load templates");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [activeProject?.id, statusFilter]);
 
   useEffect(() => {
     fetchTemplates();
   }, [fetchTemplates]);
+
+  // Poll so template status updates from webhook (message_template_status_update) appear without manual refresh
+  useEffect(() => {
+    if (!activeProject?.id) return;
+    const POLL_MS = 20000;
+    const interval = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      fetchTemplates(true);
+    }, POLL_MS);
+    return () => clearInterval(interval);
+  }, [activeProject?.id, fetchTemplates]);
 
   const openAdd = () => {
     setEditing(null);
@@ -114,6 +136,7 @@ export default function WhatsAppTemplatesPage() {
     setFormHeader("");
     setFormFooter("");
     setFormVariableExamples([]);
+    setFormVariableFieldMapping([]);
     setDialogOpen(true);
   };
 
@@ -130,6 +153,9 @@ export default function WhatsAppTemplatesPage() {
     setFormHeader(t.header ?? "");
     setFormFooter(t.footer ?? "");
     setFormVariableExamples(Array.isArray(t.variables) ? (t.variables as string[]).map(String) : []);
+    setFormVariableFieldMapping(
+      Array.isArray(t.variable_field_mapping) ? (t.variable_field_mapping as string[]).map(String) : []
+    );
     setDialogOpen(true);
   };
 
@@ -148,6 +174,9 @@ export default function WhatsAppTemplatesPage() {
       const method = editing ? "PATCH" : "POST";
       const bodyVarIndices = getBodyVariableIndices(formBody);
       const variables = bodyVarIndices.map((i) => formVariableExamples[i - 1] ?? "").map((s) => s.trim().slice(0, 100));
+      const variable_field_mapping = bodyVarIndices.map((_, idx) =>
+        (formVariableFieldMapping[idx] ?? "").trim()
+      );
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
@@ -160,6 +189,7 @@ export default function WhatsAppTemplatesPage() {
           footer: formFooter.trim() || null,
           buttons: [],
           variables,
+          variable_field_mapping,
         }),
       });
       const data = await res.json();
@@ -297,7 +327,7 @@ export default function WhatsAppTemplatesPage() {
                     ).
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    <strong>In this app:</strong> When Meta approves or rejects your template, we update the status automatically if your webhook is subscribed to <code className="rounded bg-muted px-1 text-xs">message_template_status_update</code>. You can also use <strong>Refresh status from Meta</strong> in the template menu (⋯) to fetch the latest status.
+                    <strong>In this app:</strong> Subscribe to <code className="rounded bg-muted px-1 text-xs">message_template_status_update</code> in your webhook (Meta → WhatsApp → Configuration). When Meta approves or rejects a template, we update the status in the database and the list refreshes automatically every 20 seconds—no need to click Refresh. You can also use <strong>Refresh status from Meta</strong> in the template menu (⋯) to fetch immediately.
                   </p>
                   <p className="text-sm text-muted-foreground mt-2">
                     <strong>In WhatsApp Manager:</strong> Go to{" "}
@@ -488,29 +518,78 @@ export default function WhatsAppTemplatesPage() {
               </p>
             </div>
             {getBodyVariableIndices(formBody).length > 0 && (
-              <div className="space-y-2">
-                <Label>Example values for variables (required for approval)</Label>
-                <p className="text-xs text-muted-foreground">
-                  Meta requires sample values for each variable when submitting. These are also used as defaults when sending.
-                </p>
-                <div className="flex flex-col gap-2">
-                  {getBodyVariableIndices(formBody).map((idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <span className="text-muted-foreground text-sm w-8">{"{{" + idx + "}}"}</span>
-                      <Input
-                        value={formVariableExamples[idx - 1] ?? ""}
-                        onChange={(e) => {
-                          const next = [...formVariableExamples];
-                          next[idx - 1] = e.target.value;
-                          setFormVariableExamples(next);
-                        }}
-                        placeholder={`Example for {{${idx}}}`}
-                        className="flex-1"
-                      />
-                    </div>
-                  ))}
+              <>
+                <div className="space-y-2">
+                  <Label>Example values for variables (required for approval)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Meta requires sample values for each variable when submitting. These are used as fallbacks when a contact has no value for the mapped field.
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {getBodyVariableIndices(formBody).map((idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <span className="text-muted-foreground text-sm w-8">{"{{" + idx + "}}"}</span>
+                        <Input
+                          value={formVariableExamples[idx - 1] ?? ""}
+                          onChange={(e) => {
+                            const next = [...formVariableExamples];
+                            next[idx - 1] = e.target.value;
+                            setFormVariableExamples(next);
+                          }}
+                          placeholder={`Example for {{${idx}}}`}
+                          className="flex-1"
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+                <div className="space-y-2">
+                  <Label>Map variables to contact fields (campaigns)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    When sending campaigns, each variable can use the contact’s data. If not mapped or empty, the example value above is used.
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {getBodyVariableIndices(formBody).map((idx) => {
+                      const mappingVal = formVariableFieldMapping[idx - 1] ?? "";
+                      const isCustom = mappingVal.startsWith("custom:");
+                      const customKey = isCustom ? mappingVal.slice(7) : "";
+                      const selectValue = isCustom ? "__custom__" : mappingVal;
+                      return (
+                        <div key={idx} className="flex flex-wrap items-center gap-2">
+                          <span className="text-muted-foreground text-sm w-8">{"{{" + idx + "}}"}</span>
+                          <select
+                            value={selectValue}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              const next = [...formVariableFieldMapping];
+                              next[idx - 1] = v === "__custom__" ? "custom:" : v;
+                              setFormVariableFieldMapping(next);
+                            }}
+                            className="flex h-9 rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-1 text-sm min-w-[160px]"
+                          >
+                            {CONTACT_FIELD_OPTIONS.map((opt) => (
+                              <option key={opt.value || "empty"} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                          {isCustom && (
+                            <Input
+                              value={customKey}
+                              onChange={(e) => {
+                                const next = [...formVariableFieldMapping];
+                                next[idx - 1] = "custom:" + e.target.value.trim();
+                                setFormVariableFieldMapping(next);
+                              }}
+                              placeholder="Field key"
+                              className="w-32"
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
             )}
             <div className="space-y-2">
               <Label htmlFor="form-footer">Footer (optional)</Label>

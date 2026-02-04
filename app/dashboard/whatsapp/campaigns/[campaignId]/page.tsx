@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +48,7 @@ interface CampaignDetail {
     name: string;
     description: string | null;
     template_id: string | null;
+    use_hello_world?: boolean;
     status: string;
     scheduled_at: string | null;
     started_at: string | null;
@@ -87,6 +88,7 @@ export default function CampaignDetailPage() {
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editTemplateId, setEditTemplateId] = useState("");
+  const [editUseHelloWorld, setEditUseHelloWorld] = useState(false);
   const [editScheduleOption, setEditScheduleOption] = useState<"send_now" | "schedule" | "draft">("draft");
   const [editScheduledAt, setEditScheduledAt] = useState("");
   const [templates, setTemplates] = useState<Array<{ id: string; name: string; status: string }>>([]);
@@ -108,6 +110,7 @@ export default function CampaignDetailPage() {
       setEditName(json.campaign?.name ?? "");
       setEditDescription(json.campaign?.description ?? "");
       setEditTemplateId(json.campaign?.template_id ?? "");
+      setEditUseHelloWorld(!!json.campaign?.use_hello_world);
       setEditScheduleOption(
         json.campaign?.status === "scheduled" ? "schedule" : json.campaign?.status === "sending" ? "send_now" : "draft"
       );
@@ -136,6 +139,7 @@ export default function CampaignDetailPage() {
       setEditName(data.campaign.name);
       setEditDescription(data.campaign.description ?? "");
       setEditTemplateId(data.campaign.template_id ?? "");
+      setEditUseHelloWorld(!!data.campaign.use_hello_world);
       setEditScheduleOption(
         data.campaign.status === "scheduled" ? "schedule" : data.campaign.status === "sending" ? "send_now" : "draft"
       );
@@ -165,7 +169,8 @@ export default function CampaignDetailPage() {
         body: JSON.stringify({
           name: editName.trim(),
           description: editDescription.trim() || null,
-          template_id: editTemplateId || null,
+          template_id: editUseHelloWorld ? null : (editTemplateId || null),
+          use_hello_world: editUseHelloWorld,
           status,
           scheduled_at,
         }),
@@ -184,11 +189,12 @@ export default function CampaignDetailPage() {
 
   const handleSendNow = async () => {
     if (!activeProject?.id || !campaignId) return;
-    if (!data?.campaign?.template_id) {
-      toast.error("Add a template (Edit campaign) before you can send.");
+    const hasTemplate = data?.campaign?.use_hello_world || data?.campaign?.template_id;
+    if (!hasTemplate) {
+      toast.error("Add a template or enable the default hello_world template (Edit campaign) before you can send.");
       return;
     }
-    if (data?.template?.status && data.template.status !== "approved") {
+    if (!data?.campaign?.use_hello_world && data?.template?.status && data.template.status !== "approved") {
       toast.error("Only approved templates can be used for sending. Get your template approved first.");
       return;
     }
@@ -266,8 +272,9 @@ export default function CampaignDetailPage() {
 
   const handleScheduleLater = async () => {
     if (!activeProject?.id || !campaignId) return;
-    if (!data?.campaign?.template_id) {
-      toast.error("Add a template (Edit campaign) before you can schedule.");
+    const hasTemplate = data?.campaign?.use_hello_world || data?.campaign?.template_id;
+    if (!hasTemplate) {
+      toast.error("Add a template or enable the default hello_world template (Edit campaign) before you can schedule.");
       return;
     }
     if (!scheduleAt) {
@@ -315,10 +322,11 @@ export default function CampaignDetailPage() {
   const { campaign, template, recipients, stats } = data;
   const canEdit = campaign.status === "draft" || campaign.status === "scheduled" || campaign.status === "failed";
   const canSendOrSchedule = campaign.status === "draft" || campaign.status === "scheduled";
+  const hasTemplate = campaign.use_hello_world || campaign.template_id;
   const hasAlerts =
-    (canSendOrSchedule && !campaign.template_id) ||
-    (canSendOrSchedule && campaign.template_id && stats.total === 0) ||
-    template?.status !== "approved" ||
+    (canSendOrSchedule && !hasTemplate) ||
+    (canSendOrSchedule && hasTemplate && stats.total === 0) ||
+    (!campaign.use_hello_world && template?.status !== "approved") ||
     stats.failed > 0 ||
     debugResult;
 
@@ -347,7 +355,7 @@ export default function CampaignDetailPage() {
             <div className="flex items-center gap-2 flex-wrap shrink-0">
               <Button
                 onClick={handleSendNow}
-                disabled={debugLoading || stats.total === 0 || !campaign.template_id || template?.status !== "approved"}
+                disabled={debugLoading || stats.total === 0 || !hasTemplate || (!campaign.use_hello_world && template?.status !== "approved")}
                 className="gap-1"
               >
                 {debugLoading ? (
@@ -361,7 +369,7 @@ export default function CampaignDetailPage() {
                 <Button
                   variant="outline"
                   onClick={() => setScheduleDialogOpen(true)}
-                  disabled={triggering}
+                  disabled={triggering || !hasTemplate}
                   className="gap-1"
                 >
                   <Calendar className="h-4 w-4" />
@@ -375,7 +383,7 @@ export default function CampaignDetailPage() {
                     setScheduleAt(campaign.scheduled_at ? new Date(campaign.scheduled_at).toISOString().slice(0, 16) : "");
                     setScheduleDialogOpen(true);
                   }}
-                  disabled={triggering}
+                  disabled={triggering || !hasTemplate}
                   className="gap-1"
                 >
                   <Calendar className="h-4 w-4" />
@@ -393,17 +401,17 @@ export default function CampaignDetailPage() {
       {/* Alerts: template approval, missing template/recipients, send results */}
       {hasAlerts && (
         <section className="space-y-3">
-          {canSendOrSchedule && !campaign.template_id && (
+          {canSendOrSchedule && !hasTemplate && (
             <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
-              Add a template (Edit campaign) before you can send or schedule this campaign.
+              Add a template or enable the default hello_world template (Edit campaign) before you can send or schedule.
             </div>
           )}
-          {canSendOrSchedule && campaign.template_id && stats.total === 0 && (
+          {canSendOrSchedule && hasTemplate && stats.total === 0 && (
             <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
               Add at least one recipient (via Edit) before you can send or schedule this campaign.
             </div>
           )}
-          {canSendOrSchedule && campaign.template_id && template?.status !== "approved" && (
+          {canSendOrSchedule && campaign.template_id && !campaign.use_hello_world && template?.status !== "approved" && (
             <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
               Approve the template first to send. Use the Templates page to submit your draft for approval.
             </div>
@@ -499,7 +507,9 @@ export default function CampaignDetailPage() {
 
                
               </div>
-              <p className="font-medium text-sm">{template ? `${template.name}` : "—"}</p>
+              <p className="font-medium text-sm">
+                {template ? (campaign.use_hello_world ? `${template.name} (default)` : template.name) : "—"}
+              </p>
 
               {template?.body && (
                 <div>
@@ -529,6 +539,7 @@ export default function CampaignDetailPage() {
           <Card className="border border-gray-200 dark:border-gray-800">
             <CardHeader>
               <CardTitle className="text-base">Recipients ({recipients.length})</CardTitle>
+             
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -572,7 +583,7 @@ export default function CampaignDetailPage() {
                             {r.error_code ?? "—"}
                           </td>
                           <td className="p-3">
-                            {r.status === "pending" && canSendOrSchedule && campaign.template_id ? (
+                            {r.status === "pending" && canSendOrSchedule && hasTemplate ? (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -684,12 +695,26 @@ export default function CampaignDetailPage() {
               />
             </div>
             <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editUseHelloWorld}
+                  onChange={(e) => setEditUseHelloWorld(e.target.checked)}
+                />
+                <span className="text-sm font-medium">Use default hello_world template</span>
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Send Meta&apos;s built-in &quot;Hello World&quot; message to all recipients for testing.
+              </p>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="edit-template">Template</Label>
               <select
                 id="edit-template"
                 value={editTemplateId}
                 onChange={(e) => setEditTemplateId(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-1 text-sm"
+                disabled={editUseHelloWorld}
+                className="flex h-9 w-full rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="">No template</option>
                 {templates.filter((t) => t.status === "approved").map((t) => (

@@ -28,7 +28,7 @@ export async function GET(
 
   const { data: campaign, error } = await supabase
     .from("whatsapp_campaigns")
-    .select("id, project_id, name, description, template_id, status, scheduled_at, started_at, completed_at, created_at, updated_at")
+    .select("id, project_id, name, description, template_id, use_hello_world, status, scheduled_at, started_at, completed_at, created_at, updated_at")
     .eq("project_id", projectId)
     .eq("id", campaignId)
     .single();
@@ -61,7 +61,16 @@ export async function GET(
   }
 
   let templateDetails: { id: string; name: string; body: string | null; status: string; language: string; category: string } | null = null;
-  if (campaign.template_id) {
+  if (campaign.use_hello_world) {
+    templateDetails = {
+      id: "",
+      name: "hello_world",
+      body: "Hello World",
+      status: "approved",
+      language: "en_US",
+      category: "utility",
+    };
+  } else if (campaign.template_id) {
     const { data: template } = await supabase
       .from("whatsapp_templates")
       .select("id, name, body, status, language, category")
@@ -121,29 +130,33 @@ export async function PATCH(
   if (newStatus === "sending" || newStatus === "scheduled") {
     const { data: existing } = await supabase
       .from("whatsapp_campaigns")
-      .select("template_id")
+      .select("template_id, use_hello_world")
       .eq("project_id", projectId)
       .eq("id", campaignId)
       .single();
+    const effectiveUseHelloWorld =
+      body.use_hello_world !== undefined ? !!body.use_hello_world : !!existing?.use_hello_world;
     const effectiveTemplateId =
       body.template_id !== undefined ? (body.template_id?.trim() || null) : existing?.template_id ?? null;
-    if (!effectiveTemplateId) {
+    if (!effectiveUseHelloWorld && !effectiveTemplateId) {
       return NextResponse.json(
-        { error: "Add a template to the campaign before sending or scheduling." },
+        { error: "Add a template or enable the default hello_world template before sending or scheduling." },
         { status: 400 }
       );
     }
-    const { data: templateRow } = await supabase
-      .from("whatsapp_templates")
-      .select("status")
-      .eq("project_id", projectId)
-      .eq("id", effectiveTemplateId)
-      .single();
-    if (templateRow?.status !== "approved") {
-      return NextResponse.json(
-        { error: "Only approved templates can be used for sending or scheduling. Get your template approved first." },
-        { status: 400 }
-      );
+    if (!effectiveUseHelloWorld && effectiveTemplateId) {
+      const { data: templateRow } = await supabase
+        .from("whatsapp_templates")
+        .select("status")
+        .eq("project_id", projectId)
+        .eq("id", effectiveTemplateId)
+        .single();
+      if (templateRow?.status !== "approved") {
+        return NextResponse.json(
+          { error: "Only approved templates can be used for sending or scheduling. Get your template approved first." },
+          { status: 400 }
+        );
+      }
     }
   }
 
@@ -153,13 +166,14 @@ export async function PATCH(
   if (body.status !== undefined) updates.status = body.status?.trim();
   if (body.scheduled_at !== undefined) updates.scheduled_at = body.scheduled_at?.trim() ?? null;
   if (body.template_id !== undefined) updates.template_id = body.template_id?.trim() ?? null;
+  if (body.use_hello_world !== undefined) updates.use_hello_world = !!body.use_hello_world;
 
   const { data: campaign, error } = await supabase
     .from("whatsapp_campaigns")
     .update(updates)
     .eq("project_id", projectId)
     .eq("id", campaignId)
-    .select("id, project_id, name, description, template_id, status, scheduled_at, started_at, completed_at, created_at, updated_at")
+    .select("id, project_id, name, description, template_id, use_hello_world, status, scheduled_at, started_at, completed_at, created_at, updated_at")
     .single();
 
   if (error) {

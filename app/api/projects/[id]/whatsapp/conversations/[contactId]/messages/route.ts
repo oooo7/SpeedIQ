@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
-import { getWhatsAppAccountToken, isWithin24hWindow, sendTemplateMessage, sendTextMessage } from "@/lib/whatsapp/api";
+import { getWhatsAppAccountToken, isWithin24hWindow, markMessageAsRead, sendTemplateMessage, sendTextMessage } from "@/lib/whatsapp/api";
 
 export async function GET(
   request: Request,
@@ -32,7 +32,7 @@ export async function GET(
 
   const { data: contact } = await supabase
     .from("whatsapp_contacts")
-    .select("id, phone, name, last_inbound_at")
+    .select("id, phone, name, last_inbound_at, profile_picture_url")
     .eq("project_id", projectId)
     .eq("id", contactId)
     .single();
@@ -55,6 +55,11 @@ export async function GET(
 
   const within24h = isWithin24hWindow(contact.last_inbound_at);
 
+  const list = messages ?? [];
+  const lastInbound = [...list].reverse().find((m: { direction: string }) => m.direction === "in");
+  const last_inbound_meta_message_id =
+    lastInbound && "meta_message_id" in lastInbound ? (lastInbound as { meta_message_id: string | null }).meta_message_id : null;
+
   await supabase
     .from("whatsapp_conversations")
     .update({ unread_count: 0, updated_at: new Date().toISOString() })
@@ -68,8 +73,10 @@ export async function GET(
       name: contact.name,
       last_inbound_at: contact.last_inbound_at,
       within_24h_window: within24h,
+      profile_picture_url: contact.profile_picture_url ?? undefined,
     },
-    messages: messages ?? [],
+    messages: list,
+    last_inbound_meta_message_id: last_inbound_meta_message_id ?? undefined,
   });
 }
 

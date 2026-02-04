@@ -447,6 +447,9 @@ export default function WhatsAppAccountPage() {
             onChange={(e) => setAccessToken(e.target.value)}
             placeholder={account?.connected ? "Leave blank to keep current" : "Permanent or temporary token"}
           />
+          <p className="text-xs text-muted-foreground">
+            Tokens expire (temporary ~1 hour; long-lived up to 60 days). If you see &quot;Session has expired&quot;, get a new token from Meta → your app → WhatsApp → API Setup and paste it here.
+          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="phone_number">Phone number (optional)</Label>
