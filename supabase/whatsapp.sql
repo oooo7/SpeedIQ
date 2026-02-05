@@ -12,12 +12,17 @@ create table if not exists public.whatsapp_accounts (
   display_name text,
   quality_rating text,
   tier text,
+  -- Embedded Signup OAuth fields
+  connection_type text default 'manual' check (connection_type in ('manual', 'embedded_signup')),
+  token_expires_at timestamptz,
+  business_id text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (project_id)
 );
 
 create index if not exists idx_whatsapp_accounts_project_id on public.whatsapp_accounts (project_id);
+create index if not exists idx_whatsapp_accounts_token_expires on public.whatsapp_accounts (token_expires_at) where token_expires_at is not null;
 
 alter table public.whatsapp_accounts enable row level security;
 

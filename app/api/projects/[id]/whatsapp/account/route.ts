@@ -29,7 +29,7 @@ export async function GET(
 
   const { data: account, error } = await supabase
     .from("whatsapp_accounts")
-    .select("id, project_id, phone_number_id, waba_id, phone_number, display_name, quality_rating, tier, created_at, updated_at")
+    .select("id, project_id, phone_number_id, waba_id, phone_number, display_name, quality_rating, tier, connection_type, token_expires_at, created_at, updated_at")
     .eq("project_id", projectId)
     .maybeSingle();
 
@@ -105,6 +105,7 @@ export async function POST(
     display_name: display_name ?? undefined,
     quality_rating: quality_rating ?? undefined,
     tier: tier ?? undefined,
+    connection_type: "manual",
     updated_at: new Date().toISOString(),
   };
   if (access_token) {
@@ -124,7 +125,7 @@ export async function POST(
       payload as Record<string, string>,
       { onConflict: "project_id", ignoreDuplicates: false }
     )
-    .select("id, project_id, phone_number_id, waba_id, phone_number, display_name, quality_rating, tier, created_at, updated_at")
+    .select("id, project_id, phone_number_id, waba_id, phone_number, display_name, quality_rating, tier, connection_type, token_expires_at, created_at, updated_at")
     .single();
 
   if (error) {
