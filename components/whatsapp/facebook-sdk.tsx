@@ -103,7 +103,6 @@ export function useFacebookSDK({
         appId,
         cookie: true,
         xfbml: true,
-        autoLogAppEvents: true,
         version: "v22.0",
       });
 

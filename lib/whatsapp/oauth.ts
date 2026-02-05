@@ -66,14 +66,30 @@ interface WABAError {
 }
 
 /**
+ * Get app access token (required for debug_token and other server-side Graph calls).
+ * Format: app_id|app_secret
+ */
+function getAppAccessToken(): string | null {
+  const appId = process.env.FACEBOOK_APP_ID;
+  const appSecret = process.env.FACEBOOK_APP_SECRET;
+  if (!appId || !appSecret) return null;
+  return `${appId}|${appSecret}`;
+}
+
+/**
  * Fetch the WhatsApp Business Account connected via Embedded Signup.
  * Tries multiple methods to find the WABA ID from the token's scopes.
  */
 export async function fetchConnectedWABA(
   accessToken: string
 ): Promise<WABAResponse | WABAError> {
-  // First, debug the token to get granular scopes with target IDs
-  const debugUrl = `${META_GRAPH_BASE}/${API_VERSION}/debug_token?input_token=${encodeURIComponent(accessToken)}&access_token=${encodeURIComponent(accessToken)}`;
+  const appAccessToken = getAppAccessToken();
+  if (!appAccessToken) {
+    return { error: "Facebook App credentials not configured" };
+  }
+
+  // debug_token requires an app access token (or app owner token), not the user token
+  const debugUrl = `${META_GRAPH_BASE}/${API_VERSION}/debug_token?input_token=${encodeURIComponent(accessToken)}&access_token=${encodeURIComponent(appAccessToken)}`;
 
   const debugResponse = await fetch(debugUrl);
   const debugData = await debugResponse.json();
@@ -214,7 +230,11 @@ export async function subscribeAppToWebhooks(
 export async function validateAccessToken(
   accessToken: string
 ): Promise<{ valid: boolean; expires_at?: number; error?: string }> {
-  const url = `${META_GRAPH_BASE}/${API_VERSION}/debug_token?input_token=${encodeURIComponent(accessToken)}&access_token=${encodeURIComponent(accessToken)}`;
+  const appAccessToken = getAppAccessToken();
+  if (!appAccessToken) {
+    return { valid: false, error: "Facebook App credentials not configured" };
+  }
+  const url = `${META_GRAPH_BASE}/${API_VERSION}/debug_token?input_token=${encodeURIComponent(accessToken)}&access_token=${encodeURIComponent(appAccessToken)}`;
 
   const response = await fetch(url);
   const data = await response.json();
