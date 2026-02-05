@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
@@ -11,7 +11,7 @@ import { WhatsAppConnectButton } from "@/components/whatsapp/whatsapp-connect-bu
 
 const DEFAULT_RETURN_TO = "/dashboard/settings/whatsapp-account";
 
-export default function WhatsAppConnectPage() {
+function ConnectPageContent() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get("projectId") ?? "";
   const returnTo = searchParams.get("returnTo") ?? DEFAULT_RETURN_TO;
@@ -160,5 +160,20 @@ export default function WhatsAppConnectPage() {
         <Link href={returnTo}>Cancel and go back</Link>
       </Button>
     </div>
+  );
+}
+
+export default function WhatsAppConnectPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-col items-center justify-center gap-4 p-8">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        </div>
+      }
+    >
+      <ConnectPageContent />
+    </Suspense>
   );
 }
