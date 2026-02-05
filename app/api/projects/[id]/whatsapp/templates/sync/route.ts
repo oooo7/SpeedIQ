@@ -56,9 +56,11 @@ export async function POST(
     .select("id, meta_template_id, name, language")
     .eq("project_id", projectId);
 
-  const byMetaId = new Map<string | null, (typeof existingRows)[0]>();
-  const byNameLang = new Map<string, (typeof existingRows)[0]>();
-  for (const row of existingRows ?? []) {
+  type ExistingRow = { id: string; meta_template_id: string | null; name: string | null; language: string | null };
+  const rows: ExistingRow[] = existingRows ?? [];
+  const byMetaId = new Map<string, ExistingRow>();
+  const byNameLang = new Map<string, ExistingRow>();
+  for (const row of rows) {
     if (row.meta_template_id) byMetaId.set(row.meta_template_id, row);
     byNameLang.set(`${(row.name ?? "").toLowerCase()}|${(row.language ?? "").toLowerCase()}`, row);
   }

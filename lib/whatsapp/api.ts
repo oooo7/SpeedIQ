@@ -112,8 +112,8 @@ export async function fetchMessageTemplatesFromMeta(
   let nextUrl: string | null = `${META_GRAPH_BASE}/${META_API_VERSION}/${wabaId}/message_templates?fields=id,name,language,status,category,components&access_token=${encodeURIComponent(accessToken)}`;
 
   while (nextUrl) {
-    const res = await fetch(nextUrl);
-    const data = await res.json();
+    const res: Response = await fetch(nextUrl);
+    const data = (await res.json()) as { data?: MetaMessageTemplate[]; paging?: { next?: string }; error?: { message?: string } };
     if (!res.ok) {
       const msg = data.error?.message ?? "Meta API error";
       const hint =
@@ -163,7 +163,7 @@ export function metaTemplateToRow(meta: MetaMessageTemplate): {
   const header = headerComp?.text?.trim() ?? null;
   const footer = footerComp?.text?.trim() ?? null;
 
-  const indices = getBodyVariableIndicesFromText(body);
+  const indices = getBodyVariableIndicesFromText(body ?? undefined);
   const exampleRow = bodyComp?.example?.body_text?.[0];
   const variables = indices.map((i) => (exampleRow?.[i - 1] ?? "").trim().slice(0, 100));
 
