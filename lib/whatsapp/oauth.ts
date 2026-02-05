@@ -19,9 +19,11 @@ interface TokenError {
 
 /**
  * Exchange authorization code for access token.
+ * redirect_uri must match the page that spawned the Embedded Signup flow (required by Meta).
  */
 export async function exchangeCodeForToken(
-  code: string
+  code: string,
+  redirectUri?: string
 ): Promise<TokenResponse | TokenError> {
   const appId = process.env.FACEBOOK_APP_ID;
   const appSecret = process.env.FACEBOOK_APP_SECRET;
@@ -34,6 +36,9 @@ export async function exchangeCodeForToken(
   url.searchParams.set("client_id", appId);
   url.searchParams.set("client_secret", appSecret);
   url.searchParams.set("code", code);
+  if (redirectUri) {
+    url.searchParams.set("redirect_uri", redirectUri);
+  }
 
   const response = await fetch(url.toString());
   const data = await response.json();

@@ -40,12 +40,14 @@ export function WhatsAppConnectButton({
     setCurrentStep("Exchanging authorization...");
 
     try {
+      // redirect_uri must match the page that spawned the flow (required by Meta for token exchange)
+      const redirectUri = typeof window !== "undefined" ? window.location.origin + window.location.pathname : "";
       const response = await fetch(
         `/api/projects/${projectId}/whatsapp/oauth/callback`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code }),
+          body: JSON.stringify({ code, redirect_uri: redirectUri }),
         }
       );
 

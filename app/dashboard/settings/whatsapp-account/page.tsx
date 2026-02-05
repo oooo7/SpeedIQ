@@ -456,7 +456,7 @@ export default function WhatsAppAccountPage() {
               Use Meta&apos;s secure login to connect your WhatsApp Business account in seconds. This is the recommended way to connect.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <WhatsAppConnectButton
               projectId={activeProject.id}
               appId={oauthConfig.appId}
@@ -464,6 +464,9 @@ export default function WhatsAppAccountPage() {
               solutionId={oauthConfig.solutionId}
               onSuccess={refreshAccountData}
             />
+            <p className="text-xs text-muted-foreground">
+              If connection fails, add this site&apos;s URL to your Meta app: App Dashboard → Facebook Login for Business → Settings → <strong>Allowed domains</strong> and <strong>Valid OAuth redirect URIs</strong>. Use HTTPS (e.g. https://yourdomain.com or ngrok for local).
+            </p>
           </CardContent>
         </Card>
       ) : null}

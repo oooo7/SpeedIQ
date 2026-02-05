@@ -83,9 +83,9 @@ export function useFacebookSDK({
       return;
     }
 
-    // Session info listener for Embedded Signup events
+    // Session info listener for Embedded Signup events (can come from www.facebook.com or business.facebook.com)
     const sessionInfoListener = (event: MessageEvent) => {
-      if (event.origin !== "https://www.facebook.com") return;
+      if (typeof event.origin !== "string" || !event.origin.endsWith("facebook.com")) return;
       try {
         const data = JSON.parse(event.data);
         if (data.type === "WA_EMBEDDED_SIGNUP" && callbacksRef.current.onEmbeddedSignupEvent) {
@@ -97,12 +97,13 @@ export function useFacebookSDK({
     };
     window.addEventListener("message", sessionInfoListener);
 
-    // Initialize Facebook SDK
+    // Initialize Facebook SDK (match Meta Embedded Signup implementation doc)
     window.fbAsyncInit = function () {
       window.FB.init({
         appId,
         cookie: true,
         xfbml: true,
+        autoLogAppEvents: true,
         version: "v22.0",
       });
 
@@ -157,6 +158,7 @@ export function useFacebookSDK({
       return;
     }
 
+    // Match Meta doc: config_id, response_type: "code", override_default_response_type: true, extras: { setup: {} }
     window.FB.login(
       (response) => {
         if (response.authResponse?.code) {
@@ -177,9 +179,7 @@ export function useFacebookSDK({
         response_type: "code",
         override_default_response_type: true,
         extras: {
-          setup: solutionId ? { solutionID: solutionId } : undefined,
-          featureType: "",
-          sessionInfoVersion: 2,
+          setup: solutionId ? { solutionID: solutionId } : {},
         },
       }
     );

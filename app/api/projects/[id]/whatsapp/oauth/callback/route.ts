@@ -43,6 +43,7 @@ export async function POST(
 
   const body = await request.json().catch(() => ({}));
   const code = body?.code?.trim();
+  const redirectUri = typeof body?.redirect_uri === "string" ? body.redirect_uri.trim() : undefined;
 
   if (!code) {
     return NextResponse.json(
@@ -52,8 +53,8 @@ export async function POST(
   }
 
   try {
-    // Step 1: Exchange code for access token
-    const tokenResult = await exchangeCodeForToken(code);
+    // Step 1: Exchange code for access token (redirect_uri must match the page that spawned the flow)
+    const tokenResult = await exchangeCodeForToken(code, redirectUri);
     if ("error" in tokenResult) {
       return NextResponse.json({ error: tokenResult.error }, { status: 400 });
     }
