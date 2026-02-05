@@ -81,6 +81,7 @@ export default function WhatsAppTemplatesPage() {
   const [editing, setEditing] = useState<WhatsAppTemplate | null>(null);
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [refreshingStatus, setRefreshingStatus] = useState<string | null>(null);
+  const [syncingFromMeta, setSyncingFromMeta] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formName, setFormName] = useState("");
   const [formCategory, setFormCategory] = useState<"marketing" | "utility" | "authentication">("marketing");
@@ -242,6 +243,24 @@ export default function WhatsAppTemplatesPage() {
     }
   };
 
+  const handleFetchFromMeta = async () => {
+    if (!activeProject?.id) return;
+    setSyncingFromMeta(true);
+    try {
+      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/templates/sync`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Sync failed");
+      toast.success(data.message ?? `Fetched ${data.fetched ?? 0} templates from Meta.`);
+      fetchTemplates();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not fetch from Meta");
+    } finally {
+      setSyncingFromMeta(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!activeProject?.id || !window.confirm("Delete this template?")) return;
     try {
@@ -341,10 +360,25 @@ export default function WhatsAppTemplatesPage() {
             </PopoverContent>
           </Popover>
         </div>
-        <Button onClick={openAdd} className="gap-1">
-          <Plus className="h-4 w-4" />
-          New template
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={handleFetchFromMeta}
+            disabled={syncingFromMeta}
+            className="gap-1"
+          >
+            {syncingFromMeta ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            Fetch from Meta
+          </Button>
+          <Button onClick={openAdd} className="gap-1">
+            <Plus className="h-4 w-4" />
+            New template
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -367,12 +401,27 @@ export default function WhatsAppTemplatesPage() {
         <EmptyState
           icon={<LayoutTemplate className="h-6 w-6" />}
           title="No templates yet"
-          description="Create a template to use in campaigns or for 24-hour window messaging. Templates must be approved before use."
+          description="Create a template here or fetch templates already created in WhatsApp Manager / Meta."
           actions={
-            <Button onClick={openAdd} className="gap-1">
-              <Plus className="h-4 w-4" />
-              New template
-            </Button>
+            <div className="flex flex-wrap gap-2 justify-center">
+              <Button
+                variant="outline"
+                onClick={handleFetchFromMeta}
+                disabled={syncingFromMeta}
+                className="gap-1"
+              >
+                {syncingFromMeta ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                Fetch from Meta
+              </Button>
+              <Button onClick={openAdd} className="gap-1">
+                <Plus className="h-4 w-4" />
+                New template
+              </Button>
+            </div>
           }
         />
       ) : (

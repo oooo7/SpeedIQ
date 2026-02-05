@@ -82,6 +82,120 @@ export async function submitTemplateToMeta(
   return { id: data.id ?? data.name ?? "" };
 }
 
+const META_API_VERSION = "v21.0";
+
+/** Meta template node from GET /message_templates */
+export interface MetaMessageTemplate {
+  id: string;
+  name: string;
+  language: string;
+  status: string;
+  category: string;
+  components?: Array<{
+    type: string;
+    text?: string;
+    format?: string;
+    buttons?: Array<{ type: string; text?: string; url?: string; phone_number?: string }>;
+    example?: { body_text?: string[][]; header_text?: string[] };
+  }>;
+}
+
+/**
+ * Fetch all message templates from Meta for a WABA.
+ * Handles paging and returns templates with id, name, language, status, category, components.
+ */
+export async function fetchMessageTemplatesFromMeta(
+  accessToken: string,
+  wabaId: string
+): Promise<{ templates: MetaMessageTemplate[] } | { error: { message: string } }> {
+  const all: MetaMessageTemplate[] = [];
+  let nextUrl: string | null = `${META_GRAPH_BASE}/${META_API_VERSION}/${wabaId}/message_templates?fields=id,name,language,status,category,components&access_token=${encodeURIComponent(accessToken)}`;
+
+  while (nextUrl) {
+    const res = await fetch(nextUrl);
+    const data = await res.json();
+    if (!res.ok) {
+      const msg = data.error?.message ?? "Meta API error";
+      const hint =
+        msg.includes("does not exist") || msg.includes("missing permissions") || msg.includes("cannot be loaded")
+          ? " Verify WABA ID in Settings → WhatsApp account and whatsapp_business_management permission."
+          : "";
+      return { error: { message: msg + hint } };
+    }
+    const list = (data.data as MetaMessageTemplate[]) ?? [];
+    all.push(...list);
+    nextUrl = data.paging?.next ?? null;
+  }
+
+  return { templates: all };
+}
+
+/** Parse variable indices from body text e.g. {{1}} {{2}} -> [1,2]. Meta uses {{1}} in API. */
+function getBodyVariableIndicesFromText(text: string | undefined): number[] {
+  if (!text?.trim()) return [];
+  const matches = text.match(/\{\{(\d+)\}\}/g);
+  if (!matches) return [];
+  return [...new Set(matches.map((m) => parseInt(m.replace(/\{\{|\}\}/g, ""), 10)))].sort((a, b) => a - b);
+}
+
+/**
+ * Map a Meta message template to our whatsapp_templates row shape (for upsert).
+ */
+export function metaTemplateToRow(meta: MetaMessageTemplate): {
+  name: string;
+  category: string;
+  language: string;
+  status: string;
+  body: string | null;
+  header: string | null;
+  footer: string | null;
+  buttons: unknown[];
+  variables: string[];
+  meta_template_id: string;
+} {
+  const components = meta.components ?? [];
+  const bodyComp = components.find((c) => c.type === "BODY");
+  const headerComp = components.find((c) => c.type === "HEADER" && (c.format === "TEXT" || !c.format));
+  const footerComp = components.find((c) => c.type === "FOOTER");
+  const buttonsComp = components.find((c) => c.type === "BUTTONS");
+
+  const body = bodyComp?.text?.trim() ?? null;
+  const header = headerComp?.text?.trim() ?? null;
+  const footer = footerComp?.text?.trim() ?? null;
+
+  const indices = getBodyVariableIndicesFromText(body);
+  const exampleRow = bodyComp?.example?.body_text?.[0];
+  const variables = indices.map((i) => (exampleRow?.[i - 1] ?? "").trim().slice(0, 100));
+
+  const buttons: unknown[] = [];
+  if (Array.isArray(buttonsComp?.buttons)) {
+    for (const b of buttonsComp.buttons) {
+      buttons.push({
+        type: b.type ?? "QUICK_REPLY",
+        text: b.text ?? "",
+        url: b.url,
+        phone_number: b.phone_number,
+      });
+    }
+  }
+
+  const category = (meta.category ?? "UTILITY").toLowerCase();
+  const status = (meta.status ?? "PENDING").toLowerCase();
+
+  return {
+    name: meta.name ?? "",
+    category: category === "marketing" || category === "authentication" ? category : "utility",
+    language: meta.language ?? "en",
+    status: status === "approved" ? "approved" : status === "rejected" ? "rejected" : "pending",
+    body,
+    header,
+    footer,
+    buttons,
+    variables,
+    meta_template_id: String(meta.id ?? ""),
+  };
+}
+
 /** Fetch template status from Meta via WABA message_templates list (avoids direct template ID access). */
 export async function getTemplateStatusViaWaba(
   accessToken: string,
@@ -91,7 +205,7 @@ export async function getTemplateStatusViaWaba(
 ): Promise<{ status: string } | { error: { message: string } }> {
   const metaName = templateName.trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "") || templateName;
   const langCode = toMetaLanguageCode(language);
-  const url = `${META_GRAPH_BASE}/v21.0/${wabaId}/message_templates?name=${encodeURIComponent(metaName)}&language=${encodeURIComponent(langCode)}&fields=id,name,language,status&access_token=${encodeURIComponent(accessToken)}`;
+  const url = `${META_GRAPH_BASE}/${META_API_VERSION}/${wabaId}/message_templates?name=${encodeURIComponent(metaName)}&language=${encodeURIComponent(langCode)}&fields=id,name,language,status&access_token=${encodeURIComponent(accessToken)}`;
   const res = await fetch(url);
   const data = await res.json();
   if (!res.ok) {
