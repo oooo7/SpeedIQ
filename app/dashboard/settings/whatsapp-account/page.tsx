@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { ChevronDown, Loader2, MessageSquare, Send } from "lucide-react";
 import { toast } from "sonner";
 
@@ -11,7 +12,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadingState } from "@/components/ui/loading-state";
-import { WhatsAppConnectButton } from "@/components/whatsapp/whatsapp-connect-button";
+import { WhatsAppIcon } from "@/components/whatsapp/whatsapp-connect-button";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 interface WhatsAppOAuthConfig {
@@ -103,6 +104,18 @@ export default function WhatsAppAccountPage() {
   const [approvedTemplates, setApprovedTemplates] = useState<TemplateOption[]>([]);
   const [oauthConfig, setOauthConfig] = useState<WhatsAppOAuthConfig | null>(null);
   const [showManualForm, setShowManualForm] = useState(false);
+  const [showDomainHelp, setShowDomainHelp] = useState(false);
+  const [currentOrigin, setCurrentOrigin] = useState<string>("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setCurrentOrigin(window.location.origin);
+    }
+  }, []);
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(() => toast.success(`${label} copied`));
+  };
 
   // Fetch OAuth config for Embedded Signup
   useEffect(() => {
@@ -453,20 +466,72 @@ export default function WhatsAppAccountPage() {
           <CardHeader>
             <CardTitle>Connect with WhatsApp</CardTitle>
             <CardDescription>
-              Use Meta&apos;s secure login to connect your WhatsApp Business account in seconds. This is the recommended way to connect.
+              Use Meta&apos;s secure login to connect your WhatsApp Business account in seconds. You&apos;ll be taken to a dedicated connect page (no auth required to load), then returned here.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <WhatsAppConnectButton
-              projectId={activeProject.id}
-              appId={oauthConfig.appId}
-              configId={oauthConfig.configId}
-              solutionId={oauthConfig.solutionId}
-              onSuccess={refreshAccountData}
-            />
+            <Button
+              asChild
+              className="gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white"
+            >
+              <Link
+                href={`/auth/whatsapp/connect?projectId=${activeProject.id}&returnTo=${encodeURIComponent("/dashboard/settings/whatsapp-account")}`}
+              >
+                <WhatsAppIcon className="h-4 w-4" />
+                Connect with WhatsApp
+              </Link>
+            </Button>
             <p className="text-xs text-muted-foreground">
-              If connection fails, add this site&apos;s URL to your Meta app: App Dashboard → Facebook Login for Business → Settings → <strong>Allowed domains</strong> and <strong>Valid OAuth redirect URIs</strong>. Use HTTPS (e.g. https://yourdomain.com or ngrok for local).
+              In Meta, add this single URL in <strong>Valid OAuth redirect URIs</strong>:{" "}
+              <code className="break-all">{currentOrigin ? `${currentOrigin}/auth/whatsapp/connect` : "https://your-domain.com/auth/whatsapp/connect"}</code>
+              {currentOrigin && (
+                <Button variant="link" className="h-auto p-0 ml-1 text-xs" onClick={() => copyToClipboard(`${currentOrigin}/auth/whatsapp/connect`, "Redirect URI")}>
+                  Copy
+                </Button>
+              )}
             </p>
+            <Collapsible open={showDomainHelp} onOpenChange={setShowDomainHelp}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground text-xs p-0 h-auto">
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showDomainHelp ? "rotate-180" : ""}`} />
+                  &quot;Can&apos;t load URL: domain isn&apos;t included&quot; — add your domain in all 3 places
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-3 space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Meta checks your domain in <strong>three separate places</strong>. Use the same domain; for redirect URI use only the dedicated callback below.
+                </p>
+                {currentOrigin && (
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-muted-foreground">Domain only (no https://):</span>
+                      <code className="bg-muted px-1.5 py-0.5 rounded break-all">{currentOrigin.replace(/^https?:\/\//, "")}</code>
+                      <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => copyToClipboard(currentOrigin.replace(/^https?:\/\//, ""), "Domain")}>
+                        Copy
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-muted-foreground">Valid OAuth redirect URI (single callback):</span>
+                      <code className="bg-muted px-1.5 py-0.5 rounded break-all">{currentOrigin}/auth/whatsapp/connect</code>
+                      <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => copyToClipboard(`${currentOrigin}/auth/whatsapp/connect`, "Redirect URI")}>
+                        Copy
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <ol className="text-xs text-muted-foreground space-y-2 list-decimal list-inside">
+                  <li>
+                    <strong>Settings → Basic</strong> → <strong>App domains</strong>: add the <em>domain only</em>. No <code>https://</code> or path.
+                  </li>
+                  <li>
+                    <strong>Facebook Login for Business</strong> → <strong>Settings</strong> → <strong>Client OAuth settings</strong> → <strong>Allowed domains</strong>: same <em>domain only</em>.
+                  </li>
+                  <li>
+                    Same section → <strong>Valid OAuth redirect URIs</strong>: add exactly <code>{currentOrigin || "https://your-domain.com"}/auth/whatsapp/connect</code> (one URL for all environments).
+                  </li>
+                </ol>
+              </CollapsibleContent>
+            </Collapsible>
           </CardContent>
         </Card>
       ) : null}

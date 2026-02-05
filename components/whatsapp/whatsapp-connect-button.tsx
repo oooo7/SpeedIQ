@@ -40,8 +40,22 @@ export function WhatsAppConnectButton({
     setCurrentStep("Exchanging authorization...");
 
     try {
-      // redirect_uri must match the page that spawned the flow (required by Meta for token exchange)
-      const redirectUri = typeof window !== "undefined" ? window.location.origin + window.location.pathname : "";
+      // Must match exactly what the OAuth dialog used (same page URL, no query/hash)
+      const redirectUri =
+        typeof window !== "undefined"
+          ? (() => {
+              const u = new URL(window.location.href);
+              u.search = "";
+              u.hash = "";
+              return u.toString();
+            })()
+          : "";
+      if (!redirectUri) {
+        toast.error("Could not determine page URL. Please refresh and try again.");
+        setIsConnecting(false);
+        setCurrentStep(null);
+        return;
+      }
       const response = await fetch(
         `/api/projects/${projectId}/whatsapp/oauth/callback`,
         {
@@ -142,7 +156,7 @@ export function WhatsAppConnectButton({
   );
 }
 
-function WhatsAppIcon({ className }: { className?: string }) {
+export function WhatsAppIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"

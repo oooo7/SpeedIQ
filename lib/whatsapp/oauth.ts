@@ -19,7 +19,7 @@ interface TokenError {
 
 /**
  * Exchange authorization code for access token.
- * redirect_uri must match the page that spawned the Embedded Signup flow (required by Meta).
+ * redirect_uri must match EXACTLY the page that spawned the OAuth dialog (required by Meta).
  */
 export async function exchangeCodeForToken(
   code: string,
@@ -32,13 +32,18 @@ export async function exchangeCodeForToken(
     return { error: "Facebook App credentials not configured" };
   }
 
+  if (!redirectUri || !redirectUri.startsWith("https://")) {
+    return {
+      error:
+        "redirect_uri is required and must be the exact URL of the page where you clicked Connect (HTTPS). Add this URL in Meta → Valid OAuth redirect URIs.",
+    };
+  }
+
   const url = new URL(`${META_GRAPH_BASE}/${API_VERSION}/oauth/access_token`);
   url.searchParams.set("client_id", appId);
   url.searchParams.set("client_secret", appSecret);
   url.searchParams.set("code", code);
-  if (redirectUri) {
-    url.searchParams.set("redirect_uri", redirectUri);
-  }
+  url.searchParams.set("redirect_uri", redirectUri);
 
   const response = await fetch(url.toString());
   const data = await response.json();
