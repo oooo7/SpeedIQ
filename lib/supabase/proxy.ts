@@ -55,6 +55,11 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
+  // WhatsApp OAuth callback: allow through so we can read code/state and redirect to login if no session
+  if (pathname === "/api/whatsapp/callback") {
+    return supabaseResponse;
+  }
+
   if (
     pathname !== "/" &&
     !user &&

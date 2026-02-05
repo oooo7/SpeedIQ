@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ChevronDown, Loader2, MessageSquare, Send } from "lucide-react";
 import { toast } from "sonner";
 
@@ -12,13 +12,14 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadingState } from "@/components/ui/loading-state";
-import { WhatsAppIcon } from "@/components/whatsapp/whatsapp-connect-button";
+import { WhatsAppConnectButton } from "@/components/whatsapp/whatsapp-connect-button";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 interface WhatsAppOAuthConfig {
   appId: string;
   configId: string;
   solutionId?: string | null;
+  callbackUrl?: string | null;
 }
 
 interface TemplateOption {
@@ -89,6 +90,7 @@ function codeVerificationLabel(code: string | null | undefined): string {
 
 export default function WhatsAppAccountPage() {
   const { activeProject } = useProjectContext();
+  const searchParams = useSearchParams();
   const [account, setAccount] = useState<WhatsAppAccountData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -106,16 +108,34 @@ export default function WhatsAppAccountPage() {
   const [showManualForm, setShowManualForm] = useState(false);
   const [showDomainHelp, setShowDomainHelp] = useState(false);
   const [currentOrigin, setCurrentOrigin] = useState<string>("");
+  const [currentRedirectUri, setCurrentRedirectUri] = useState<string>("");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       setCurrentOrigin(window.location.origin);
+      setCurrentRedirectUri(window.location.origin + window.location.pathname);
     }
   }, []);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => toast.success(`${label} copied`));
   };
+
+  // Handle return from WhatsApp OAuth callback (?connected=1 or ?error=...)
+  useEffect(() => {
+    const connected = searchParams.get("connected");
+    const error = searchParams.get("error");
+    const message = searchParams.get("message");
+    if (connected === "1") {
+      toast.success("WhatsApp account connected successfully!");
+      refreshAccountData();
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (error) {
+      const msg = message ? decodeURIComponent(message) : error;
+      toast.error(msg || "Connection failed");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [searchParams]);
 
   // Fetch OAuth config for Embedded Signup
   useEffect(() => {
@@ -466,30 +486,18 @@ export default function WhatsAppAccountPage() {
           <CardHeader>
             <CardTitle>Connect with WhatsApp</CardTitle>
             <CardDescription>
-              Use Meta&apos;s secure login to connect your WhatsApp Business account in seconds. You&apos;ll be taken to a dedicated connect page (no auth required to load), then returned here.
+              Use Meta&apos;s secure login to connect your WhatsApp Business account in seconds. This is the recommended way to connect.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button
-              asChild
-              className="gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white"
-            >
-              <Link
-                href={`/auth/whatsapp/connect?projectId=${activeProject.id}&returnTo=${encodeURIComponent("/dashboard/settings/whatsapp-account")}`}
-              >
-                <WhatsAppIcon className="h-4 w-4" />
-                Connect with WhatsApp
-              </Link>
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              In Meta, add this single URL in <strong>Valid OAuth redirect URIs</strong>:{" "}
-              <code className="break-all">{currentOrigin ? `${currentOrigin}/auth/whatsapp/connect` : "https://your-domain.com/auth/whatsapp/connect"}</code>
-              {currentOrigin && (
-                <Button variant="link" className="h-auto p-0 ml-1 text-xs" onClick={() => copyToClipboard(`${currentOrigin}/auth/whatsapp/connect`, "Redirect URI")}>
-                  Copy
-                </Button>
-              )}
-            </p>
+            <WhatsAppConnectButton
+              projectId={activeProject.id}
+              appId={oauthConfig.appId}
+              configId={oauthConfig.configId}
+              solutionId={oauthConfig.solutionId}
+              callbackUrl={oauthConfig.callbackUrl}
+              onSuccess={refreshAccountData}
+            />
             <Collapsible open={showDomainHelp} onOpenChange={setShowDomainHelp}>
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground text-xs p-0 h-auto">
@@ -499,7 +507,7 @@ export default function WhatsAppAccountPage() {
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-3 space-y-3">
                 <p className="text-xs text-muted-foreground">
-                  Meta checks your domain in <strong>three separate places</strong>. Use the same domain; for redirect URI use only the dedicated callback below.
+                  Meta checks your domain in <strong>three separate places</strong>. Add the values below in each.
                 </p>
                 {currentOrigin && (
                   <div className="space-y-2 text-xs">
@@ -511,9 +519,9 @@ export default function WhatsAppAccountPage() {
                       </Button>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-muted-foreground">Valid OAuth redirect URI (single callback):</span>
-                      <code className="bg-muted px-1.5 py-0.5 rounded break-all">{currentOrigin}/auth/whatsapp/connect</code>
-                      <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => copyToClipboard(`${currentOrigin}/auth/whatsapp/connect`, "Redirect URI")}>
+                      <span className="text-muted-foreground">Full redirect URI:</span>
+                      <code className="bg-muted px-1.5 py-0.5 rounded break-all">{currentRedirectUri}</code>
+                      <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => copyToClipboard(currentRedirectUri, "Redirect URI")}>
                         Copy
                       </Button>
                     </div>
@@ -521,15 +529,18 @@ export default function WhatsAppAccountPage() {
                 )}
                 <ol className="text-xs text-muted-foreground space-y-2 list-decimal list-inside">
                   <li>
-                    <strong>Settings → Basic</strong> → <strong>App domains</strong>: add the <em>domain only</em>. No <code>https://</code> or path.
+                    <strong>Settings → Basic</strong> → <strong>App domains</strong>: add the <em>domain only</em> (e.g. <code>www.speediq.ai</code> or <code>xxxx.ngrok-free.app</code>). No <code>https://</code> or path.
                   </li>
                   <li>
-                    <strong>Facebook Login for Business</strong> → <strong>Settings</strong> → <strong>Client OAuth settings</strong> → <strong>Allowed domains</strong>: same <em>domain only</em>.
+                    <strong>Use cases</strong> → open <strong>Customize</strong> → <strong>Facebook Login for Business</strong> → <strong>Settings</strong> → <strong>Client OAuth settings</strong> → <strong>Allowed domains</strong>: add the same <em>domain only</em>.
                   </li>
                   <li>
-                    Same section → <strong>Valid OAuth redirect URIs</strong>: add exactly <code>{currentOrigin || "https://your-domain.com"}/auth/whatsapp/connect</code> (one URL for all environments).
+                    In the same <strong>Client OAuth settings</strong> → <strong>Valid OAuth redirect URIs</strong>: add the <em>full redirect URI</em> (e.g. <code>https://www.speediq.ai/dashboard/settings/whatsapp-account</code>). Use &quot;Redirect URI Validator&quot; to check, then add the same URL here.
                   </li>
                 </ol>
+                <p className="text-xs text-muted-foreground">
+                  Save after each section. If you use a new URL (e.g. new ngrok subdomain), add that domain and redirect URI in all three places again.
+                </p>
               </CollapsibleContent>
             </Collapsible>
           </CardContent>

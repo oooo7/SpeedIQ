@@ -16,9 +16,14 @@ export async function GET() {
     );
   }
 
+  // Dedicated callback URL (add this exact URL to Meta → Valid OAuth redirect URIs)
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "";
+  const callbackUrl = baseUrl ? `${baseUrl}/api/whatsapp/callback` : null;
+
   return NextResponse.json({
     appId,
     configId,
     solutionId: solutionId || null,
+    callbackUrl,
   });
 }

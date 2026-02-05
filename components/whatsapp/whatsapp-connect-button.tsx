@@ -7,11 +7,15 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useFacebookSDK, type EmbeddedSignupEventData } from "./facebook-sdk";
 
+const FB_OAUTH_VERSION = "v22.0";
+
 interface WhatsAppConnectButtonProps {
   projectId: string;
   appId: string;
   configId: string;
   solutionId?: string | null;
+  /** When set, use redirect flow to this callback URL (recommended: stable, public, one place in Meta). */
+  callbackUrl?: string | null;
   onSuccess: () => void;
   disabled?: boolean;
 }
@@ -21,6 +25,7 @@ export function WhatsAppConnectButton({
   appId,
   configId,
   solutionId,
+  callbackUrl,
   onSuccess,
   disabled,
 }: WhatsAppConnectButtonProps) {
@@ -28,12 +33,33 @@ export function WhatsAppConnectButton({
   const [currentStep, setCurrentStep] = useState<string | null>(null);
   const [isHttps, setIsHttps] = useState(true);
 
+  // Resolve callback URL: from config or current origin (for redirect flow)
+  const resolvedCallbackUrl =
+    callbackUrl ||
+    (typeof window !== "undefined" ? `${window.location.origin}/api/whatsapp/callback` : null);
+
   // Check if on HTTPS
   useEffect(() => {
     if (typeof window !== "undefined") {
       setIsHttps(window.location.protocol === "https:");
     }
   }, []);
+
+  const startRedirectFlow = () => {
+    if (!resolvedCallbackUrl || !resolvedCallbackUrl.startsWith("https://")) {
+      toast.error("Callback URL not configured. Set NEXT_PUBLIC_APP_URL or use the same origin.");
+      return;
+    }
+    const params = new URLSearchParams({
+      client_id: appId,
+      redirect_uri: resolvedCallbackUrl,
+      response_type: "code",
+      state: projectId,
+      config_id: configId,
+      override_default_response_type: "true",
+    });
+    window.location.href = `https://www.facebook.com/${FB_OAUTH_VERSION}/dialog/oauth?${params.toString()}`;
+  };
 
   const handleAuthSuccess = async (code: string) => {
     setIsConnecting(true);
@@ -107,6 +133,9 @@ export function WhatsAppConnectButton({
     onEmbeddedSignupEvent: handleEmbeddedSignupEvent,
   });
 
+  // Use redirect flow when we have a dedicated callback URL (recommended)
+  const useRedirectFlow = Boolean(resolvedCallbackUrl);
+
   if (!isHttps) {
     return (
       <div className="space-y-3">
@@ -132,11 +161,27 @@ export function WhatsAppConnectButton({
 
   return (
     <Button
-      onClick={launchEmbeddedSignup}
-      disabled={disabled || isConnecting || !sdkReady}
+      onClick={useRedirectFlow ? startRedirectFlow : launchEmbeddedSignup}
+      disabled={
+        disabled ||
+        isConnecting ||
+        (useRedirectFlow ? false : !sdkReady)
+      }
       className="gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white"
     >
-      {!sdkReady ? (
+      {useRedirectFlow ? (
+        isConnecting ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Redirecting...
+          </>
+        ) : (
+          <>
+            <WhatsAppIcon className="h-4 w-4" />
+            Connect with WhatsApp
+          </>
+        )
+      ) : !sdkReady ? (
         <>
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading SDK...
@@ -156,7 +201,7 @@ export function WhatsAppConnectButton({
   );
 }
 
-export function WhatsAppIcon({ className }: { className?: string }) {
+function WhatsAppIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
