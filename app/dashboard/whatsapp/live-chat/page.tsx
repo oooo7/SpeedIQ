@@ -273,7 +273,7 @@ export default function WhatsAppLiveChatPage() {
   if (!activeProject) {
     return (
       <div className="flex flex-col gap-10">
-        <PageHeader label="WhatsApp" title="Live Chat" description="Select a project to view conversations." />
+        <PageHeader title="Live Chat" description="Select a project to view conversations." />
       </div>
     );
   }
@@ -318,16 +318,15 @@ export default function WhatsAppLiveChatPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        label="WhatsApp"
         title="Live Chat"
         description="Reply to conversations from your WhatsApp Business account."
       />
-      <div className="flex h-[calc(100vh-12rem)] flex-col gap-0 overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 md:flex-row">
+      <div className="flex h-[calc(100vh-12rem)] flex-col gap-0 overflow-hidden bg-white dark:bg-gray-900 md:flex-row">
         <div className="flex w-full flex-col border-b border-gray-100 dark:border-gray-800/80 md:w-80 md:border-b-0 md:border-r">
           <div className="flex items-center justify-between gap-2 border-b border-gray-100 bg-[#f0f2f5] dark:border-gray-800/80 dark:bg-gray-900/80 p-3">
           <div className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-[#25D366]" />
-            <h2 className="font-semibold">Chats</h2>
+            <h2 className="font-medium">Chats</h2>
           </div>
           <Popover>
             <PopoverTrigger asChild>
@@ -355,8 +354,8 @@ export default function WhatsAppLiveChatPage() {
                 → WhatsApp → Configuration:
               </p>
               <ul className="list-disc list-inside text-muted-foreground space-y-1 text-xs">
-                <li>Callback URL: your site + <code className="rounded bg-muted px-1">/api/webhooks/whatsapp</code></li>
-                <li>Verify token: set <code className="rounded bg-muted px-1">WHATSAPP_VERIFY_TOKEN</code> in env</li>
+                <li>Callback URL: your site + <code className="bg-muted px-1">/api/webhooks/whatsapp</code></li>
+                <li>Verify token: set <code className="bg-muted px-1">WHATSAPP_VERIFY_TOKEN</code> in env</li>
                 <li>Subscribe to <strong>messages</strong> (and optionally <strong>message_template_status_update</strong>)</li>
               </ul>
             </PopoverContent>
@@ -399,7 +398,7 @@ export default function WhatsAppLiveChatPage() {
                       {conv.contact_phone ?? ""}
                     </span>
                     {conv.unread_count > 0 && (
-                      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#25D366] px-1.5 text-xs font-medium text-white">
+                      <span className="flex h-5 min-w-[20px] items-center justify-center bg-[#25D366] px-1.5 text-xs font-medium text-white">
                         {conv.unread_count}
                       </span>
                     )}
@@ -451,10 +450,10 @@ export default function WhatsAppLiveChatPage() {
                       className={`flex ${msg.direction === "out" ? "justify-end" : "justify-start"}`}
                     >
                       <div
-                        className={`relative max-w-[85%] min-w-[100px] rounded-lg px-2 py-1 text-sm ${
+                        className={`relative max-w-[85%] min-w-[100px] px-2 py-1 text-sm ${
                           msg.direction === "out"
-                            ? "rounded-br-md bg-[#dcf8c6] text-gray-900 dark:bg-[#005c4b] dark:text-white"
-                            : "rounded-bl-md bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+                            ? " bg-[#dcf8c6] text-gray-900 dark:bg-[#005c4b] dark:text-white"
+                            : " bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100"
                         }`}
                       >
                         {msg.body && <p className="whitespace-pre-wrap break-words">{msg.body}</p>}
@@ -518,13 +517,13 @@ export default function WhatsAppLiveChatPage() {
                     onChange={(e) => setText(e.target.value)}
                     placeholder="Type a message"
                     disabled={sending}
-                    className="min-h-12 flex-1 rounded-full border-gray-300 bg-white px-4 dark:border-gray-700 dark:bg-gray-800"
+                    className="min-h-12 flex-1 border-gray-300 bg-white px-4 dark:border-gray-700 dark:bg-gray-800"
                   />
                   <Button
                     type="submit"
                     size="icon"
                     disabled={sending || !text.trim()}
-                    className="h-10 w-10 shrink-0 rounded-full bg-[#25D366] text-white hover:bg-[#20bd5a] dark:bg-[#25D366] dark:hover:bg-[#20bd5a]"
+                    className="h-10 w-10 shrink-0 bg-[#25D366] text-white hover:bg-[#20bd5a] dark:bg-[#25D366] dark:hover:bg-[#20bd5a]"
                   >
                     {sending ? (
                       <Loader2 className="h-5 w-5 animate-spin" />

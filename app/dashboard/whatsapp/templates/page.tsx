@@ -289,7 +289,7 @@ export default function WhatsAppTemplatesPage() {
   if (!activeProject) {
     return (
       <div className="flex flex-col gap-10">
-        <PageHeader label="WhatsApp" title="Templates" description="Select a project to manage templates." />
+        <PageHeader title="Templates" description="Select a project to manage templates." />
       </div>
     );
   }
@@ -299,7 +299,6 @@ export default function WhatsAppTemplatesPage() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 min-w-0">
           <PageHeader
-            label="WhatsApp"
             title="Templates"
             description="Create and manage message templates. Sync from Meta to get approved templates."
           />
@@ -321,19 +320,31 @@ export default function WhatsAppTemplatesPage() {
                   <p className="text-sm text-muted-foreground mb-2">
                     Copy these values into a new template to test approval. Use <strong>Utility</strong> and simple, clear text for faster approval (Meta review can take up to 24 hours).
                   </p>
-                  <div className="grid gap-1 text-sm sm:grid-cols-[auto_1fr] rounded-md border border-gray-200 dark:border-gray-800 p-3">
-                    <span className="text-muted-foreground">Name</span>
-                    <code className="font-mono text-xs">request_received</code>
-                    <span className="text-muted-foreground">Category</span>
-                    <span>Utility</span>
-                    <span className="text-muted-foreground">Language</span>
-                    <span>en</span>
-                    <span className="text-muted-foreground">Body</span>
-                    <code className="font-mono text-xs whitespace-pre-wrap break-words">Hi {"{{1}}"}, your request has been received. Reference: {"{{2}}"}. We will get back to you soon.</code>
-                    <span className="text-muted-foreground">Example {"{{1}}"}</span>
-                    <span>Customer</span>
-                    <span className="text-muted-foreground">Example {"{{2}}"}</span>
-                    <span>REF-001</span>
+                  <div className="divide-y divide-gray-100 dark:divide-gray-800 text-sm bg-gray-50 dark:bg-gray-900/30 p-3">
+                    <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-2 first:pt-0">
+                      <span className="text-muted-foreground">Name</span>
+                      <code className="font-mono text-xs">request_received</code>
+                    </div>
+                    <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-2">
+                      <span className="text-muted-foreground">Category</span>
+                      <span>Utility</span>
+                    </div>
+                    <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-2">
+                      <span className="text-muted-foreground">Language</span>
+                      <span>en</span>
+                    </div>
+                    <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-2">
+                      <span className="text-muted-foreground">Body</span>
+                      <code className="font-mono text-xs whitespace-pre-wrap break-words">Hi {"{{1}}"}, your request has been received. Reference: {"{{2}}"}. We will get back to you soon.</code>
+                    </div>
+                    <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-2">
+                      <span className="text-muted-foreground">Example {"{{1}}"}</span>
+                      <span>Customer</span>
+                    </div>
+                    <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-2 last:pb-0">
+                      <span className="text-muted-foreground">Example {"{{2}}"}</span>
+                      <span>REF-001</span>
+                    </div>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
                     Create a new template, paste the body, choose Utility and language <strong>en</strong>, fill the two variable examples, then Submit for approval.
@@ -349,7 +360,7 @@ export default function WhatsAppTemplatesPage() {
                     ).
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    <strong>In this app:</strong> Subscribe to <code className="rounded bg-muted px-1 text-xs">message_template_status_update</code> in your webhook (Meta → WhatsApp → Configuration). When Meta approves or rejects a template, we update the status in the database and the list refreshes automatically every 20 seconds—no need to click Refresh. You can also use <strong>Refresh status from Meta</strong> in the template menu (⋯) to fetch immediately.
+                    <strong>In this app:</strong> Subscribe to <code className="bg-muted px-1 text-xs">message_template_status_update</code> in your webhook (Meta → WhatsApp → Configuration). When Meta approves or rejects a template, we update the status in the database and the list refreshes automatically every 20 seconds—no need to click Refresh. You can also use <strong>Refresh status from Meta</strong> in the template menu (⋯) to fetch immediately.
                   </p>
                   <p className="text-sm text-muted-foreground mt-2">
                     <strong>In WhatsApp Manager:</strong> Go to{" "}
@@ -388,7 +399,7 @@ export default function WhatsAppTemplatesPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="flex h-9 rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-1 text-sm"
+          className="flex h-9 border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-1 text-sm"
         >
           <option value="">All statuses</option>
           <option value="draft">Draft</option>
@@ -432,7 +443,7 @@ export default function WhatsAppTemplatesPage() {
           {templates.map((t) => (
             <div
               key={t.id}
-              className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 dark:border-gray-800 p-4"
+              className="flex items-center justify-between gap-4 border border-gray-200 dark:border-gray-800 p-4"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -537,7 +548,7 @@ export default function WhatsAppTemplatesPage() {
               <select
                 value={formCategory}
                 onChange={(e) => setFormCategory(e.target.value as typeof formCategory)}
-                className="flex h-9 w-full rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-1 text-sm"
+                className="flex h-9 w-full border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-1 text-sm"
               >
                 {CATEGORIES.map((c) => (
                   <option key={c.value} value={c.value}>
@@ -563,7 +574,7 @@ export default function WhatsAppTemplatesPage() {
                 onChange={(e) => setFormBody(e.target.value)}
                 placeholder="Hello {{1}}, your order {{2}} is ready."
                 rows={4}
-                className="flex w-full rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-2 text-sm min-h-[80px]"
+                className="flex w-full border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-2 text-sm min-h-[80px]"
               />
               <p className="text-xs text-muted-foreground">
                 Use {"{{1}}"}, {"{{2}}"}, etc. for variables. Add example values below for Meta approval.
@@ -616,7 +627,7 @@ export default function WhatsAppTemplatesPage() {
                               next[idx - 1] = v === "__custom__" ? "custom:" : v;
                               setFormVariableFieldMapping(next);
                             }}
-                            className="flex h-9 rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-1 text-sm min-w-[160px]"
+                            className="flex h-9 border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-1 text-sm min-w-[160px]"
                           >
                             {CONTACT_FIELD_OPTIONS.map((opt) => (
                               <option key={opt.value || "empty"} value={opt.value}>

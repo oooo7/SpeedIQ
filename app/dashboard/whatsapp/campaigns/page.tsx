@@ -361,7 +361,7 @@ export default function WhatsAppCampaignsPage() {
   if (!activeProject) {
     return (
       <div className="flex flex-col gap-10">
-        <PageHeader label="WhatsApp" title="Campaigns" description="Select a project to manage campaigns." />
+        <PageHeader title="Campaigns" description="Select a project to manage campaigns." />
       </div>
     );
   }
@@ -369,10 +369,9 @@ export default function WhatsAppCampaignsPage() {
   return (
     <div className="flex flex-col gap-10">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <PageHeader
-          label="WhatsApp"
-          title="Campaigns"
-          description="Create and send broadcast campaigns. Filter by status below."
+<PageHeader
+        title="Campaigns"
+        description="Create and send broadcast campaigns. Filter by status below."
         />
         <Button onClick={openWizard} className="gap-1 shrink-0">
           <Plus className="h-4 w-4" />
@@ -380,11 +379,11 @@ export default function WhatsAppCampaignsPage() {
         </Button>
       </div>
 
-      <div className="flex flex-wrap gap-2 rounded-xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 p-2 w-fit">
+      <div className="flex flex-wrap gap-2 bg-white dark:bg-gray-900 p-2 w-fit">
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="flex h-9 rounded-lg border border-gray-100 dark:border-gray-800/80 bg-transparent px-3 py-1 text-sm"
+          className="flex h-9 bg-white dark:bg-gray-900 px-3 py-1 text-sm"
         >
           <option value="">All statuses</option>
           <option value="draft">Draft</option>
@@ -410,7 +409,7 @@ export default function WhatsAppCampaignsPage() {
           }
         />
       ) : (
-        <div className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="border-b border-gray-100 dark:border-gray-800/80 bg-gray-50 dark:bg-gray-900/50">
@@ -530,7 +529,7 @@ export default function WhatsAppCampaignsPage() {
                       } ${isActive ? "text-gray-900 dark:text-gray-100" : isPast ? "text-gray-500 dark:text-gray-400" : "text-gray-400 dark:text-gray-500"}`}
                     >
                       <span
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-medium transition-colors ${
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center text-[11px] font-medium transition-colors ${
                           isActive
                             ? "bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900"
                             : isPast
@@ -613,7 +612,7 @@ export default function WhatsAppCampaignsPage() {
                 </p>
               )}
               <div className="flex flex-wrap gap-6">
-                <label className="flex items-center gap-3 cursor-pointer rounded-md border border-gray-200 dark:border-gray-800 px-4 py-3 w-full sm:w-auto min-w-[180px] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors has-[:checked]:border-gray-800 dark:has-[:checked]:border-gray-200 has-[:checked]:bg-gray-50 dark:has-[:checked]:bg-gray-800/50">
+                <label className="flex items-center gap-3 cursor-pointer border border-gray-200 dark:border-gray-800 px-4 py-3 w-full sm:w-auto min-w-[180px] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors has-[:checked]:border-gray-800 dark:has-[:checked]:border-gray-200 has-[:checked]:bg-gray-50 dark:has-[:checked]:bg-gray-800/50">
                   <input
                     type="radio"
                     name="audience-type"
@@ -622,11 +621,11 @@ export default function WhatsAppCampaignsPage() {
                       setAudienceType("contacts");
                       if (fieldErrors.audience) setFieldErrors((prev) => ({ ...prev, audience: "" }));
                     }}
-                    className="h-4 w-4 rounded-full border-gray-300 text-gray-800 dark:text-gray-200"
+                    className="h-4 w-4 border-gray-300 text-gray-800 dark:text-gray-200"
                   />
                   <span className="font-medium">Select contacts</span>
                 </label>
-                <label className="flex items-center gap-3 cursor-pointer rounded-md border border-gray-200 dark:border-gray-800 px-4 py-3 w-full sm:w-auto min-w-[180px] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors has-[:checked]:border-gray-800 dark:has-[:checked]:border-gray-200 has-[:checked]:bg-gray-50 dark:has-[:checked]:bg-gray-800/50">
+                <label className="flex items-center gap-3 cursor-pointer border border-gray-200 dark:border-gray-800 px-4 py-3 w-full sm:w-auto min-w-[180px] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors has-[:checked]:border-gray-800 dark:has-[:checked]:border-gray-200 has-[:checked]:bg-gray-50 dark:has-[:checked]:bg-gray-800/50">
                   <input
                     type="radio"
                     name="audience-type"
@@ -635,7 +634,7 @@ export default function WhatsAppCampaignsPage() {
                       setAudienceType("tags");
                       if (fieldErrors.audience) setFieldErrors((prev) => ({ ...prev, audience: "" }));
                     }}
-                    className="h-4 w-4 rounded-full border-gray-300 text-gray-800 dark:text-gray-200"
+                    className="h-4 w-4 border-gray-300 text-gray-800 dark:text-gray-200"
                   />
                   <span className="font-medium">Send to contacts with tags</span>
                 </label>
@@ -647,7 +646,7 @@ export default function WhatsAppCampaignsPage() {
                   </Label>
                   <p className="text-xs text-muted-foreground">Contacts with any of the selected tags will receive the campaign.</p>
                   <div
-                    className={`flex flex-wrap gap-3 border rounded-md p-3 bg-white dark:bg-gray-900 min-h-[44px] ${
+                    className={`flex flex-wrap gap-3 border p-3 bg-white dark:bg-gray-900 min-h-[44px] ${
                       fieldErrors.audience ? "border-red-500 dark:border-red-500" : "border-gray-200 dark:border-gray-800"
                     }`}
                   >
@@ -664,7 +663,7 @@ export default function WhatsAppCampaignsPage() {
                               else setSelectedTagIds((prev) => prev.filter((id) => id !== t.id));
                               if (fieldErrors.audience) setFieldErrors((prev) => ({ ...prev, audience: "" }));
                             }}
-                            className="rounded border-gray-300"
+                            className="border-gray-300"
                           />
                           <span className="text-sm">
                             {t.name}
@@ -694,7 +693,7 @@ export default function WhatsAppCampaignsPage() {
                     Contacts {!isDraft && <span className="text-red-600 dark:text-red-400">*</span>}
                   </Label>
                   <div
-                    className={`max-h-52 overflow-y-auto space-y-2 border rounded-md p-3 bg-white dark:bg-gray-900 ${
+                    className={`max-h-52 overflow-y-auto space-y-2 border p-3 bg-white dark:bg-gray-900 ${
                       fieldErrors.audience ? "border-red-500 dark:border-red-500" : "border-gray-200 dark:border-gray-800"
                     }`}
                   >
@@ -702,7 +701,7 @@ export default function WhatsAppCampaignsPage() {
                       <p className="text-sm text-muted-foreground">No contacts. Add contacts first.</p>
                     ) : (
                       contacts.slice(0, 100).map((contact) => (
-                        <label key={contact.id} className="flex items-center gap-3 text-sm cursor-pointer py-1.5 px-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                        <label key={contact.id} className="flex items-center gap-3 text-sm cursor-pointer py-1.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                           <Checkbox
                             checked={selectedContactIds.includes(contact.id)}
                             onCheckedChange={() => {
@@ -730,7 +729,7 @@ export default function WhatsAppCampaignsPage() {
 
           {step === 2 && (
             <div className="space-y-5">
-              <div className="flex items-center space-x-3 rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 px-4 py-3">
+              <div className="flex items-center space-x-3 border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 px-4 py-3">
                 <Checkbox
                   id="use-hello-world"
                   checked={useHelloWorld}
@@ -747,7 +746,7 @@ export default function WhatsAppCampaignsPage() {
               <p className="text-xs text-muted-foreground -mt-2">
                 Meta&apos;s built-in &quot;Hello World&quot; message. Good for testing, including sending to a single contact.
               </p>
-              <div className="flex items-center space-x-3 rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 px-4 py-3">
+              <div className="flex items-center space-x-3 border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 px-4 py-3">
                 <Checkbox
                   id="include-draft-templates"
                   checked={includeDraftTemplates}
@@ -769,7 +768,7 @@ export default function WhatsAppCampaignsPage() {
                     setTemplateId(e.target.value);
                     if (fieldErrors.template) setFieldErrors((prev) => ({ ...prev, template: "" }));
                   }}
-                  className={`flex h-10 w-full max-w-md rounded-md border bg-white dark:bg-gray-900 px-3 py-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed ${
+                  className={`flex h-10 w-full max-w-md border bg-white dark:bg-gray-900 px-3 py-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed ${
                     fieldErrors.template ? "border-red-500 dark:border-red-500" : "border-gray-200 dark:border-gray-800"
                   }`}
                 >
@@ -802,33 +801,33 @@ export default function WhatsAppCampaignsPage() {
           {step === 3 && (
             <div className="space-y-5">
               <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-                <label className="flex items-center gap-3 cursor-pointer rounded-md border border-gray-200 dark:border-gray-800 px-4 py-3 w-full sm:flex-1 min-w-[200px] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors has-[:checked]:border-gray-800 dark:has-[:checked]:border-gray-200 has-[:checked]:bg-gray-50 dark:has-[:checked]:bg-gray-800/50">
+                <label className="flex items-center gap-3 cursor-pointer border border-gray-200 dark:border-gray-800 px-4 py-3 w-full sm:flex-1 min-w-[200px] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors has-[:checked]:border-gray-800 dark:has-[:checked]:border-gray-200 has-[:checked]:bg-gray-50 dark:has-[:checked]:bg-gray-800/50">
                   <input
                     type="radio"
                     name="schedule-option"
                     checked={scheduleOption === "send_now"}
                     onChange={() => setScheduleOption("send_now")}
-                    className="h-4 w-4 rounded-full border-gray-300 text-gray-800 dark:text-gray-200"
+                    className="h-4 w-4 border-gray-300 text-gray-800 dark:text-gray-200"
                   />
                   <span className="font-medium">Send now</span>
                 </label>
-                <label className="flex items-center gap-3 cursor-pointer rounded-md border border-gray-200 dark:border-gray-800 px-4 py-3 w-full sm:flex-1 min-w-[200px] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors has-[:checked]:border-gray-800 dark:has-[:checked]:border-gray-200 has-[:checked]:bg-gray-50 dark:has-[:checked]:bg-gray-800/50">
+                <label className="flex items-center gap-3 cursor-pointer border border-gray-200 dark:border-gray-800 px-4 py-3 w-full sm:flex-1 min-w-[200px] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors has-[:checked]:border-gray-800 dark:has-[:checked]:border-gray-200 has-[:checked]:bg-gray-50 dark:has-[:checked]:bg-gray-800/50">
                   <input
                     type="radio"
                     name="schedule-option"
                     checked={scheduleOption === "schedule"}
                     onChange={() => setScheduleOption("schedule")}
-                    className="h-4 w-4 rounded-full border-gray-300 text-gray-800 dark:text-gray-200"
+                    className="h-4 w-4 border-gray-300 text-gray-800 dark:text-gray-200"
                   />
                   <span className="font-medium">Schedule for later</span>
                 </label>
-                <label className="flex items-center gap-3 cursor-pointer rounded-md border border-gray-200 dark:border-gray-800 px-4 py-3 w-full sm:flex-1 min-w-[200px] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors has-[:checked]:border-gray-800 dark:has-[:checked]:border-gray-200 has-[:checked]:bg-gray-50 dark:has-[:checked]:bg-gray-800/50">
+                <label className="flex items-center gap-3 cursor-pointer border border-gray-200 dark:border-gray-800 px-4 py-3 w-full sm:flex-1 min-w-[200px] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors has-[:checked]:border-gray-800 dark:has-[:checked]:border-gray-200 has-[:checked]:bg-gray-50 dark:has-[:checked]:bg-gray-800/50">
                   <input
                     type="radio"
                     name="schedule-option"
                     checked={scheduleOption === "draft"}
                     onChange={() => setScheduleOption("draft")}
-                    className="h-4 w-4 rounded-full border-gray-300 text-gray-800 dark:text-gray-200"
+                    className="h-4 w-4 border-gray-300 text-gray-800 dark:text-gray-200"
                   />
                   <span className="font-medium">Save as draft</span>
                 </label>
@@ -861,7 +860,7 @@ export default function WhatsAppCampaignsPage() {
           {step === 4 && (
             <div className="space-y-5">
               {Object.keys(fieldErrors).length > 0 && (
-                <div className="rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-700 dark:text-red-400" role="alert">
+                <div className="border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-700 dark:text-red-400" role="alert">
                   <p className="font-medium mb-1">Please fix the following:</p>
                   <ul className="list-disc list-inside space-y-0.5">
                     {fieldErrors.name && <li>{fieldErrors.name}</li>}
@@ -871,7 +870,7 @@ export default function WhatsAppCampaignsPage() {
                   </ul>
                 </div>
               )}
-              <div className="flex items-center space-x-3 rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 px-4 py-3">
+              <div className="flex items-center space-x-3 border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 px-4 py-3">
                 <Checkbox
                   id="show-preview"
                   checked={showPreviewOnReview}
@@ -912,11 +911,11 @@ export default function WhatsAppCampaignsPage() {
                 </div>
               </div>
               {showPreviewOnReview && (
-                <div className="rounded-md border border-gray-200 dark:border-gray-800 p-4 space-y-4 text-sm">
+                <div className="border border-gray-200 dark:border-gray-800 p-4 space-y-4 text-sm">
                   {(useHelloWorld || templateId) && (
                     <div>
                       <p className="font-medium text-muted-foreground mb-2">Template preview</p>
-                      <div className="bg-gray-50 dark:bg-gray-900/50 rounded-md p-3 whitespace-pre-wrap break-words">
+                      <div className="bg-gray-50 dark:bg-gray-900/50 p-3 whitespace-pre-wrap break-words">
                         {useHelloWorld ? "Hello World" : (templates.find((tpl) => tpl.id === templateId)?.body ?? "(No body)")}
                       </div>
                     </div>

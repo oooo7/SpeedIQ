@@ -53,7 +53,7 @@ function ProjectCard({
   );
 
   return (
-    <div className="group relative flex flex-col rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 overflow-hidden transition hover:bg-gray-50/80 dark:hover:bg-gray-800/30">
+    <div className="group relative flex flex-col bg-white dark:bg-gray-900 overflow-hidden transition hover:bg-gray-50/80 dark:hover:bg-gray-800/30">
       <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -88,7 +88,7 @@ function ProjectCard({
         className="flex flex-1 flex-col items-start gap-3 p-4 text-left"
       >
         <div className="flex flex-col gap-1">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-50">{project.name}</h3>
+          <h3 className="font-medium text-gray-900 dark:text-gray-50">{project.name}</h3>
           <p className="text-xs text-gray-500 dark:text-gray-400">
             Created {new Date(project.created_at).toLocaleDateString()}
           </p>
@@ -135,7 +135,7 @@ function ProjectCardList({
   );
 
   return (
-    <div className="group flex items-center justify-between gap-4 rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 px-4 py-3 transition hover:bg-gray-50/80 dark:hover:bg-gray-800/30">
+    <div className="group flex items-center justify-between gap-4 bg-white dark:bg-gray-900 px-4 py-3 transition hover:bg-gray-50/80 dark:hover:bg-gray-800/30">
       <button
         type="button"
         onClick={handleSelect}
@@ -272,7 +272,7 @@ export function ProjectSelector() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-50">Projects</h1>
+        <h1 className="text-2xl font-medium text-gray-900 dark:text-gray-50">Projects</h1>
         <div className="flex items-center gap-2">
           <div className="relative flex-1 sm:flex-initial sm:w-64">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
@@ -283,11 +283,11 @@ export function ProjectSelector() {
               className="pl-9"
             />
           </div>
-          <div className="flex items-center rounded-xl border border-gray-100 dark:border-gray-800/80">
+          <div className="flex items-center ">
             <Button
               variant={viewMode === "grid" ? "secondary" : "ghost"}
               size="sm"
-              className="h-9 rounded-r-none px-3"
+              className="h-9  px-3"
               onClick={() => setViewMode("grid")}
             >
               <LayoutGrid className="size-4" />
@@ -295,7 +295,7 @@ export function ProjectSelector() {
             <Button
               variant={viewMode === "list" ? "secondary" : "ghost"}
               size="sm"
-              className="h-9 rounded-l-none px-3"
+              className="h-9  px-3"
               onClick={() => setViewMode("list")}
             >
               <List className="size-4" />
@@ -314,7 +314,7 @@ export function ProjectSelector() {
       {showCreateForm && (
         <form
           onSubmit={handleCreateProject}
-          className="flex flex-col gap-3 rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 p-4 sm:flex-row sm:items-end"
+          className="flex flex-col gap-3 bg-white dark:bg-gray-900 p-4 sm:flex-row sm:items-end"
         >
           <div className="flex-1">
             <label

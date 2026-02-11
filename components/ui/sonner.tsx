@@ -28,16 +28,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
         {
           "--normal-bg": "hsl(var(--popover))",
           "--normal-text": "hsl(var(--popover-foreground))",
-          "--normal-border": "hsl(var(--border))",
-          "--border-radius": "0.5rem",
+          "--border-radius": "0",
         } as React.CSSProperties
       }
       toastOptions={{
         style: {
           background: "hsl(var(--popover))",
           color: "hsl(var(--popover-foreground))",
-          border: "1px solid hsl(var(--border))",
-          borderRadius: "0.5rem",
+          borderRadius: "0",
         },
       }}
       {...props}

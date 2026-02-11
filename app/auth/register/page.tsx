@@ -12,10 +12,10 @@ export default function RegisterV2() {
   return (
     <>
       <div className="mx-auto flex w-full flex-col justify-center space-y-8 sm:w-[380px] px-4">
-        <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+        <Card className="bg-white dark:bg-gray-900">
           <CardContent className="pt-8 pb-8 space-y-6">
             <div className="space-y-2 text-center">
-              <h1 className="text-2xl font-bold">Create your account</h1>
+              <h1 className="text-2xl font-medium">Create your account</h1>
               <p className="text-muted-foreground text-sm">Please enter your details to register.</p>
             </div>
             <div className="space-y-4">

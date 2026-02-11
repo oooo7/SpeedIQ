@@ -2,21 +2,15 @@ import { DashboardWhatsAppCard } from "@/components/dashboard/dashboard-whatsapp
 import { DashboardStats } from "@/components/dashboard/dashboard-stats";
 import { DashboardQuickLinks } from "@/components/dashboard/dashboard-quick-links";
 import { DashboardRecentCampaigns } from "@/components/dashboard/dashboard-recent-campaigns";
+import { PageHeader } from "@/components/dashboard/page-header";
 
 export default function DashboardPage() {
   return (
     <div className="flex flex-col gap-10">
-      <header>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          Dashboard
-        </p>
-        <h1 className="text-2xl font-bold text-foreground mt-1">
-          Overview
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Check your contacts, campaigns, and messaging stats. Quick access to key areas below.
-        </p>
-      </header>
+      <PageHeader
+        title="Overview"
+        description="Check your contacts, campaigns, and messaging stats. Quick access to key areas below."
+      />
 
       {/* First row: KPI stat cards */}
       <section>
@@ -30,7 +24,7 @@ export default function DashboardPage() {
         </div>
         <div className="min-w-0 flex flex-col gap-4">
           <div>
-            <h2 className="text-sm font-semibold text-foreground">Quick links</h2>
+            <h2 className="text-sm font-medium text-foreground">Quick links</h2>
             <p className="text-xs text-muted-foreground mt-0.5">Jump to a section</p>
           </div>
           <DashboardQuickLinks />

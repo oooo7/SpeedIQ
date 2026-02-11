@@ -60,7 +60,7 @@ export default function TeamPage() {
   if (!activeProject) {
     return (
       <div className="flex flex-col gap-10">
-        <PageHeader label="Team" title="Team" description="Select a project to manage its team." />
+        <PageHeader title="Team" description="Select a project to manage its team." />
       </div>
     );
   }
@@ -167,7 +167,7 @@ export default function TeamPage() {
   if (loading) {
     return (
       <div className="flex flex-col gap-10">
-        <PageHeader label="Team" title="Team" description="Loading…" />
+        <PageHeader title="Team" description="Loading…" />
         <LoadingState message="Loading team…" />
       </div>
     );
@@ -176,7 +176,7 @@ export default function TeamPage() {
   if (error) {
     return (
       <div className="flex flex-col gap-10">
-        <PageHeader label="Team" title="Team" description={error} />
+        <PageHeader title="Team" description={error} />
         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
       </div>
     );
@@ -185,13 +185,12 @@ export default function TeamPage() {
   return (
     <div className="flex flex-col gap-10">
       <PageHeader
-        label="Team"
         title="Team"
         description="Invite members and manage roles for this project."
       />
 
       {canInvite && (
-        <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+        <Card className="bg-white dark:bg-gray-900">
           <CardHeader>
             <CardTitle className="text-base">Invite member</CardTitle>
           </CardHeader>
@@ -218,7 +217,7 @@ export default function TeamPage() {
                   id="invite-role"
                   value={role}
                   onChange={(e) => setRole(e.target.value as "admin" | "editor" | "viewer")}
-                  className="flex h-9 w-full rounded-lg border border-gray-100 dark:border-gray-800/80 bg-transparent px-3 py-1 text-sm"
+                  className="flex h-9 w-full bg-white dark:bg-gray-900 px-3 py-1 text-sm"
                 >
                   {ROLES.map((r) => (
                     <option key={r.value} value={r.value}>
@@ -233,7 +232,7 @@ export default function TeamPage() {
               </Button>
             </form>
             {inviteUrl && (
-              <div className="flex items-center gap-2 rounded-xl border border-gray-100 dark:border-gray-800/80 bg-gray-50 dark:bg-gray-900/50 px-3 py-2">
+              <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-900/50 dark:bg-gray-900/50 px-3 py-2">
                 <span className="flex-1 truncate text-sm text-muted-foreground">{inviteUrl}</span>
                 <Button variant="outline" size="sm" onClick={handleCopyLink} className="gap-1 shrink-0">
                   <Copy className="size-4" />
@@ -245,7 +244,7 @@ export default function TeamPage() {
         </Card>
       )}
 
-      <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+      <Card className="bg-white dark:bg-gray-900">
         <CardHeader>
           <CardTitle className="text-base">Members</CardTitle>
         </CardHeader>
@@ -257,11 +256,11 @@ export default function TeamPage() {
               members.map((member) => (
                 <div
                   key={member.id}
-                  className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 dark:border-gray-800/80 px-4 py-3"
+                  className="flex items-center justify-between gap-4 bg-white dark:bg-gray-900 px-4 py-3"
                 >
                 <div className="flex items-center gap-3">
-                  <Avatar className="size-9 rounded-full bg-primary/10">
-                    <AvatarFallback className="rounded-full bg-primary/10 text-primary">
+                  <Avatar className="size-9 bg-primary/10">
+                    <AvatarFallback className="bg-primary/10 text-primary">
                       {getInitials(member.name, member.email)}
                     </AvatarFallback>
                   </Avatar>
@@ -322,7 +321,7 @@ export default function TeamPage() {
       </Card>
 
       {canManage && invites.length > 0 && (
-        <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+        <Card className="bg-white dark:bg-gray-900">
           <CardHeader>
             <CardTitle className="text-base">Pending invites</CardTitle>
           </CardHeader>
@@ -331,7 +330,7 @@ export default function TeamPage() {
               {invites.map((invite) => (
                 <div
                   key={invite.id}
-                  className="flex items-center justify-between gap-4 rounded-xl border border-dashed border-gray-100 dark:border-gray-800/80 px-4 py-3"
+                  className="flex items-center justify-between gap-4 border border-dashed border-gray-100 dark:border-gray-800/80 px-4 py-3"
                 >
                   <div>
                     <p className="text-sm font-medium">{invite.email}</p>

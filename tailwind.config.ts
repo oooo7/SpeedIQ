@@ -11,15 +11,20 @@ export default {
   theme: {
     extend: {
       borderRadius: {
-        lg: "0.5rem",
-        md: "calc(0.5rem - 2px)",
-        sm: "calc(0.5rem - 4px)",
+        lg: "0",
+        md: "0",
+        sm: "0",
       },
       colors: {
         primary: "hsl(var(--primary))",
         "primary-foreground": "hsl(var(--primary-foreground))",
         secondary: "hsl(var(--secondary))",
         "secondary-foreground": "hsl(var(--secondary-foreground))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        "muted-foreground": "hsl(var(--muted-foreground))",
+        card: "hsl(var(--card))",
+        "card-foreground": "hsl(var(--card-foreground))",
       },
     },
   },

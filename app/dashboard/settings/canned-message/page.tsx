@@ -136,16 +136,15 @@ export default function CannedMessagePage() {
   if (!activeProject) {
     return (
       <div className="flex flex-col gap-10">
-        <PageHeader label="Settings" title="Canned Message" description="Select a project to manage quick replies for live chat." />
+        <PageHeader title="Canned Message" description="Select a project to manage quick replies for live chat." />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-10 max-w-2xl">
+    <div className="flex flex-col gap-10 w-full">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
-          label="Settings"
           title="Canned Message"
           description="Quick replies you can use in Live Chat. Use categories like Greetings, FAQs, or Closing."
         />
@@ -174,7 +173,7 @@ export default function CannedMessagePage() {
           {quickReplies.map((r) => (
             <div
               key={r.id}
-              className="flex items-start justify-between gap-4 rounded-2xl border border-gray-100 dark:border-gray-800/80 p-4"
+              className="flex items-start justify-between gap-4 bg-white dark:bg-gray-900 p-4"
             >
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{r.title}</p>
@@ -241,7 +240,7 @@ export default function CannedMessagePage() {
                 onChange={(e) => setBody(e.target.value)}
                 placeholder="Hello! How can I help you today?"
                 rows={4}
-                className="flex w-full rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-2 text-sm min-h-[80px]"
+                className="flex w-full bg-white dark:bg-gray-900 px-3 py-2 text-sm min-h-[80px]"
                 required
               />
             </div>

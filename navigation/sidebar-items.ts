@@ -4,7 +4,6 @@ import {
   Mail,
   Users,
   UsersRound,
-  BarChart3,
   CreditCard,
   Settings,
   type LucideIcon,
@@ -108,22 +107,6 @@ export const sidebarItems: NavGroup[] = [
         ],
       },
       {
-        title: "Analytics",
-        url: "/dashboard/analytics",
-        icon: BarChart3,
-        requiresProject: true,
-        subItems: [
-          {
-            title: "WhatsApp",
-            url: "/dashboard/analytics?tab=whatsapp",
-          },
-          {
-            title: "Email",
-            url: "/dashboard/analytics?tab=email",
-          },
-        ],
-      },
-      {
         title: "Team",
         url: "/dashboard/team",
         icon: UsersRound,
@@ -138,26 +121,6 @@ export const sidebarItems: NavGroup[] = [
           {
             title: "WhatsApp Account",
             url: "/dashboard/settings/whatsapp-account",
-          },
-          {
-            title: "Template Message",
-            url: "/dashboard/settings/template-message",
-          },
-          {
-            title: "Optin Management",
-            url: "/dashboard/settings/optin-management",
-          },
-          {
-            title: "Live Chat Settings",
-            url: "/dashboard/settings/live-chat",
-          },
-          {
-            title: "Campaign Settings",
-            url: "/dashboard/settings/campaign",
-          },
-          {
-            title: "Canned Message",
-            url: "/dashboard/settings/canned-message",
           },
           {
             title: "Tags",

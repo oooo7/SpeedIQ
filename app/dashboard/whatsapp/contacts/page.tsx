@@ -267,7 +267,7 @@ export default function WhatsAppContactsPage() {
   if (!activeProject) {
     return (
       <div className="flex flex-col gap-10">
-        <PageHeader label="WhatsApp" title="Contacts" description="Select a project to manage contacts." />
+        <PageHeader title="Contacts" description="Select a project to manage contacts." />
       </div>
     );
   }
@@ -275,10 +275,9 @@ export default function WhatsAppContactsPage() {
   return (
     <div className="flex flex-col gap-10">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <PageHeader
-          label="WhatsApp"
-          title="Contacts"
-          description="Add contacts manually or import CSV. Manage tags in Settings."
+<PageHeader
+        title="Contacts"
+        description="Add contacts manually or import CSV. Manage tags in Settings."
         />
         <div className="flex flex-wrap gap-2 shrink-0">
           <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="gap-1">
@@ -292,7 +291,7 @@ export default function WhatsAppContactsPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center bg-white dark:bg-gray-900 p-4">
         <Input
           placeholder="Search by phone, name, email..."
           value={search}
@@ -302,7 +301,7 @@ export default function WhatsAppContactsPage() {
         <select
           value={sourceFilter}
           onChange={(e) => setSourceFilter(e.target.value)}
-          className="flex h-9 rounded-lg border border-gray-100 dark:border-gray-800/80 bg-transparent px-3 py-1 text-sm"
+          className="flex h-9 bg-white dark:bg-gray-900 px-3 py-1 text-sm"
         >
           <option value="">All sources</option>
           <option value="manual">Manual</option>
@@ -312,7 +311,7 @@ export default function WhatsAppContactsPage() {
         <select
           value={tagFilter}
           onChange={(e) => setTagFilter(e.target.value)}
-          className="flex h-9 rounded-lg border border-gray-100 dark:border-gray-800/80 bg-transparent px-3 py-1 text-sm"
+          className="flex h-9 bg-white dark:bg-gray-900 px-3 py-1 text-sm"
         >
           <option value="">All tags</option>
           {tagDefinitions.map((t) => (
@@ -344,7 +343,7 @@ export default function WhatsAppContactsPage() {
           }
         />
       ) : (
-        <div className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="border-b border-gray-100 dark:border-gray-800/80 bg-gray-50 dark:bg-gray-900/50">
@@ -380,7 +379,7 @@ export default function WhatsAppContactsPage() {
                                 type="button"
                                 onClick={() => handleRemoveTagFromContact(c.id, t.id)}
                                 disabled={updatingTagsContactId === c.id}
-                                className="rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-50"
+                                className="p-0.5 hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-50"
                                 aria-label={`Remove ${t.name}`}
                               >
                                 <X className="h-3 w-3" />
@@ -507,7 +506,7 @@ export default function WhatsAppContactsPage() {
             <div className="space-y-2">
               <Label>Tags</Label>
               <p className="text-xs text-muted-foreground">Select one or more tags. Create tags in Settings → Tags first.</p>
-              <div className="flex flex-wrap gap-3 border border-gray-200 dark:border-gray-800 rounded-md p-3 min-h-[44px]">
+              <div className="flex flex-wrap gap-3 border border-gray-200 dark:border-gray-800 p-3 min-h-[44px]">
                 {tagDefinitions.length === 0 ? (
                   <span className="text-sm text-muted-foreground">No tags yet. Create tags in Settings → Tags.</span>
                 ) : (
@@ -520,7 +519,7 @@ export default function WhatsAppContactsPage() {
                           if (e.target.checked) setFormTagIds((prev) => [...prev, t.id]);
                           else setFormTagIds((prev) => prev.filter((id) => id !== t.id));
                         }}
-                        className="rounded border-gray-300"
+                        className="border-gray-300"
                       />
                       <span className="text-sm">{t.name}</span>
                     </label>

@@ -9,11 +9,10 @@ export default function ContactsUploadPage() {
   return (
     <div className="flex flex-col gap-10">
       <PageHeader
-        label="Contacts"
         title="Upload CSV"
         description="Import contacts from a CSV file. CSV import is available for WhatsApp contacts."
       />
-      <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 max-w-lg">
+      <Card className="bg-white dark:bg-gray-900 w-full">
         <CardContent className="p-6">
           <p className="text-sm text-muted-foreground mb-4">
             Go to WhatsApp contacts to upload a CSV with columns: phone (required), name, email.

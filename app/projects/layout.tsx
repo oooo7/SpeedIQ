@@ -44,9 +44,9 @@ export default async function ProjectsLayout({ children }: { children: ReactNode
             avatar: userData.avatar,
           }}
         />
-        <SidebarInset className={cn("max-w-full")}>
+        <SidebarInset className={cn("max-w-full bg-gray-100 dark:bg-gray-900")}>
           <DashboardHeader />
-          <div className="h-full p-4 md:p-6">{children}</div>
+          <div className="h-full w-full max-w-7xl mx-auto p-4 md:p-6">{children}</div>
         </SidebarInset>
       </SidebarProvider>
     </ProjectProvider>

@@ -75,10 +75,10 @@ function ResetPasswordContent() {
   if (!isValidToken) {
     return (
       <div className="mx-auto flex w-full flex-col justify-center space-y-8 sm:w-[380px] px-4">
-        <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+        <Card className="bg-white dark:bg-gray-900">
           <CardContent className="pt-8 pb-8 space-y-6">
             <div className="space-y-2 text-center">
-              <h1 className="text-2xl font-bold">Invalid Reset Link</h1>
+              <h1 className="text-2xl font-medium">Invalid Reset Link</h1>
               <p className="text-muted-foreground text-sm">
                 This password reset link is invalid or has expired.
               </p>
@@ -103,10 +103,10 @@ function ResetPasswordContent() {
 
   return (
     <div className="mx-auto flex w-full flex-col justify-center space-y-8 sm:w-[380px] px-4">
-      <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+      <Card className="bg-white dark:bg-gray-900">
         <CardContent className="pt-8 pb-8 space-y-6">
           <div className="space-y-2 text-center">
-            <h1 className="text-2xl font-bold">Reset your password</h1>
+            <h1 className="text-2xl font-medium">Reset your password</h1>
             <p className="text-muted-foreground text-sm">
               Enter your new password below.
             </p>
@@ -174,9 +174,9 @@ export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
       <div className="mx-auto flex w-full flex-col justify-center space-y-8 sm:w-[380px] px-4">
-        <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+        <Card className="bg-white dark:bg-gray-900">
           <CardContent className="pt-8 pb-8 text-center">
-            <h1 className="text-2xl font-bold">Loading...</h1>
+            <h1 className="text-2xl font-medium">Loading...</h1>
           </CardContent>
         </Card>
       </div>

@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, Loader2, Pencil, RefreshCw, Send } from "lucide-react";
+import { useParams } from "next/navigation";
+import { Calendar, Loader2, Pencil, RefreshCw, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -81,7 +81,6 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | 
 
 export default function CampaignDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const { activeProject } = useProjectContext();
   const campaignId = params?.campaignId as string;
   const [data, setData] = useState<CampaignDetail | null>(null);
@@ -316,7 +315,7 @@ export default function CampaignDetailPage() {
   if (!activeProject) {
     return (
       <div className="flex flex-col gap-10">
-        <PageHeader label="WhatsApp" title="Campaign" description="Select a project." />
+        <PageHeader title="Campaign" description="Select a project." />
       </div>
     );
   }
@@ -324,7 +323,7 @@ export default function CampaignDetailPage() {
   if (loading || !data) {
     return (
       <div className="flex flex-col gap-10">
-        <PageHeader label="WhatsApp" title="Campaign" description="Loading…" />
+        <PageHeader title="Campaign" description="Loading…" />
         <LoadingState message="Loading campaign…" />
       </div>
     );
@@ -347,12 +346,8 @@ export default function CampaignDetailPage() {
       <header className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3 flex-wrap min-w-0">
-            <Button variant="ghost" size="sm" onClick={() => router.back()} className="gap-1 shrink-0">
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
             <div className="flex items-center gap-2 min-w-0">
-              <h1 className="text-xl font-semibold truncate">{campaign.name}</h1>
+              <h1 className="text-xl font-medium truncate">{campaign.name}</h1>
               <Badge variant={STATUS_VARIANTS[campaign.status] ?? "outline"} className="shrink-0">{campaign.status}</Badge>
             </div>
             {canEdit && (
@@ -413,23 +408,23 @@ export default function CampaignDetailPage() {
       {hasAlerts && (
         <section className="space-y-3">
           {canSendOrSchedule && !hasTemplate && (
-            <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+            <div className="border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
               Add a template or enable the default hello_world template (Edit campaign) before you can send or schedule.
             </div>
           )}
           {canSendOrSchedule && hasTemplate && stats.total === 0 && (
-            <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+            <div className="border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
               Add at least one recipient before you can send or schedule. Open Edit and select one or more tags under Recipients.
             </div>
           )}
           {canSendOrSchedule && campaign.template_id && !campaign.use_hello_world && template?.status !== "approved" && (
-            <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+            <div className="border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
               Approve the template first to send. Use the Templates page to submit your draft for approval.
             </div>
           )}
           {(stats.failed > 0 || debugResult) && (
-            <div className={`rounded-lg border px-4 py-4 ${debugResult && debugResult.failed > 0 ? "border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30" : "border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30"}`}>
-              <h3 className="text-sm font-semibold mb-2">Send results</h3>
+            <div className={`border px-4 py-4 ${debugResult && debugResult.failed > 0 ? "border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30" : "border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30"}`}>
+              <h3 className="text-sm font-medium mb-2">Send results</h3>
               {(recipients.some((r) => r.status === "failed" && (String(r.error_code ?? "").includes("132001") || String(r.error_code ?? "").includes("Template name does not exist"))) ||
                 debugResult?.errors?.some((e) => String(e.error).includes("132001") || String(e.error).includes("Template name does not exist"))) && (
                 <p className="text-sm text-amber-800 dark:text-amber-300 mb-2">
@@ -456,7 +451,7 @@ export default function CampaignDetailPage() {
                     Last run: {debugResult.sent} sent, {debugResult.failed} failed
                   </p>
                   {debugResult.errors.length > 0 ? (
-                    <pre className="text-xs bg-white dark:bg-black/20 p-2 rounded border border-gray-200 dark:border-gray-800 overflow-auto max-h-40">
+                    <pre className="text-xs bg-white dark:bg-black/20 p-2 border border-gray-200 dark:border-gray-800 overflow-auto max-h-40">
                       {debugResult.errors.map((e) => `${e.phone}: ${e.error}`).join("\n")}
                     </pre>
                   ) : (
@@ -473,28 +468,28 @@ export default function CampaignDetailPage() {
       <section>
         <h2 className="text-sm font-medium text-muted-foreground mb-3">Overview</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+          <Card className="bg-white dark:bg-gray-900">
             <CardContent className="pt-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total recipients</p>
-              <p className="text-2xl font-semibold mt-1">{stats.total}</p>
+              <p className="text-2xl font-medium mt-1">{stats.total}</p>
             </CardContent>
           </Card>
-          <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+          <Card className="bg-white dark:bg-gray-900">
             <CardContent className="pt-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sent</p>
-              <p className="text-2xl font-semibold mt-1">{stats.sent + stats.delivered + stats.read}</p>
+              <p className="text-2xl font-medium mt-1">{stats.sent + stats.delivered + stats.read}</p>
             </CardContent>
           </Card>
-          <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+          <Card className="bg-white dark:bg-gray-900">
             <CardContent className="pt-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Delivered / Read</p>
-              <p className="text-2xl font-semibold mt-1">{stats.delivered + stats.read}</p>
+              <p className="text-2xl font-medium mt-1">{stats.delivered + stats.read}</p>
             </CardContent>
           </Card>
-          <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+          <Card className="bg-white dark:bg-gray-900">
             <CardContent className="pt-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Failed</p>
-              <p className="text-2xl font-semibold mt-1">{stats.failed}</p>
+              <p className="text-2xl font-medium mt-1">{stats.failed}</p>
             </CardContent>
           </Card>
         </div>
@@ -503,7 +498,7 @@ export default function CampaignDetailPage() {
       {/* Details + Recipients: two-column on large screens */}
       <div className="grid gap-8 lg:grid-cols-12">
         <section className="lg:col-span-5 xl:col-span-4">
-          <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+          <Card className="bg-white dark:bg-gray-900">
             <CardHeader>
               <CardTitle className="text-base">Details</CardTitle>
             </CardHeader>
@@ -525,21 +520,21 @@ export default function CampaignDetailPage() {
               {template?.body && (
                 <div>
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Message preview</p>
-                  <div className="rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 p-3 text-muted-foreground whitespace-pre-wrap">
+                  <div className="border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 p-3 text-muted-foreground whitespace-pre-wrap">
                     {template.body}
                   </div>
                 </div>
               )}
-              <div className="border-t border-gray-200 dark:border-gray-800 pt-4 space-y-2">
-                <p><span className="text-muted-foreground">Created</span> {new Date(campaign.created_at).toLocaleString()}</p>
+              <div className="border-t border-gray-100 dark:border-gray-800 pt-4 divide-y divide-gray-100 dark:divide-gray-800">
+                <p className="py-2 first:pt-0 last:pb-0"><span className="text-muted-foreground">Created</span> {new Date(campaign.created_at).toLocaleString()}</p>
                 {campaign.scheduled_at && (
-                  <p><span className="text-muted-foreground">Scheduled</span> {new Date(campaign.scheduled_at).toLocaleString()}</p>
+                  <p className="py-2 last:pb-0"><span className="text-muted-foreground">Scheduled</span> {new Date(campaign.scheduled_at).toLocaleString()}</p>
                 )}
                 {campaign.started_at && (
-                  <p><span className="text-muted-foreground">Started</span> {new Date(campaign.started_at).toLocaleString()}</p>
+                  <p className="py-2 last:pb-0"><span className="text-muted-foreground">Started</span> {new Date(campaign.started_at).toLocaleString()}</p>
                 )}
                 {campaign.completed_at && (
-                  <p><span className="text-muted-foreground">Completed</span> {new Date(campaign.completed_at).toLocaleString()}</p>
+                  <p className="py-2 last:pb-0"><span className="text-muted-foreground">Completed</span> {new Date(campaign.completed_at).toLocaleString()}</p>
                 )}
               </div>
             </CardContent>
@@ -547,7 +542,7 @@ export default function CampaignDetailPage() {
         </section>
 
         <section className="lg:col-span-7 xl:col-span-8">
-          <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+          <Card className="bg-white dark:bg-gray-900">
             <CardHeader>
               <CardTitle className="text-base">Recipients ({recipients.length})</CardTitle>
              
@@ -691,7 +686,7 @@ export default function CampaignDetailPage() {
           <div className="flex-1 overflow-y-auto p-6 space-y-8">
             {/* Details */}
             <section className="space-y-4">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Details</h3>
+              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Details</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-name">Name *</Label>
@@ -721,9 +716,9 @@ export default function CampaignDetailPage() {
 
             {/* Template */}
             <section className="space-y-4">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Template</h3>
+              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Template</h3>
               <div className="space-y-3">
-                <label className="flex items-center gap-3 cursor-pointer rounded-md border border-gray-200 dark:border-gray-800 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                <label className="flex items-center gap-3 cursor-pointer border border-gray-200 dark:border-gray-800 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <input
                     type="checkbox"
                     checked={editUseHelloWorld}
@@ -743,7 +738,7 @@ export default function CampaignDetailPage() {
                     value={editTemplateId}
                     onChange={(e) => setEditTemplateId(e.target.value)}
                     disabled={editUseHelloWorld}
-                    className="flex h-10 w-full max-w-md rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex h-10 w-full max-w-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="">No template</option>
                     {templates.filter((t) => t.status === "approved").map((t) => (
@@ -765,7 +760,7 @@ export default function CampaignDetailPage() {
 
             {/* Recipients */}
             <section className="space-y-4">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Recipients</h3>
+              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Recipients</h3>
               <p className="text-sm text-muted-foreground">
                 Add recipients by selecting tags and/or individual contacts. Contacts from tags and the manual list are combined. Save to update the recipient list.
               </p>
@@ -805,7 +800,7 @@ export default function CampaignDetailPage() {
                     {editTagDefinitions.length === 0 ? (
                       <p className="text-sm text-muted-foreground py-2">No tags yet. Create tags in Settings → Tags first.</p>
                     ) : (
-                      <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-800 p-3 bg-gray-50 dark:bg-gray-900/30">
+                      <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-800 p-3 bg-gray-50 dark:bg-gray-900/30">
                         {editTagDefinitions.map((t) => (
                           <label key={t.id} className="flex items-center gap-2 cursor-pointer shrink-0">
                             <Checkbox
@@ -833,7 +828,7 @@ export default function CampaignDetailPage() {
                     {editContacts.length === 0 ? (
                       <p className="text-sm text-muted-foreground py-2">No contacts in this project yet.</p>
                     ) : (
-                      <div className="max-h-40 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-800 p-3 space-y-1.5 bg-gray-50 dark:bg-gray-900/30">
+                      <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-800 p-3 space-y-1.5 bg-gray-50 dark:bg-gray-900/30">
                         {editContacts.slice(0, 100).map((c) => (
                           <label key={c.id} className="flex items-center gap-2 cursor-pointer py-1">
                             <Checkbox
@@ -861,7 +856,7 @@ export default function CampaignDetailPage() {
 
             {/* When to send */}
             <section className="space-y-4">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">When to send</h3>
+              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">When to send</h3>
               <div className="space-y-3">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input type="radio" checked={editScheduleOption === "draft"} onChange={() => setEditScheduleOption("draft")} />

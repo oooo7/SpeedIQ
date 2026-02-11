@@ -79,7 +79,7 @@ export default function AllContactsPage() {
   if (!activeProject) {
     return (
       <div className="flex flex-col gap-10">
-        <PageHeader label="Contacts" title="All Contacts" description="Select a project to view contacts." />
+        <PageHeader title="All Contacts" description="Select a project to view contacts." />
       </div>
     );
   }
@@ -88,7 +88,6 @@ export default function AllContactsPage() {
     <div className="flex flex-col gap-10">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
-          label="Contacts"
           title="All Contacts"
           description="View and search contacts across WhatsApp and email for this project."
         />
@@ -102,16 +101,16 @@ export default function AllContactsPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 p-4">
-        <div className="flex gap-1 rounded-xl border border-gray-100 dark:border-gray-800/80 bg-gray-50/50 dark:bg-gray-800/30 p-1 w-fit">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center bg-white dark:bg-gray-900 p-4">
+        <div className="flex gap-1 bg-gray-50 dark:bg-gray-800/30 p-1 w-fit">
           {(["all", "whatsapp", "email"] as const).map((c) => (
             <button
               key={c}
               type="button"
               onClick={() => setChannel(c)}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg capitalize transition-colors ${
+              className={`px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
                 channel === c
-                  ? "bg-white dark:bg-gray-800 text-foreground border border-gray-100 dark:border-gray-700"
+                  ? "bg-white dark:bg-gray-800 text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -130,11 +129,11 @@ export default function AllContactsPage() {
       </div>
 
       {channel === "email" ? (
-        <div className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 p-12 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800/80 text-muted-foreground mx-auto mb-4">
+        <div className="bg-white dark:bg-gray-900 p-12 text-center">
+          <div className="flex h-14 w-14 items-center justify-center bg-gray-100 dark:bg-gray-800/80 text-muted-foreground mx-auto mb-4">
             <Mail className="h-7 w-7" />
           </div>
-          <h2 className="text-lg font-semibold mb-2">Email contacts</h2>
+          <h2 className="text-lg font-medium mb-2">Email contacts</h2>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
             Email subscribers and contacts will appear here when Email Marketing is available. Coming soon.
           </p>
@@ -142,7 +141,7 @@ export default function AllContactsPage() {
       ) : loading ? (
         <LoadingState message="Loading contacts…" />
       ) : contacts.length === 0 ? (
-        <div className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 p-10 text-center">
+        <div className="bg-white dark:bg-gray-900 p-10 text-center">
           <p className="text-sm text-muted-foreground mb-4">
             No {channel === "all" ? "" : "WhatsApp "}contacts yet.
           </p>
@@ -153,7 +152,7 @@ export default function AllContactsPage() {
           </Link>
         </div>
       ) : (
-        <div className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="border-b border-gray-100 dark:border-gray-800/80 bg-gray-50 dark:bg-gray-900/50">

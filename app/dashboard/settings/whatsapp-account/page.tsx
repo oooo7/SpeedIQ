@@ -283,7 +283,7 @@ export default function WhatsAppAccountPage() {
   if (!activeProject) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-xl font-semibold">WhatsApp Account</h1>
+        <h1 className="text-xl font-medium">WhatsApp Account</h1>
         <p className="text-sm text-muted-foreground">Select a project to connect a WhatsApp Business account.</p>
       </div>
     );
@@ -292,22 +292,21 @@ export default function WhatsAppAccountPage() {
   if (loading) {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-xl font-semibold">WhatsApp Account</h1>
+        <h1 className="text-xl font-medium">WhatsApp Account</h1>
         <LoadingState message="Loading account…" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-10 max-w-2xl">
+    <div className="flex flex-col gap-10 w-full">
       <PageHeader
-        label="Settings"
         title="WhatsApp Account"
         description="Connect a WhatsApp Business number to send campaigns and messages for this project."
       />
 
       {account?.connected ? (
-        <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+        <Card className="bg-white dark:bg-gray-900">
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <div className="flex items-center gap-3">
               <MessageSquare className="h-5 w-5 text-green-600 dark:text-green-500" />
@@ -357,47 +356,56 @@ export default function WhatsAppAccountPage() {
             <p className="text-xs text-muted-foreground">
               Click &quot;Refresh health&quot; to fetch the latest data from Meta. Some fields (e.g. verified name, status) only appear after a refresh.
             </p>
-            <dl className="grid gap-3 text-sm sm:grid-cols-[auto_1fr] sm:gap-x-4">
-              <dt className="text-muted-foreground font-medium">Phone number</dt>
-              <dd className="font-mono tabular-nums">
-                {formatDisplayPhone(account.phone_number)}
-              </dd>
-
-              <dt className="text-muted-foreground font-medium">Verified name</dt>
-              <dd>{account.verified_name?.trim() || "—"}</dd>
-
-              <dt className="text-muted-foreground font-medium">Display name (optional)</dt>
-              <dd>{account.display_name?.trim() || "—"}</dd>
-
-              <dt className="text-muted-foreground font-medium">Quality rating</dt>
-              <dd>
-                <span
-                  className={
-                    account.quality_rating === "GREEN"
-                      ? "text-green-600 dark:text-green-500 font-medium"
-                      : account.quality_rating === "YELLOW"
-                        ? "text-amber-600 dark:text-amber-500 font-medium"
-                        : account.quality_rating === "RED"
-                          ? "text-red-600 dark:text-red-500 font-medium"
-                          : "text-muted-foreground"
-                  }
-                >
-                  {qualityLabel(account.quality_rating)}
-                </span>
-              </dd>
-
-              <dt className="text-muted-foreground font-medium">Status</dt>
-              <dd>{statusLabel(account.status)}</dd>
-
-              <dt className="text-muted-foreground font-medium">Code verification</dt>
-              <dd>{codeVerificationLabel(account.code_verification_status)}</dd>
-
-              <dt className="text-muted-foreground font-medium">Platform</dt>
-              <dd>{account.platform_type?.replace(/_/g, " ") ?? "—"}</dd>
-
-              <dt className="text-muted-foreground font-medium">Tier</dt>
-              <dd>{account.tier?.trim() || "—"}</dd>
-            </dl>
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-3 text-sm first:pt-0">
+                <dt className="text-muted-foreground font-medium">Phone number</dt>
+                <dd className="font-mono tabular-nums">
+                  {formatDisplayPhone(account.phone_number)}
+                </dd>
+              </dl>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-3 text-sm">
+                <dt className="text-muted-foreground font-medium">Verified name</dt>
+                <dd>{account.verified_name?.trim() || "—"}</dd>
+              </dl>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-3 text-sm">
+                <dt className="text-muted-foreground font-medium">Display name (optional)</dt>
+                <dd>{account.display_name?.trim() || "—"}</dd>
+              </dl>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-3 text-sm">
+                <dt className="text-muted-foreground font-medium">Quality rating</dt>
+                <dd>
+                  <span
+                    className={
+                      account.quality_rating === "GREEN"
+                        ? "text-green-600 dark:text-green-500 font-medium"
+                        : account.quality_rating === "YELLOW"
+                          ? "text-amber-600 dark:text-amber-500 font-medium"
+                          : account.quality_rating === "RED"
+                            ? "text-red-600 dark:text-red-500 font-medium"
+                            : "text-muted-foreground"
+                    }
+                  >
+                    {qualityLabel(account.quality_rating)}
+                  </span>
+                </dd>
+              </dl>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-3 text-sm">
+                <dt className="text-muted-foreground font-medium">Status</dt>
+                <dd>{statusLabel(account.status)}</dd>
+              </dl>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-3 text-sm">
+                <dt className="text-muted-foreground font-medium">Code verification</dt>
+                <dd>{codeVerificationLabel(account.code_verification_status)}</dd>
+              </dl>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-3 text-sm">
+                <dt className="text-muted-foreground font-medium">Platform</dt>
+                <dd>{account.platform_type?.replace(/_/g, " ") ?? "—"}</dd>
+              </dl>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-3 text-sm last:pb-0">
+                <dt className="text-muted-foreground font-medium">Tier</dt>
+                <dd>{account.tier?.trim() || "—"}</dd>
+              </dl>
+            </div>
 
             {account.quality_rating === "UNKNOWN" && (
               <p className="text-xs text-muted-foreground">
@@ -419,7 +427,7 @@ export default function WhatsAppAccountPage() {
       ) : null}
 
       {account?.connected ? (
-        <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+        <Card className="bg-white dark:bg-gray-900">
           <CardHeader>
             <CardTitle className="text-base">Send test message</CardTitle>
             <CardDescription>
@@ -427,8 +435,8 @@ export default function WhatsAppAccountPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSendTest} className="space-y-4">
-              <div className="space-y-2">
+            <form onSubmit={handleSendTest} className="divide-y divide-gray-100 dark:divide-gray-800">
+              <div className="space-y-2 pb-4">
                 <Label htmlFor="test-to">To (phone number) *</Label>
                 <Input
                   id="test-to"
@@ -437,7 +445,7 @@ export default function WhatsAppAccountPage() {
                   placeholder="e.g. 917470915225"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 py-4">
                 <Label>Template *</Label>
                 <p className="text-xs text-muted-foreground mb-1">Select a template. Only approved templates can be sent.</p>
                 <div className="flex flex-col gap-2">
@@ -468,6 +476,7 @@ export default function WhatsAppAccountPage() {
                   )}
                 </div>
               </div>
+              <div className="pt-4">
               <Button type="submit" disabled={testSending || !testTemplate} className="gap-1">
                 {testSending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -476,13 +485,14 @@ export default function WhatsAppAccountPage() {
                 )}
                 Send test message
               </Button>
+              </div>
             </form>
           </CardContent>
         </Card>
       ) : null}
 
       {!account?.connected && oauthConfig ? (
-        <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+        <Card className="bg-white dark:bg-gray-900">
           <CardHeader>
             <CardTitle>Connect with WhatsApp</CardTitle>
             <CardDescription>
@@ -513,14 +523,14 @@ export default function WhatsAppAccountPage() {
                   <div className="space-y-2 text-xs">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-muted-foreground">Domain only (no https://):</span>
-                      <code className="bg-muted px-1.5 py-0.5 rounded break-all">{currentOrigin.replace(/^https?:\/\//, "")}</code>
+                      <code className="bg-muted px-1.5 py-0.5 break-all">{currentOrigin.replace(/^https?:\/\//, "")}</code>
                       <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => copyToClipboard(currentOrigin.replace(/^https?:\/\//, ""), "Domain")}>
                         Copy
                       </Button>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-muted-foreground">Full redirect URI:</span>
-                      <code className="bg-muted px-1.5 py-0.5 rounded break-all">{currentRedirectUri}</code>
+                      <code className="bg-muted px-1.5 py-0.5 break-all">{currentRedirectUri}</code>
                       <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => copyToClipboard(currentRedirectUri, "Redirect URI")}>
                         Copy
                       </Button>
@@ -548,7 +558,7 @@ export default function WhatsAppAccountPage() {
       ) : null}
 
       {!account?.connected && !oauthConfig ? (
-        <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+        <Card className="bg-white dark:bg-gray-900">
           <CardHeader>
             <CardTitle>Connect account</CardTitle>
             <CardDescription>

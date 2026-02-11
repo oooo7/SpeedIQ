@@ -9,11 +9,11 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
   return (
     <main>
       <div className="grid h-dvh justify-center p-2 lg:grid-cols-2">
-        <div className="bg-zinc-900 dark:bg-zinc-950 relative order-2 hidden h-full rounded-2xl lg:flex overflow-hidden">
+        <div className="bg-zinc-900 dark:bg-zinc-950 relative order-2 hidden h-full lg:flex overflow-hidden">
           <div className="relative z-10 flex flex-col w-full">
             <div className="text-zinc-100 absolute top-10 space-y-2 px-10">
               <Command className="size-9 text-zinc-400" strokeWidth={1.5} />
-              <h1 className="text-xl font-semibold tracking-tight text-white">{APP_CONFIG.name}</h1>
+              <h1 className="text-xl font-medium tracking-tight text-white">{APP_CONFIG.name}</h1>
               <p className="text-sm text-zinc-400 max-w-[280px]">WhatsApp & Email Marketing—automate, engage, scale.</p>
             </div>
 

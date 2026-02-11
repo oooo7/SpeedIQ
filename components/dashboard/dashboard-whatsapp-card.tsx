@@ -6,7 +6,7 @@ import { Check, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { LoadingState } from "@/components/ui/loading-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { WhatsAppConnectButton } from "@/components/whatsapp/whatsapp-connect-button";
 import { useProjectContext } from "@/lib/projects/project-context";
 
@@ -92,23 +92,34 @@ export function DashboardWhatsAppCard() {
 
   if (loading) {
     return (
-      <Card className="rounded-2xl border-0 shadow-none h-full min-h-[200px] flex flex-col bg-green-50 dark:bg-green-950/40">
-        <CardContent className="pt-6 flex-1 flex items-center justify-center">
-          <LoadingState message="Loading…" />
+      <Card className="h-full min-h-[200px] flex flex-col bg-green-50 dark:bg-green-950/40">
+        <CardContent className="p-5 flex flex-col flex-1 gap-5">
+          <div className="flex items-start gap-3">
+            <Skeleton className="h-11 w-11 shrink-0" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-full max-w-[200px]" />
+            </div>
+          </div>
+          <div className="space-y-2 flex-1">
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-full max-w-[85%]" />
+            <Skeleton className="h-3 w-full max-w-[70%]" />
+          </div>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="rounded-2xl border-0 shadow-none h-full flex flex-col bg-green-50 dark:bg-green-950/40">
+    <Card className="h-full flex flex-col bg-green-50 dark:bg-green-950/40">
       <CardContent className="p-5 flex flex-col flex-1 gap-5">
         <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-[#25D366] text-white">
             <MessageSquare className="h-6 w-6" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="font-semibold text-base text-foreground">WhatsApp Account</h3>
+            <h3 className="font-medium text-base text-foreground">WhatsApp Account</h3>
             <p className="text-sm text-green-800/80 dark:text-green-200/80 mt-0.5">
               {account?.connected
                 ? "Connected for campaigns and live chat"
@@ -119,7 +130,7 @@ export function DashboardWhatsAppCard() {
 
         {account?.connected ? (
           <>
-            <div className="space-y-3 text-sm rounded-lg bg-white/60 dark:bg-black/20 p-4">
+            <div className="space-y-3 text-sm bg-white/60 dark:bg-black/20 p-4">
               <div>
                 <p className="text-xs font-medium text-green-800/70 dark:text-green-200/70 uppercase tracking-wide">Phone</p>
                 <p className="font-mono tabular-nums mt-1 text-foreground">
@@ -150,7 +161,7 @@ export function DashboardWhatsAppCard() {
               )}
             </div>
             <div className="mt-auto flex flex-wrap items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#25D366]/20 dark:bg-[#25D366]/30 px-3 py-1.5 text-xs font-semibold text-green-800 dark:text-green-100">
+              <span className="inline-flex items-center gap-1.5 bg-[#25D366]/20 dark:bg-[#25D366]/30 px-3 py-1.5 text-xs font-medium text-green-800 dark:text-green-100">
                 <Check className="h-3.5 w-3.5" />
                 Connected
               </span>
@@ -166,15 +177,15 @@ export function DashboardWhatsAppCard() {
           <>
             <ul className="text-sm text-green-800/90 dark:text-green-200/90 space-y-2 flex-1 list-none">
               <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#25D366] shrink-0" />
+                <span className="h-1.5 w-1.5 bg-[#25D366] shrink-0" />
                 Send broadcast campaigns to your contacts
               </li>
               <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#25D366] shrink-0" />
+                <span className="h-1.5 w-1.5 bg-[#25D366] shrink-0" />
                 Live chat and reply from the inbox
               </li>
               <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#25D366] shrink-0" />
+                <span className="h-1.5 w-1.5 bg-[#25D366] shrink-0" />
                 Use approved templates for notifications
               </li>
             </ul>
@@ -202,7 +213,7 @@ export function DashboardWhatsAppCard() {
             ) : (
               <Link
                 href="/dashboard/settings/whatsapp-account"
-                className="mt-auto inline-flex items-center justify-center rounded-md bg-[#25D366] hover:bg-[#128C7E] text-white text-sm font-medium px-4 py-2 w-full sm:w-auto"
+                className="mt-auto inline-flex items-center justify-center bg-[#25D366] hover:bg-[#128C7E] text-white text-sm font-medium px-4 py-2 w-full sm:w-auto"
               >
                 Set up in Settings →
               </Link>

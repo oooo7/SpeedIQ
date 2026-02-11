@@ -133,16 +133,15 @@ export default function TagsPage() {
   if (!activeProject) {
     return (
       <div className="flex flex-col gap-10">
-        <PageHeader label="Settings" title="Tags" description="Select a project to manage tags for contacts." />
+        <PageHeader title="Tags" description="Select a project to manage tags for contacts." />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-10 max-w-2xl">
+    <div className="flex flex-col gap-10 w-full">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
-          label="Settings"
           title="Tags"
           description="Define tags to assign to WhatsApp contacts (e.g. VIP, New Customer). Use them to filter contacts and build segments."
         />
@@ -171,7 +170,7 @@ export default function TagsPage() {
           {tags.map((t) => (
             <div
               key={t.id}
-              className="flex items-center gap-1 rounded-xl border border-gray-100 dark:border-gray-800/80 px-3 py-2"
+              className="flex items-center gap-1 bg-white dark:bg-gray-900 px-3 py-2"
             >
               <Badge
                 variant="secondary"

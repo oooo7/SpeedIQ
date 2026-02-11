@@ -46,7 +46,7 @@ export function AppSidebar({
           <Command className="size-5 shrink-0" />
           <span
             className={cn(
-              "text-base font-semibold transition-opacity",
+              "text-base font-medium transition-opacity",
               isCollapsed && "hidden"
             )}
           >

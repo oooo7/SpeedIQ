@@ -102,9 +102,9 @@ export default function InvitePage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-6">
-      <div className="w-full max-w-md space-y-6 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+      <div className="w-full max-w-md space-y-6 border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
         <div className="space-y-2 text-center">
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-50">
+          <h1 className="text-xl font-medium text-gray-900 dark:text-gray-50">
             You&apos;re invited
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
