@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { LoadingState } from "@/components/ui/loading-state";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { useProjectContext } from "@/lib/projects/project-context";
 import { useProjectTeam } from "@/hooks/use-project-team";
 
@@ -57,9 +59,8 @@ export default function TeamPage() {
 
   if (!activeProject) {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-xl font-semibold">Team</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Select a project to manage its team.</p>
+      <div className="flex flex-col gap-10">
+        <PageHeader label="Team" title="Team" description="Select a project to manage its team." />
       </div>
     );
   }
@@ -165,8 +166,8 @@ export default function TeamPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-6">
-        <h1 className="text-xl font-semibold">Team</h1>
+      <div className="flex flex-col gap-10">
+        <PageHeader label="Team" title="Team" description="Loading…" />
         <LoadingState message="Loading team…" />
       </div>
     );
@@ -174,83 +175,93 @@ export default function TeamPage() {
 
   if (error) {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-xl font-semibold">Team</h1>
+      <div className="flex flex-col gap-10">
+        <PageHeader label="Team" title="Team" description={error} />
         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <h1 className="text-xl font-semibold">Team</h1>
+    <div className="flex flex-col gap-10">
+      <PageHeader
+        label="Team"
+        title="Team"
+        description="Invite members and manage roles for this project."
+      />
 
       {canInvite && (
-        <div className="space-y-4">
-          <h2 className="text-sm font-medium text-gray-700 dark:text-gray-200">Invite member</h2>
-          <form onSubmit={handleInvite} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="flex-1">
-              <label htmlFor="invite-email" className="mb-1 block text-xs text-gray-500 dark:text-gray-400">
-                Email
-              </label>
-              <Input
-                id="invite-email"
-                type="email"
-                placeholder="colleague@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={inviting}
-              />
-            </div>
-            <div className="w-full sm:w-36">
-              <label htmlFor="invite-role" className="mb-1 block text-xs text-gray-500 dark:text-gray-400">
-                Role
-              </label>
-              <select
-                id="invite-role"
-                value={role}
-                onChange={(e) => setRole(e.target.value as "admin" | "editor" | "viewer")}
-                className="flex h-9 w-full rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-1 text-sm"
-              >
-                {ROLES.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Button type="submit" disabled={inviting} className="gap-2">
-              {inviting ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-              Invite
-            </Button>
-          </form>
-
-          {inviteUrl && (
-            <div className="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 px-3 py-2">
-              <span className="flex-1 truncate text-sm text-gray-600 dark:text-gray-400">{inviteUrl}</span>
-              <Button variant="outline" size="sm" onClick={handleCopyLink} className="gap-1 shrink-0">
-                <Copy className="size-4" />
-                Copy
+        <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+          <CardHeader>
+            <CardTitle className="text-base">Invite member</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <form onSubmit={handleInvite} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex-1">
+                <label htmlFor="invite-email" className="mb-1 block text-xs text-muted-foreground">
+                  Email
+                </label>
+                <Input
+                  id="invite-email"
+                  type="email"
+                  placeholder="colleague@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={inviting}
+                />
+              </div>
+              <div className="w-full sm:w-36">
+                <label htmlFor="invite-role" className="mb-1 block text-xs text-muted-foreground">
+                  Role
+                </label>
+                <select
+                  id="invite-role"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as "admin" | "editor" | "viewer")}
+                  className="flex h-9 w-full rounded-lg border border-gray-100 dark:border-gray-800/80 bg-transparent px-3 py-1 text-sm"
+                >
+                  {ROLES.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Button type="submit" disabled={inviting} className="gap-2">
+                {inviting ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                Invite
               </Button>
-            </div>
-          )}
-        </div>
+            </form>
+            {inviteUrl && (
+              <div className="flex items-center gap-2 rounded-xl border border-gray-100 dark:border-gray-800/80 bg-gray-50 dark:bg-gray-900/50 px-3 py-2">
+                <span className="flex-1 truncate text-sm text-muted-foreground">{inviteUrl}</span>
+                <Button variant="outline" size="sm" onClick={handleCopyLink} className="gap-1 shrink-0">
+                  <Copy className="size-4" />
+                  Copy
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
-      <div className="space-y-4">
-        <h2 className="text-sm font-medium text-gray-700 dark:text-gray-200">Members</h2>
-        <div className="space-y-2">
-          {members.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">No members yet.</p>
-          ) : (
-            members.map((member) => (
-              <div
-                key={member.id}
-                className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 dark:border-gray-800 px-4 py-3"
-              >
+      <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+        <CardHeader>
+          <CardTitle className="text-base">Members</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {members.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No members yet.</p>
+            ) : (
+              members.map((member) => (
+                <div
+                  key={member.id}
+                  className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 dark:border-gray-800/80 px-4 py-3"
+                >
                 <div className="flex items-center gap-3">
-                  <Avatar className="size-9 rounded-full bg-purple-100 dark:bg-purple-900/30">
-                    <AvatarFallback className="rounded-full bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
+                  <Avatar className="size-9 rounded-full bg-primary/10">
+                    <AvatarFallback className="rounded-full bg-primary/10 text-primary">
                       {getInitials(member.name, member.email)}
                     </AvatarFallback>
                   </Avatar>
@@ -306,36 +317,41 @@ export default function TeamPage() {
               </div>
             ))
           )}
-        </div>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {canManage && invites.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-sm font-medium text-gray-700 dark:text-gray-200">Pending invites</h2>
-          <div className="space-y-2">
-            {invites.map((invite) => (
-              <div
-                key={invite.id}
-                className="flex items-center justify-between gap-4 rounded-lg border border-dashed border-gray-200 dark:border-gray-800 px-4 py-3"
-              >
-                <div>
-                  <p className="text-sm font-medium">{invite.email}</p>
-                  <Badge variant="secondary" className="mt-0.5 text-xs">
-                    {formatRole(invite.role)} (pending)
-                  </Badge>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleRevokeInvite(invite.id)}
-                  className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+        <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+          <CardHeader>
+            <CardTitle className="text-base">Pending invites</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {invites.map((invite) => (
+                <div
+                  key={invite.id}
+                  className="flex items-center justify-between gap-4 rounded-xl border border-dashed border-gray-100 dark:border-gray-800/80 px-4 py-3"
                 >
-                  Revoke
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
+                  <div>
+                    <p className="text-sm font-medium">{invite.email}</p>
+                    <Badge variant="secondary" className="mt-0.5 text-xs">
+                      {formatRole(invite.role)} (pending)
+                    </Badge>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleRevokeInvite(invite.id)}
+                    className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                  >
+                    Revoke
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

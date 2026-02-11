@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth/use-auth";
@@ -73,90 +74,98 @@ function ResetPasswordContent() {
 
   if (!isValidToken) {
     return (
-      <div className="mx-auto flex w-full flex-col justify-center space-y-8 sm:w-[350px]">
-        <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-medium">Invalid Reset Link</h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">
-            This password reset link is invalid or has expired.
-          </p>
-        </div>
-        <div className="space-y-4">
-          <Link href="/auth/forgot-password">
-            <Button className="w-full">
-              Request New Reset Link
-            </Button>
-          </Link>
-          <Link href="/auth/login">
-            <Button className="w-full" variant="outline">
-              Back to Login
-            </Button>
-          </Link>
-        </div>
+      <div className="mx-auto flex w-full flex-col justify-center space-y-8 sm:w-[380px] px-4">
+        <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+          <CardContent className="pt-8 pb-8 space-y-6">
+            <div className="space-y-2 text-center">
+              <h1 className="text-2xl font-bold">Invalid Reset Link</h1>
+              <p className="text-muted-foreground text-sm">
+                This password reset link is invalid or has expired.
+              </p>
+            </div>
+            <div className="space-y-4">
+              <Link href="/auth/forgot-password">
+                <Button className="w-full">
+                  Request New Reset Link
+                </Button>
+              </Link>
+              <Link href="/auth/login">
+                <Button className="w-full" variant="outline">
+                  Back to Login
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto flex w-full flex-col justify-center space-y-8 sm:w-[350px]">
-      <div className="space-y-2 text-center">
-        <h1 className="text-3xl font-medium">Reset your password</h1>
-        <p className="text-gray-500 dark:text-gray-400 text-sm">
-          Enter your new password below.
-        </p>
-      </div>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>New Password</FormLabel>
-                <FormControl>
-                  <Input 
-                    id="password" 
-                    type="password" 
-                    placeholder="••••••••" 
-                    autoComplete="new-password" 
-                    {...field} 
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="confirmPassword"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Confirm New Password</FormLabel>
-                <FormControl>
-                  <Input 
-                    id="confirmPassword" 
-                    type="password" 
-                    placeholder="••••••••" 
-                    autoComplete="new-password" 
-                    {...field} 
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <Button className="w-full" type="submit" disabled={isLoading}>
-            {isLoading ? "Updating..." : "Update Password"}
-          </Button>
-        </form>
-      </Form>
-      <div className="text-center">
-        <Link 
-          href="/auth/login" 
-          className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-50"
-        >
-          Back to Login
-        </Link>
-      </div>
+    <div className="mx-auto flex w-full flex-col justify-center space-y-8 sm:w-[380px] px-4">
+      <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+        <CardContent className="pt-8 pb-8 space-y-6">
+          <div className="space-y-2 text-center">
+            <h1 className="text-2xl font-bold">Reset your password</h1>
+            <p className="text-muted-foreground text-sm">
+              Enter your new password below.
+            </p>
+          </div>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>New Password</FormLabel>
+                    <FormControl>
+                      <Input 
+                        id="password" 
+                        type="password" 
+                        placeholder="••••••••" 
+                        autoComplete="new-password" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm New Password</FormLabel>
+                    <FormControl>
+                      <Input 
+                        id="confirmPassword" 
+                        type="password" 
+                        placeholder="••••••••" 
+                        autoComplete="new-password" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button className="w-full" type="submit" disabled={isLoading}>
+                {isLoading ? "Updating..." : "Update Password"}
+              </Button>
+            </form>
+          </Form>
+          <div className="text-center">
+            <Link 
+              href="/auth/login" 
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              Back to Login
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -164,10 +173,12 @@ function ResetPasswordContent() {
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
-      <div className="mx-auto flex w-full flex-col justify-center space-y-8 sm:w-[350px]">
-        <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-medium">Loading...</h1>
-        </div>
+      <div className="mx-auto flex w-full flex-col justify-center space-y-8 sm:w-[380px] px-4">
+        <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+          <CardContent className="pt-8 pb-8 text-center">
+            <h1 className="text-2xl font-bold">Loading...</h1>
+          </CardContent>
+        </Card>
       </div>
     }>
       <ResetPasswordContent />

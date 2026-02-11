@@ -28,6 +28,7 @@ import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Separator } from "@/components/ui/separator";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 interface Campaign {
@@ -359,28 +360,31 @@ export default function WhatsAppCampaignsPage() {
 
   if (!activeProject) {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-xl font-semibold">Campaigns</h1>
-        <p className="text-sm text-muted-foreground">Select a project to manage campaigns.</p>
+      <div className="flex flex-col gap-10">
+        <PageHeader label="WhatsApp" title="Campaigns" description="Select a project to manage campaigns." />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-10">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-semibold">Campaigns</h1>
-        <Button onClick={openWizard} className="gap-1">
+        <PageHeader
+          label="WhatsApp"
+          title="Campaigns"
+          description="Create and send broadcast campaigns. Filter by status below."
+        />
+        <Button onClick={openWizard} className="gap-1 shrink-0">
           <Plus className="h-4 w-4" />
           New campaign
         </Button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 rounded-xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 p-2 w-fit">
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="flex h-9 rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-1 text-sm"
+          className="flex h-9 rounded-lg border border-gray-100 dark:border-gray-800/80 bg-transparent px-3 py-1 text-sm"
         >
           <option value="">All statuses</option>
           <option value="draft">Draft</option>
@@ -406,10 +410,10 @@ export default function WhatsAppCampaignsPage() {
           }
         />
       ) : (
-        <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+        <div className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
+              <thead className="border-b border-gray-100 dark:border-gray-800/80 bg-gray-50 dark:bg-gray-900/50">
                 <tr>
                   <th className="text-left p-3 font-medium">Name</th>
                   <th className="text-left p-3 font-medium">Description</th>

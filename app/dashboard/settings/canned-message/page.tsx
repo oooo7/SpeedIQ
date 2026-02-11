@@ -23,6 +23,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 interface QuickReply {
@@ -134,25 +135,25 @@ export default function CannedMessagePage() {
 
   if (!activeProject) {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-xl font-semibold">Canned Message</h1>
-        <p className="text-sm text-muted-foreground">Select a project to manage quick replies for live chat.</p>
+      <div className="flex flex-col gap-10">
+        <PageHeader label="Settings" title="Canned Message" description="Select a project to manage quick replies for live chat." />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-2xl">
+    <div className="flex flex-col gap-10 max-w-2xl">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-semibold">Canned Message</h1>
-        <Button onClick={openAdd} className="gap-1">
+        <PageHeader
+          label="Settings"
+          title="Canned Message"
+          description="Quick replies you can use in Live Chat. Use categories like Greetings, FAQs, or Closing."
+        />
+        <Button onClick={openAdd} className="gap-1 shrink-0">
           <Plus className="h-4 w-4" />
           Add canned message
         </Button>
       </div>
-      <p className="text-sm text-muted-foreground">
-        Quick replies you can use in Live Chat. Use categories like Greetings, FAQs, or Closing.
-      </p>
 
       {loading ? (
         <LoadingState message="Loading canned messages…" />
@@ -173,7 +174,7 @@ export default function CannedMessagePage() {
           {quickReplies.map((r) => (
             <div
               key={r.id}
-              className="flex items-start justify-between gap-4 rounded-lg border border-gray-200 dark:border-gray-800 p-4"
+              className="flex items-start justify-between gap-4 rounded-2xl border border-gray-100 dark:border-gray-800/80 p-4"
             >
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{r.title}</p>

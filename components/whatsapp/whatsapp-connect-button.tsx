@@ -18,6 +18,8 @@ interface WhatsAppConnectButtonProps {
   callbackUrl?: string | null;
   onSuccess: () => void;
   disabled?: boolean;
+  /** When true, do not show the HTTPS warning (e.g. on dashboard; show it only on the settings page). */
+  hideHttpsWarning?: boolean;
 }
 
 export function WhatsAppConnectButton({
@@ -28,6 +30,7 @@ export function WhatsAppConnectButton({
   callbackUrl,
   onSuccess,
   disabled,
+  hideHttpsWarning = false,
 }: WhatsAppConnectButtonProps) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [currentStep, setCurrentStep] = useState<string | null>(null);
@@ -136,7 +139,7 @@ export function WhatsAppConnectButton({
   // Use redirect flow when we have a dedicated callback URL (recommended)
   const useRedirectFlow = Boolean(resolvedCallbackUrl);
 
-  if (!isHttps) {
+  if (!isHttps && !hideHttpsWarning) {
     return (
       <div className="space-y-3">
         <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">

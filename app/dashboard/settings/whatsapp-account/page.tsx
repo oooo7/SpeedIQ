@@ -12,6 +12,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { WhatsAppConnectButton } from "@/components/whatsapp/whatsapp-connect-button";
 import { useProjectContext } from "@/lib/projects/project-context";
 
@@ -298,16 +299,15 @@ export default function WhatsAppAccountPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-2xl">
-      <div>
-        <h1 className="text-xl font-semibold">WhatsApp Account</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Connect a WhatsApp Business number to send campaigns and messages for this project.
-        </p>
-      </div>
+    <div className="flex flex-col gap-10 max-w-2xl">
+      <PageHeader
+        label="Settings"
+        title="WhatsApp Account"
+        description="Connect a WhatsApp Business number to send campaigns and messages for this project."
+      />
 
       {account?.connected ? (
-        <Card className="border border-gray-200 dark:border-gray-800">
+        <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <div className="flex items-center gap-3">
               <MessageSquare className="h-5 w-5 text-green-600 dark:text-green-500" />
@@ -419,7 +419,7 @@ export default function WhatsAppAccountPage() {
       ) : null}
 
       {account?.connected ? (
-        <Card className="border border-gray-200 dark:border-gray-800">
+        <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
           <CardHeader>
             <CardTitle className="text-base">Send test message</CardTitle>
             <CardDescription>
@@ -482,7 +482,7 @@ export default function WhatsAppAccountPage() {
       ) : null}
 
       {!account?.connected && oauthConfig ? (
-        <Card className="border border-gray-200 dark:border-gray-800">
+        <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
           <CardHeader>
             <CardTitle>Connect with WhatsApp</CardTitle>
             <CardDescription>
@@ -548,7 +548,7 @@ export default function WhatsAppAccountPage() {
       ) : null}
 
       {!account?.connected && !oauthConfig ? (
-        <Card className="border border-gray-200 dark:border-gray-800">
+        <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
           <CardHeader>
             <CardTitle>Connect account</CardTitle>
             <CardDescription>

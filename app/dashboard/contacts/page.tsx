@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, Mail, MessageSquare, Users } from "lucide-react";
+import { Mail, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { Input } from "@/components/ui/input";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useProjectContext } from "@/lib/projects/project-context";
@@ -77,21 +78,21 @@ export default function AllContactsPage() {
 
   if (!activeProject) {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-xl font-semibold">All Contacts</h1>
-        <p className="text-sm text-muted-foreground">Select a project to view contacts.</p>
+      <div className="flex flex-col gap-10">
+        <PageHeader label="Contacts" title="All Contacts" description="Select a project to view contacts." />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-10">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <Users className="h-6 w-6" />
-          <h1 className="text-xl font-semibold">All Contacts</h1>
-        </div>
-        <div className="flex flex-wrap gap-2">
+        <PageHeader
+          label="Contacts"
+          title="All Contacts"
+          description="View and search contacts across WhatsApp and email for this project."
+        />
+        <div className="flex flex-wrap gap-2 shrink-0">
           <Link href="/dashboard/whatsapp/contacts">
             <Button variant="outline" size="sm" className="gap-1">
               <MessageSquare className="h-4 w-4" />
@@ -101,20 +102,16 @@ export default function AllContactsPage() {
         </div>
       </div>
 
-      <p className="text-sm text-muted-foreground">
-        View and search contacts across WhatsApp and email for this project.
-      </p>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="flex gap-2 border border-gray-200 dark:border-gray-800 rounded-md p-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 p-4">
+        <div className="flex gap-1 rounded-xl border border-gray-100 dark:border-gray-800/80 bg-gray-50/50 dark:bg-gray-800/30 p-1 w-fit">
           {(["all", "whatsapp", "email"] as const).map((c) => (
             <button
               key={c}
               type="button"
               onClick={() => setChannel(c)}
-              className={`px-3 py-1.5 text-sm rounded-md capitalize ${
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg capitalize transition-colors ${
                 channel === c
-                  ? "bg-gray-200 dark:bg-gray-800 text-foreground"
+                  ? "bg-white dark:bg-gray-800 text-foreground border border-gray-100 dark:border-gray-700"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -133,32 +130,33 @@ export default function AllContactsPage() {
       </div>
 
       {channel === "email" ? (
-        <div className="rounded-lg border border-gray-200 dark:border-gray-800 border-dashed p-12 text-center">
-          <Mail className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h2 className="text-lg font-medium mb-2">Email contacts</h2>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
-            Email subscribers and contacts will appear here when Email Marketing is available.
+        <div className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 p-12 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800/80 text-muted-foreground mx-auto mb-4">
+            <Mail className="h-7 w-7" />
+          </div>
+          <h2 className="text-lg font-semibold mb-2">Email contacts</h2>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            Email subscribers and contacts will appear here when Email Marketing is available. Coming soon.
           </p>
-          <p className="text-xs text-muted-foreground">Coming soon</p>
         </div>
       ) : loading ? (
         <LoadingState message="Loading contacts…" />
       ) : contacts.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-8 text-center">
-          <p className="text-sm text-muted-foreground">
+        <div className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 p-10 text-center">
+          <p className="text-sm text-muted-foreground mb-4">
             No {channel === "all" ? "" : "WhatsApp "}contacts yet.
           </p>
-          <Link href="/dashboard/whatsapp/contacts" className="mt-2 inline-block">
+          <Link href="/dashboard/whatsapp/contacts">
             <Button variant="outline" size="sm">
               Add WhatsApp contacts
             </Button>
           </Link>
         </div>
       ) : (
-        <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+        <div className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
+              <thead className="border-b border-gray-100 dark:border-gray-800/80 bg-gray-50 dark:bg-gray-900/50">
                 <tr>
                   <th className="text-left p-3 font-medium">Channel</th>
                   <th className="text-left p-3 font-medium">Name</th>
@@ -222,7 +220,7 @@ export default function AllContactsPage() {
             </table>
           </div>
           {total > contacts.length && (
-            <p className="text-xs text-muted-foreground p-2 border-t border-gray-200 dark:border-gray-800">
+            <p className="text-xs text-muted-foreground p-4 border-t border-gray-100 dark:border-gray-800/80">
               Showing {contacts.length} of {total}. Manage all in{" "}
               <Link href="/dashboard/whatsapp/contacts" className="underline">
                 WhatsApp contacts

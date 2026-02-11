@@ -53,7 +53,7 @@ function ProjectCard({
   );
 
   return (
-    <div className="group relative flex flex-col rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden transition hover:border-purple-200 dark:hover:border-purple-800">
+    <div className="group relative flex flex-col rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 overflow-hidden transition hover:bg-gray-50/80 dark:hover:bg-gray-800/30">
       <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -135,7 +135,7 @@ function ProjectCardList({
   );
 
   return (
-    <div className="group flex items-center justify-between gap-4 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 transition hover:border-purple-200 dark:hover:border-purple-800">
+    <div className="group flex items-center justify-between gap-4 rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 px-4 py-3 transition hover:bg-gray-50/80 dark:hover:bg-gray-800/30">
       <button
         type="button"
         onClick={handleSelect}
@@ -283,7 +283,7 @@ export function ProjectSelector() {
               className="pl-9"
             />
           </div>
-          <div className="flex items-center rounded-md border border-gray-200 dark:border-gray-800">
+          <div className="flex items-center rounded-xl border border-gray-100 dark:border-gray-800/80">
             <Button
               variant={viewMode === "grid" ? "secondary" : "ghost"}
               size="sm"
@@ -303,7 +303,7 @@ export function ProjectSelector() {
           </div>
           <Button
             onClick={() => setShowCreateForm(true)}
-            className="gap-2 bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
+            className="gap-2 bg-primary text-primary-foreground hover:opacity-90"
           >
             <Plus className="size-4" />
             New project
@@ -314,7 +314,7 @@ export function ProjectSelector() {
       {showCreateForm && (
         <form
           onSubmit={handleCreateProject}
-          className="flex flex-col gap-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 sm:flex-row sm:items-end"
+          className="flex flex-col gap-3 rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 p-4 sm:flex-row sm:items-end"
         >
           <div className="flex-1">
             <label

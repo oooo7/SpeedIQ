@@ -91,7 +91,7 @@ export default function InvitePage() {
   if (authLoading || loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-purple-600" />
+        <Loader2 className="size-8 animate-spin text-primary" />
       </div>
     );
   }

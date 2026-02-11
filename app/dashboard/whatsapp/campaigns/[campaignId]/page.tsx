@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Separator } from "@/components/ui/separator";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 interface Template {
@@ -314,17 +315,16 @@ export default function CampaignDetailPage() {
 
   if (!activeProject) {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-xl font-semibold">Campaign</h1>
-        <p className="text-sm text-muted-foreground">Select a project.</p>
+      <div className="flex flex-col gap-10">
+        <PageHeader label="WhatsApp" title="Campaign" description="Select a project." />
       </div>
     );
   }
 
   if (loading || !data) {
     return (
-      <div className="flex flex-col gap-6">
-        <h1 className="text-xl font-semibold">Campaign</h1>
+      <div className="flex flex-col gap-10">
+        <PageHeader label="WhatsApp" title="Campaign" description="Loading…" />
         <LoadingState message="Loading campaign…" />
       </div>
     );
@@ -473,25 +473,25 @@ export default function CampaignDetailPage() {
       <section>
         <h2 className="text-sm font-medium text-muted-foreground mb-3">Overview</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="border border-gray-200 dark:border-gray-800">
+          <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
             <CardContent className="pt-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total recipients</p>
               <p className="text-2xl font-semibold mt-1">{stats.total}</p>
             </CardContent>
           </Card>
-          <Card className="border border-gray-200 dark:border-gray-800">
+          <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
             <CardContent className="pt-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sent</p>
               <p className="text-2xl font-semibold mt-1">{stats.sent + stats.delivered + stats.read}</p>
             </CardContent>
           </Card>
-          <Card className="border border-gray-200 dark:border-gray-800">
+          <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
             <CardContent className="pt-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Delivered / Read</p>
               <p className="text-2xl font-semibold mt-1">{stats.delivered + stats.read}</p>
             </CardContent>
           </Card>
-          <Card className="border border-gray-200 dark:border-gray-800">
+          <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
             <CardContent className="pt-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Failed</p>
               <p className="text-2xl font-semibold mt-1">{stats.failed}</p>
@@ -503,7 +503,7 @@ export default function CampaignDetailPage() {
       {/* Details + Recipients: two-column on large screens */}
       <div className="grid gap-8 lg:grid-cols-12">
         <section className="lg:col-span-5 xl:col-span-4">
-          <Card className="border border-gray-200 dark:border-gray-800">
+          <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
             <CardHeader>
               <CardTitle className="text-base">Details</CardTitle>
             </CardHeader>
@@ -547,7 +547,7 @@ export default function CampaignDetailPage() {
         </section>
 
         <section className="lg:col-span-7 xl:col-span-8">
-          <Card className="border border-gray-200 dark:border-gray-800">
+          <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
             <CardHeader>
               <CardTitle className="text-base">Recipients ({recipients.length})</CardTitle>
              

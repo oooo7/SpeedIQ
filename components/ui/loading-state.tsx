@@ -17,7 +17,7 @@ export function LoadingState({ message = "Loading…", className }: LoadingState
         className
       )}
     >
-      <Loader2 className="h-8 w-8 animate-spin text-purple-600 dark:text-purple-400 mb-4" />
+      <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
       <p className="text-sm text-muted-foreground">{message}</p>
     </div>
   );

@@ -35,7 +35,7 @@ export function AppSidebar({
 
   return (
     <Sidebar {...props}>
-      <SidebarHeader className="h-12 border-b border-gray-200 dark:border-gray-800 p-0">
+      <SidebarHeader className="h-12 border-b border-gray-100 dark:border-gray-800/80 p-0">
         <Link
           href={activeProject ? "/projects" : "/projects"}
           className={cn(

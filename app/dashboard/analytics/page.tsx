@@ -2,9 +2,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { BarChart3, Loader2, Mail, MessageSquare } from "lucide-react";
+import Link from "next/link";
+import {
+  BarChart3,
+  Mail,
+  MessageSquare,
+  Percent,
+  Megaphone,
+  Users,
+} from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { Card, CardContent } from "@/components/ui/card";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useProjectContext } from "@/lib/projects/project-context";
 
@@ -20,11 +29,65 @@ interface WhatsAppOverview {
   delivery_rate: number;
 }
 
+const defaultOverview: WhatsAppOverview = {
+  total_contacts: 0,
+  total_campaigns: 0,
+  campaigns_completed: 0,
+  messages_sent: 0,
+  messages_delivered: 0,
+  messages_failed: 0,
+  delivery_rate: 0,
+};
+
+const statCards = [
+  {
+    key: "contacts",
+    label: "Total contacts",
+    sublabel: (o: WhatsAppOverview) => "In audience",
+    value: (o: WhatsAppOverview) => o.total_contacts,
+    icon: Users,
+  },
+  {
+    key: "campaigns",
+    label: "Campaigns",
+    sublabel: (o: WhatsAppOverview) => `${o.campaigns_completed} / ${o.total_campaigns} completed`,
+    value: (o: WhatsAppOverview) => o.total_campaigns,
+    icon: Megaphone,
+  },
+  {
+    key: "sent",
+    label: "Messages sent",
+    sublabel: (o: WhatsAppOverview) => `${o.messages_delivered} delivered`,
+    value: (o: WhatsAppOverview) => o.messages_sent,
+    icon: MessageSquare,
+  },
+  {
+    key: "delivered",
+    label: "Delivered",
+    sublabel: (o: WhatsAppOverview) => "Successfully delivered",
+    value: (o: WhatsAppOverview) => o.messages_delivered,
+    icon: MessageSquare,
+  },
+  {
+    key: "failed",
+    label: "Failed",
+    sublabel: (o: WhatsAppOverview) => "Delivery failed",
+    value: (o: WhatsAppOverview) => o.messages_failed,
+    icon: MessageSquare,
+  },
+  {
+    key: "rate",
+    label: "Delivery rate",
+    sublabel: () => "Of sent messages",
+    value: (o: WhatsAppOverview) => `${o.delivery_rate}%`,
+    icon: Percent,
+  },
+];
+
 export default function AnalyticsPage() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const tab: AnalyticsTab =
-    tabParam === "email" ? "email" : "whatsapp";
+  const tab: AnalyticsTab = tabParam === "email" ? "email" : "whatsapp";
 
   const { activeProject } = useProjectContext();
   const [whatsappOverview, setWhatsappOverview] = useState<WhatsAppOverview | null>(null);
@@ -52,59 +115,49 @@ export default function AnalyticsPage() {
 
   if (!activeProject) {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-xl font-semibold">Analytics</h1>
-        <p className="text-sm text-muted-foreground">Select a project to view analytics.</p>
+      <div className="flex flex-col gap-10">
+        <PageHeader
+          label="Analytics"
+          title="Analytics"
+          description="Select a project to view analytics."
+        />
       </div>
     );
   }
 
-  const o = whatsappOverview ?? {
-    total_contacts: 0,
-    total_campaigns: 0,
-    campaigns_completed: 0,
-    messages_sent: 0,
-    messages_delivered: 0,
-    messages_failed: 0,
-    delivery_rate: 0,
-  };
+  const o = whatsappOverview ?? defaultOverview;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <BarChart3 className="h-6 w-6" />
-          <h1 className="text-xl font-semibold">Analytics</h1>
-        </div>
-      </div>
+    <div className="flex flex-col gap-10">
+      <PageHeader
+        label="Analytics"
+        title="Analytics"
+        description="View per-channel analytics for this project."
+      />
 
-      <p className="text-sm text-muted-foreground">
-        View per-channel analytics for this project.
-      </p>
-
-      <div className="flex gap-2 border border-gray-200 dark:border-gray-800 rounded-md p-1">
-        <a
+      <div className="flex gap-1 rounded-xl border border-gray-100 dark:border-gray-800/80 bg-gray-50/50 dark:bg-gray-800/30 p-1 w-fit">
+        <Link
           href="/dashboard/analytics?tab=whatsapp"
-          className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-md ${
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
             tab === "whatsapp"
-              ? "bg-gray-200 dark:bg-gray-800 text-foreground"
+              ? "bg-white dark:bg-gray-800 text-foreground border border-gray-100 dark:border-gray-700"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <MessageSquare className="h-4 w-4" />
           WhatsApp
-        </a>
-        <a
+        </Link>
+        <Link
           href="/dashboard/analytics?tab=email"
-          className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-md ${
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
             tab === "email"
-              ? "bg-gray-200 dark:bg-gray-800 text-foreground"
+              ? "bg-white dark:bg-gray-800 text-foreground border border-gray-100 dark:border-gray-700"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <Mail className="h-4 w-4" />
           Email
-        </a>
+        </Link>
       </div>
 
       {tab === "whatsapp" ? (
@@ -112,78 +165,48 @@ export default function AnalyticsPage() {
           <LoadingState message="Loading analytics…" />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Card className="border border-gray-200 dark:border-gray-800">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total contacts
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-semibold">{o.total_contacts}</p>
-              </CardContent>
-            </Card>
-            <Card className="border border-gray-200 dark:border-gray-800">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Campaigns
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-semibold">
-                  {o.campaigns_completed} / {o.total_campaigns} completed
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="border border-gray-200 dark:border-gray-800">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Messages sent
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-semibold">{o.messages_sent}</p>
-              </CardContent>
-            </Card>
-            <Card className="border border-gray-200 dark:border-gray-800">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Delivered
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-semibold">{o.messages_delivered}</p>
-              </CardContent>
-            </Card>
-            <Card className="border border-gray-200 dark:border-gray-800">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Failed
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-semibold">{o.messages_failed}</p>
-              </CardContent>
-            </Card>
-            <Card className="border border-gray-200 dark:border-gray-800">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Delivery rate
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-semibold">{o.delivery_rate}%</p>
-              </CardContent>
-            </Card>
+            {statCards.map((stat) => {
+              const Icon = stat.icon;
+              return (
+                <Card
+                  key={stat.key}
+                  className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50"
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          {stat.label}
+                        </p>
+                        <p className="text-2xl font-bold tabular-nums mt-2 text-foreground">
+                          {stat.value(o)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {stat.sublabel(o)}
+                        </p>
+                      </div>
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800/80 text-muted-foreground">
+                        <Icon className="h-6 w-6" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )
       ) : (
-        <div className="rounded-lg border border-gray-200 dark:border-gray-800 border-dashed p-12 text-center">
-          <Mail className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h2 className="text-lg font-medium mb-2">Email Analytics</h2>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Email analytics will be available when email campaigns are implemented.
-          </p>
-        </div>
+        <Card className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50">
+          <CardContent className="p-10 flex flex-col items-center justify-center text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800/80 text-muted-foreground mb-4">
+              <BarChart3 className="h-7 w-7" />
+            </div>
+            <h2 className="text-lg font-semibold text-foreground mb-2">Email analytics coming soon</h2>
+            <p className="text-sm text-muted-foreground max-w-md">
+              Email analytics will be available when email campaigns are implemented.
+            </p>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

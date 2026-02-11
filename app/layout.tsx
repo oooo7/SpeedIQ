@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 
 import { Toaster } from "@/components/ui/sonner";
 import { APP_CONFIG } from "@/config/app-config";
@@ -10,7 +10,11 @@ import { ThemeProvider } from "next-themes";
 
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-sans",
+});
 
 export const metadata: Metadata = {
   title: APP_CONFIG.meta.title,
@@ -23,7 +27,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       lang="en"
       suppressHydrationWarning
     >
-      <body className={`${inter.className} min-h-screen antialiased`}>
+      <body className={`${plusJakarta.className} min-h-screen antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

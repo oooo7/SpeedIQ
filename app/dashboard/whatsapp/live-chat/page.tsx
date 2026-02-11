@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 interface Conversation {
@@ -271,9 +272,8 @@ export default function WhatsAppLiveChatPage() {
 
   if (!activeProject) {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-xl font-semibold">Live Chat</h1>
-        <p className="text-sm text-muted-foreground">Select a project to view conversations.</p>
+      <div className="flex flex-col gap-10">
+        <PageHeader label="WhatsApp" title="Live Chat" description="Select a project to view conversations." />
       </div>
     );
   }
@@ -316,9 +316,15 @@ export default function WhatsAppLiveChatPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col gap-0 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-800 md:flex-row">
-      <div className="flex w-full flex-col border-b border-gray-200 dark:border-gray-800 md:w-80 md:border-b-0 md:border-r">
-        <div className="flex items-center justify-between gap-2 border-b border-gray-200 bg-[#f0f2f5] dark:border-gray-800 dark:bg-gray-900/80 p-3">
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        label="WhatsApp"
+        title="Live Chat"
+        description="Reply to conversations from your WhatsApp Business account."
+      />
+      <div className="flex h-[calc(100vh-12rem)] flex-col gap-0 overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 md:flex-row">
+        <div className="flex w-full flex-col border-b border-gray-100 dark:border-gray-800/80 md:w-80 md:border-b-0 md:border-r">
+          <div className="flex items-center justify-between gap-2 border-b border-gray-100 bg-[#f0f2f5] dark:border-gray-800/80 dark:bg-gray-900/80 p-3">
           <div className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-[#25D366]" />
             <h2 className="font-semibold">Chats</h2>
@@ -531,6 +537,7 @@ export default function WhatsAppLiveChatPage() {
             </div>
           </>
         )}
+      </div>
       </div>
     </div>
   );

@@ -26,6 +26,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 interface WhatsAppTemplate {
@@ -287,19 +288,21 @@ export default function WhatsAppTemplatesPage() {
 
   if (!activeProject) {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-xl font-semibold">Templates</h1>
-        <p className="text-sm text-muted-foreground">Select a project to manage templates.</p>
+      <div className="flex flex-col gap-10">
+        <PageHeader label="WhatsApp" title="Templates" description="Select a project to manage templates." />
       </div>
     );
   }
 
-
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-10">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold">Templates</h1>
+        <div className="flex items-center gap-2 min-w-0">
+          <PageHeader
+            label="WhatsApp"
+            title="Templates"
+            description="Create and manage message templates. Sync from Meta to get approved templates."
+          />
           <Popover>
             <PopoverTrigger asChild>
               <Button

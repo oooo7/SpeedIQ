@@ -24,6 +24,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 interface TagDefinition {
@@ -131,25 +132,25 @@ export default function TagsPage() {
 
   if (!activeProject) {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-xl font-semibold">Tags</h1>
-        <p className="text-sm text-muted-foreground">Select a project to manage tags for contacts.</p>
+      <div className="flex flex-col gap-10">
+        <PageHeader label="Settings" title="Tags" description="Select a project to manage tags for contacts." />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-2xl">
+    <div className="flex flex-col gap-10 max-w-2xl">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-semibold">Tags</h1>
-        <Button onClick={openAdd} className="gap-1">
+        <PageHeader
+          label="Settings"
+          title="Tags"
+          description="Define tags to assign to WhatsApp contacts (e.g. VIP, New Customer). Use them to filter contacts and build segments."
+        />
+        <Button onClick={openAdd} className="gap-1 shrink-0">
           <Plus className="h-4 w-4" />
           Add tag
         </Button>
       </div>
-      <p className="text-sm text-muted-foreground">
-        Define tags you can assign to WhatsApp contacts (e.g. VIP, New Customer). Use them to filter contacts and build segments.
-      </p>
 
       {loading ? (
         <LoadingState message="Loading tags…" />
@@ -170,7 +171,7 @@ export default function TagsPage() {
           {tags.map((t) => (
             <div
               key={t.id}
-              className="flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-2"
+              className="flex items-center gap-1 rounded-xl border border-gray-100 dark:border-gray-800/80 px-3 py-2"
             >
               <Badge
                 variant="secondary"

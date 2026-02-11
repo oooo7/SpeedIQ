@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 interface ContactTag {
@@ -265,18 +266,21 @@ export default function WhatsAppContactsPage() {
 
   if (!activeProject) {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-xl font-semibold">WhatsApp Contacts</h1>
-        <p className="text-sm text-muted-foreground">Select a project to manage contacts.</p>
+      <div className="flex flex-col gap-10">
+        <PageHeader label="WhatsApp" title="Contacts" description="Select a project to manage contacts." />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-10">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-semibold">Contacts</h1>
-        <div className="flex flex-wrap gap-2">
+        <PageHeader
+          label="WhatsApp"
+          title="Contacts"
+          description="Add contacts manually or import CSV. Manage tags in Settings."
+        />
+        <div className="flex flex-wrap gap-2 shrink-0">
           <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="gap-1">
             <Upload className="h-4 w-4" />
             Import CSV
@@ -288,7 +292,7 @@ export default function WhatsAppContactsPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 p-4">
         <Input
           placeholder="Search by phone, name, email..."
           value={search}
@@ -298,7 +302,7 @@ export default function WhatsAppContactsPage() {
         <select
           value={sourceFilter}
           onChange={(e) => setSourceFilter(e.target.value)}
-          className="flex h-9 rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-1 text-sm"
+          className="flex h-9 rounded-lg border border-gray-100 dark:border-gray-800/80 bg-transparent px-3 py-1 text-sm"
         >
           <option value="">All sources</option>
           <option value="manual">Manual</option>
@@ -308,7 +312,7 @@ export default function WhatsAppContactsPage() {
         <select
           value={tagFilter}
           onChange={(e) => setTagFilter(e.target.value)}
-          className="flex h-9 rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-1 text-sm"
+          className="flex h-9 rounded-lg border border-gray-100 dark:border-gray-800/80 bg-transparent px-3 py-1 text-sm"
         >
           <option value="">All tags</option>
           {tagDefinitions.map((t) => (
@@ -318,13 +322,6 @@ export default function WhatsAppContactsPage() {
           ))}
         </select>
       </div>
-
-      <p className="text-sm text-muted-foreground">
-        <Link href="/dashboard/settings/tags" className="underline hover:no-underline">
-          Manage tags
-        </Link>
-        {" "}to create or delete tags, then assign them to contacts below or when adding a contact.
-      </p>
 
       {loading ? (
         <LoadingState message="Loading contacts…" />
@@ -347,10 +344,10 @@ export default function WhatsAppContactsPage() {
           }
         />
       ) : (
-        <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+        <div className="rounded-2xl border border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900/50 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
+              <thead className="border-b border-gray-100 dark:border-gray-800/80 bg-gray-50 dark:bg-gray-900/50">
                 <tr>
                   <th className="text-left p-3 font-medium">Phone</th>
                   <th className="text-left p-3 font-medium">Name</th>
@@ -461,7 +458,7 @@ export default function WhatsAppContactsPage() {
             </table>
           </div>
           {total > contacts.length && (
-            <p className="text-xs text-muted-foreground p-2 border-t border-gray-200 dark:border-gray-800">
+            <p className="text-xs text-muted-foreground p-4 border-t border-gray-100 dark:border-gray-800/80">
               Showing {contacts.length} of {total}
             </p>
           )}
