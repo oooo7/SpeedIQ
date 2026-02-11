@@ -193,8 +193,8 @@ export default function AllContactsPage() {
                       <div className="flex flex-wrap gap-1">
                         {Array.isArray(c.tags) && c.tags.length > 0
                           ? c.tags.map((t) => (
-                              <Badge key={t} variant="outline" className="text-xs">
-                                {t}
+                              <Badge key={t.id} variant="outline" className="text-xs">
+                                {t.name}
                               </Badge>
                             ))
                           : "—"}
