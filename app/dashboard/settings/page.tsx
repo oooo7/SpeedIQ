@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MessageSquare, Tag } from "lucide-react";
+import { MessageSquare, MessageSquareQuote, Tag } from "lucide-react";
 
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 const settingLinks = [
   { title: "WhatsApp Account", href: "/dashboard/settings/whatsapp-account", icon: MessageSquare },
   { title: "Tags", href: "/dashboard/settings/tags", icon: Tag },
+  { title: "Canned Messages", href: "/dashboard/settings/canned-message", icon: MessageSquareQuote },
 ];
 
 export default function SettingsPage() {

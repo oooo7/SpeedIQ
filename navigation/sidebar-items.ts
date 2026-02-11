@@ -126,6 +126,10 @@ export const sidebarItems: NavGroup[] = [
             title: "Tags",
             url: "/dashboard/settings/tags",
           },
+          {
+            title: "Canned Messages",
+            url: "/dashboard/settings/canned-message",
+          },
         ],
       },
       {
