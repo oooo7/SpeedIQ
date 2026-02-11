@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Separator } from "@/components/ui/separator";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { useBreadcrumbOverride } from "@/lib/breadcrumb-override-context";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 interface Template {
@@ -82,6 +83,7 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | 
 export default function CampaignDetailPage() {
   const params = useParams();
   const { activeProject } = useProjectContext();
+  const { setLastCrumbLabel } = useBreadcrumbOverride();
   const campaignId = params?.campaignId as string;
   const [data, setData] = useState<CampaignDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -132,6 +134,13 @@ export default function CampaignDetailPage() {
   useEffect(() => {
     fetchDetail();
   }, [fetchDetail]);
+
+  useEffect(() => {
+    if (data?.campaign?.name) {
+      setLastCrumbLabel(data.campaign.name);
+      return () => setLastCrumbLabel(null);
+    }
+  }, [data?.campaign?.name, setLastCrumbLabel]);
 
   useEffect(() => {
     if (!activeProject?.id || !editOpen) return;

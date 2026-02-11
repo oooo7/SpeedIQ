@@ -911,7 +911,7 @@ export default function WhatsAppCampaignsPage() {
                 </div>
               </div>
               {showPreviewOnReview && (
-                <div className="border border-gray-200 dark:border-gray-800 p-4 space-y-4 text-sm">
+                <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 space-y-4 text-sm">
                   {(useHelloWorld || templateId) && (
                     <div>
                       <p className="font-medium text-muted-foreground mb-2">Template preview</p>

@@ -443,7 +443,7 @@ export default function WhatsAppTemplatesPage() {
           {templates.map((t) => (
             <div
               key={t.id}
-              className="flex items-center justify-between gap-4 border border-gray-200 dark:border-gray-800 p-4"
+              className="flex items-center justify-between gap-4 border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">

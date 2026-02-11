@@ -506,7 +506,7 @@ export default function WhatsAppContactsPage() {
             <div className="space-y-2">
               <Label>Tags</Label>
               <p className="text-xs text-muted-foreground">Select one or more tags. Create tags in Settings → Tags first.</p>
-              <div className="flex flex-wrap gap-3 border border-gray-200 dark:border-gray-800 p-3 min-h-[44px]">
+              <div className="flex flex-wrap gap-3 border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 min-h-[44px]">
                 {tagDefinitions.length === 0 ? (
                   <span className="text-sm text-muted-foreground">No tags yet. Create tags in Settings → Tags.</span>
                 ) : (

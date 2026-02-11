@@ -6,6 +6,7 @@ import { Fragment } from "react";
 
 import { ChevronRight } from "lucide-react";
 
+import { useBreadcrumbOverride } from "@/lib/breadcrumb-override-context";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 const DASHBOARD_SEGMENT = "dashboard";
@@ -20,6 +21,7 @@ function formatLabel(segment: string) {
 export function Breadcrumbs() {
   const pathname = usePathname();
   const { activeProject } = useProjectContext();
+  const { lastCrumbLabel } = useBreadcrumbOverride();
 
   if (!pathname) {
     return null;
@@ -48,9 +50,10 @@ export function Breadcrumbs() {
     for (let index = 1; index < segments.length; index += 1) {
       const segment = segments[index];
       const href = `/${[DASHBOARD_SEGMENT, ...segments.slice(1, index + 1)].join("/")}`;
+      const isLast = index === segments.length - 1;
       crumbs.push({
-        label: formatLabel(segment),
-        href: index === segments.length - 1 ? null : href,
+        label: isLast && lastCrumbLabel ? lastCrumbLabel : formatLabel(segment),
+        href: isLast ? null : href,
       });
     }
   }
