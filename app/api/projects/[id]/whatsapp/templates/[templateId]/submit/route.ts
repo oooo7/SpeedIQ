@@ -74,6 +74,10 @@ export async function POST(
     buttons?: Array<{ type: "QUICK_REPLY" | "URL" | "PHONE_NUMBER"; text: string; url?: string; phone_number?: string }>;
   }> = [];
 
+  // Meta rejects empty example values; use non-empty placeholders.
+  const safeExample = (s: string | null | undefined, fallback: string) =>
+    (s != null && String(s).trim()) ? String(s).trim().slice(0, 100) : fallback;
+
   if (template.header) {
     const headerHasVar = /\{\{1\}\}/.test(template.header);
     const headerComp: { type: "HEADER"; format: string; text: string; example?: { header_text: string[] } } = {
@@ -81,8 +85,9 @@ export async function POST(
       format: "TEXT",
       text: template.header,
     };
-    if (headerHasVar && variableExamples.length > 0) {
-      headerComp.example = { header_text: [variableExamples[0].slice(0, 60)] };
+    if (headerHasVar) {
+      const headerExample = safeExample(variableExamples[0], "Example");
+      headerComp.example = { header_text: [headerExample.slice(0, 60)] };
     }
     components.push(headerComp);
   }
@@ -93,11 +98,10 @@ export async function POST(
       text: template.body,
     };
     if (bodyVarCount > 0) {
-      const examples = variableExamples
-        .slice(0, bodyVarCount)
-        .map((s) => (s.trim() ? s.slice(0, 100) : null));
-      const filled = examples.map((s, i) => (s ?? `Sample ${i + 1}`));
-      while (filled.length < bodyVarCount) filled.push(`Sample ${filled.length + 1}`);
+      const filled: string[] = [];
+      for (let i = 0; i < bodyVarCount; i++) {
+        filled.push(safeExample(variableExamples[i], `Sample ${i + 1}`));
+      }
       bodyComp.example = { body_text: [filled] };
     }
     components.push(bodyComp);
@@ -108,13 +112,14 @@ export async function POST(
   const buttons = Array.isArray(template.buttons) ? template.buttons : [];
   if (buttons.length > 0) {
     const metaButtons = buttons.slice(0, 3).map((b: { type?: string; text?: string; url?: string; phone_number?: string }) => {
+      const label = (b.text && b.text.trim()) ? b.text.trim().slice(0, 200) : "Button";
       if (b.type === "url" && b.url) {
-        return { type: "URL" as const, text: (b.text ?? "Link").slice(0, 200), url: b.url };
+        return { type: "URL" as const, text: label, url: b.url };
       }
       if (b.type === "phone_number" && b.phone_number) {
-        return { type: "PHONE_NUMBER" as const, text: (b.text ?? "Call").slice(0, 200), phone_number: b.phone_number };
+        return { type: "PHONE_NUMBER" as const, text: label, phone_number: b.phone_number };
       }
-      return { type: "QUICK_REPLY" as const, text: (b.text ?? "").slice(0, 200) };
+      return { type: "QUICK_REPLY" as const, text: label };
     });
     components.push({ type: "BUTTONS", buttons: metaButtons });
   }

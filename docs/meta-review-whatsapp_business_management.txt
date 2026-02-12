@@ -1,0 +1,18 @@
+Our app, SpeedIQ, is a WhatsApp and Email Marketing platform that helps businesses manage customer communication and marketing campaigns. We use the whatsapp_business_management permission for the following purposes:
+
+1. WhatsApp Business Account connection: We allow clients to connect their WhatsApp Business Account (WABA) to our platform via OAuth (Embedded Signup or manual configuration). This registers the phone number with Meta and enables messaging.
+
+2. Message template management: Our clients create, submit, and manage message templates in our dashboard. We use the Management API to create templates, submit them for Meta approval, and sync template status (approved, rejected, pending). Templates are required for outbound messages outside the 24-hour window.
+
+3. Business profile and account info: We display and manage WhatsApp Business profile information (phone number, display name, quality rating, messaging tier) in our customer portal so clients can monitor their account health.
+
+4. Webhook configuration: We help clients configure webhooks for receiving incoming messages and template status updates.
+
+This permission is necessary to manage our clients' WhatsApp Business assets within our platform. Without it, clients cannot connect their WABA, create or manage templates, or view their account analytics in our portal.
+
+
+VIDEO FLOW FOR SCREEN RECORDING
+
+Step 1: Go to /dashboard/settings/whatsapp-account - show connected WhatsApp account details (phone number, display name, quality rating, tier)
+Step 2: Go to /dashboard/whatsapp/templates - show template list and statuses, create a new template, submit for approval, sync status from Meta
+Step 3: Go to /dashboard/analytics?tab=whatsapp - show analytics (contacts, campaigns, messages sent, delivered, delivery rate)

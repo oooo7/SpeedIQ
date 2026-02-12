@@ -43,7 +43,9 @@ export async function submitTemplateToMeta(
     }>;
   }
 ): Promise<{ id: string } | { error: { message: string; code?: number } }> {
-  const languageCode = toMetaLanguageCode(payload.language);
+  // Use supported language code as-is (e.g. "en"); Meta sample uses "en" not "en_US" for create
+  const rawLang = (payload.language || "en").trim();
+  const languageCode = rawLang === "en" ? "en" : toMetaLanguageCode(payload.language);
   // Meta requires: lowercase letters, numbers, and underscores only (max 512 chars)
   const metaName = payload.name
     .trim()
@@ -57,27 +59,42 @@ export async function submitTemplateToMeta(
     name: metaName.slice(0, 512),
     language: languageCode,
     category: payload.category,
+    allow_category_change: true,
     components: payload.components,
   };
-  const url = `${META_GRAPH_BASE}/v21.0/${wabaId}/message_templates?access_token=${encodeURIComponent(accessToken)}`;
+  // Template Management doc uses v23.0: https://developers.facebook.com/docs/whatsapp/business-management-api/message-templates/template-management
+  const url = `${META_GRAPH_BASE}/v23.0/${wabaId}/message_templates`;
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
     body: JSON.stringify(body),
   });
   const data = await res.json();
   if (!res.ok) {
-    const msg = data.error?.message ?? "Meta API error";
-    const code = data.error?.code;
+    const err = data.error ?? {};
+    const msg = err.message ?? "Meta API error";
+    const code = err.code;
+    const subcode = err.error_subcode;
+    const fbtrace = err.fbtrace_id;
     const isObjectNotFound =
       msg.includes("does not exist") ||
       msg.includes("missing permissions") ||
       msg.includes("cannot be loaded") ||
       msg.includes("Unsupported post request");
-    const hint = isObjectNotFound
+    let hint = isObjectNotFound
       ? " Use the correct WhatsApp Business Account ID (WABA): in Meta go to Business Manager → Business Settings → Accounts → WhatsApp Business Accounts and copy the ID. Update it in Settings → WhatsApp account. Ensure the app has whatsapp_business_management permission."
       : "";
-    return { error: { message: msg + hint, code } };
+    if (code === 100 && !hint) {
+      hint =
+        " Check template name (only a-z, 0-9, underscores), language code (e.g. en), and that body/header/footer text and variable examples are valid.";
+    }
+    const detail = [msg, subcode ? `Subcode: ${subcode}` : "", fbtrace ? `Trace: ${fbtrace}` : ""]
+      .filter(Boolean)
+      .join(". ");
+    return { error: { message: detail + hint, code } };
   }
   return { id: data.id ?? data.name ?? "" };
 }

@@ -1,0 +1,22 @@
+Our app, SpeedIQ, is a WhatsApp and Email Marketing platform that helps businesses manage customer communication and marketing campaigns. We use the whatsapp_business_messaging permission for the following purposes:
+
+1. Customer-initiated conversations (Live Chat): When a customer messages our client's WhatsApp Business number, we receive the message via webhook and display it in our Live Chat inbox. Our client's team can reply in real time. Within the 24-hour window, we send free-form text messages. Outside the 24-hour window, we only send approved message templates, following WhatsApp's policies.
+
+2. Broadcast campaigns: Our clients create marketing campaigns and select target audiences (contacts or tagged segments). We send messages using approved WhatsApp templates through the Cloud API. Messages are sent only after templates are approved by Meta.
+
+3. Test messages: We allow clients to send a test message to a phone number to verify their connection is working correctly.
+
+4. Media handling: We support uploading and retrieving media (images, documents) in the context of messaging and conversations.
+
+All messaging is initiated either by the customer (inbound) or by the business using pre-approved templates for outbound campaigns. We do not send unsolicited marketing messages. We comply with the 24-hour window rule and rate limits. This permission is necessary for the core functionality of our platform—without it, our clients cannot reply to customers or run WhatsApp campaigns.
+
+
+VIDEO FLOW FOR SCREEN RECORDING
+
+Step 1: Go to / or /auth/login and log in
+Step 2: Go to /projects and select a project
+Step 3: Go to /dashboard and show the main dashboard with WhatsApp stats
+Step 4: Go to /dashboard/settings/whatsapp-account - show connected account, send a test message to demonstrate sending
+Step 5: Go to /dashboard/whatsapp/live-chat - show conversation list, select one, send a reply (within 24h) or send template (outside 24h)
+Step 6: Go to /dashboard/whatsapp/campaigns - create new campaign, select audience and template, send or schedule
+Step 7: Go to /dashboard/whatsapp/campaigns/[id] - show campaign details and delivery stats
