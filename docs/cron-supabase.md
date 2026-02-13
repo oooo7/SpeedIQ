@@ -67,3 +67,28 @@ Run the same `INSERT ... ON CONFLICT DO UPDATE` from the setup section with the 
 - **Cron not firing**: Confirm pg_cron and pg_net are enabled and the job `whatsapp-send` exists and is active in the Dashboard.
 - **401 from the app**: Ensure `bearer_token` in `app_cron_config` exactly matches `CRON_SECRET` in your Next.js app.
 - **No sends**: Check that the app URL is correct and the app can reach Supabase (same as before). Check `net._http_response` in SQL for the last response from your endpoint.
+
+---
+
+## Email send cron
+
+Email campaign sending uses the same pattern. A separate cron job `email-send` runs every minute and calls `/api/cron/email-send`.
+
+1. **Run the migration** that creates the function and schedule: `supabase/migrations/20250212_cron_email_send.sql`.
+
+2. **Configure the email cron** (SQL Editor). Use the same `CRON_SECRET` as WhatsApp:
+
+```sql
+INSERT INTO public.app_cron_config (id, endpoint_url, bearer_token)
+VALUES (
+  'email_send',
+  'https://YOUR_APP_URL/api/cron/email-send',
+  'YOUR_CRON_SECRET'
+)
+ON CONFLICT (id) DO UPDATE SET
+  endpoint_url = EXCLUDED.endpoint_url,
+  bearer_token = EXCLUDED.bearer_token,
+  updated_at = now();
+```
+
+3. The job name in the Dashboard is `email-send`. Unschedule with `SELECT cron.unschedule('email-send');` if needed.

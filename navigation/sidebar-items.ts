@@ -123,6 +123,10 @@ export const sidebarItems: NavGroup[] = [
             url: "/dashboard/settings/whatsapp-account",
           },
           {
+            title: "Email",
+            url: "/dashboard/settings/email",
+          },
+          {
             title: "Tags",
             url: "/dashboard/settings/tags",
           },

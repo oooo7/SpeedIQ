@@ -105,7 +105,7 @@ export default function WhatsAppCampaignsPage() {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [templateId, setTemplateId] = useState("");
   const [useHelloWorld, setUseHelloWorld] = useState(false);
-  const [scheduleOption, setScheduleOption] = useState<"send_now" | "schedule" | "draft">("send_now");
+  const [scheduleOption, setScheduleOption] = useState<"schedule" | "draft">("draft");
   const [scheduledAt, setScheduledAt] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -187,7 +187,7 @@ export default function WhatsAppCampaignsPage() {
     setSelectedContactIds([]);
     setSelectedTagIds([]);
     setTemplateId("");
-    setScheduleOption("send_now");
+    setScheduleOption("draft");
     setScheduledAt("");
     setIncludeDraftTemplates(false);
     setShowPreviewOnReview(false);
@@ -323,7 +323,7 @@ export default function WhatsAppCampaignsPage() {
       toast.error("Pick a date and time for scheduling");
       return;
     }
-    const willSendOrSchedule = !isDraft && (scheduleOption === "send_now" || scheduleOption === "schedule");
+    const willSendOrSchedule = !isDraft && scheduleOption === "schedule";
     const createAsDraftBecauseTemplateNotApproved = willSendOrSchedule && !isTemplateApproved;
     setSaving(true);
     try {
@@ -337,7 +337,7 @@ export default function WhatsAppCampaignsPage() {
           use_hello_world: useHelloWorld,
           contact_ids: audienceType === "contacts" ? selectedContactIds : [],
           tag_ids: audienceType === "tags" ? selectedTagIds : [],
-          send_now: scheduleOption === "send_now" && isTemplateApproved,
+          send_now: false,
           save_as_draft: isDraft || createAsDraftBecauseTemplateNotApproved,
           scheduled_at: scheduleOption === "schedule" && isTemplateApproved ? (scheduledAt || null) : null,
         }),
@@ -556,7 +556,7 @@ export default function WhatsAppCampaignsPage() {
                     {step === 0 && "Name your campaign and add an optional internal description."}
                     {step === 1 && "Choose who will receive this campaign — select contacts or send to everyone with selected tags."}
                     {step === 2 && "Pick a WhatsApp template. Optionally include draft templates."}
-                    {step === 3 && "Send now, schedule for later, or save as draft."}
+                    {step === 3 && "Schedule for later or save as draft."}
                     {step === 4 && "Review your choices and create the campaign."}
                   </DialogDescription>
                 </DialogHeader>
@@ -805,16 +805,6 @@ export default function WhatsAppCampaignsPage() {
                   <input
                     type="radio"
                     name="schedule-option"
-                    checked={scheduleOption === "send_now"}
-                    onChange={() => setScheduleOption("send_now")}
-                    className="h-4 w-4 border-gray-300 text-gray-800 dark:text-gray-200"
-                  />
-                  <span className="font-medium">Send now</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer border border-gray-200 dark:border-gray-800 px-4 py-3 w-full sm:flex-1 min-w-[200px] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors has-[:checked]:border-gray-800 dark:has-[:checked]:border-gray-200 has-[:checked]:bg-gray-50 dark:has-[:checked]:bg-gray-800/50">
-                  <input
-                    type="radio"
-                    name="schedule-option"
                     checked={scheduleOption === "schedule"}
                     onChange={() => setScheduleOption("schedule")}
                     className="h-4 w-4 border-gray-300 text-gray-800 dark:text-gray-200"
@@ -906,7 +896,7 @@ export default function WhatsAppCampaignsPage() {
                 <div className="space-y-1 sm:col-span-2">
                   <p className="text-muted-foreground">When</p>
                   <p className="font-medium">
-                    {scheduleOption === "send_now" ? "Send now" : scheduleOption === "schedule" && scheduledAt ? new Date(scheduledAt).toLocaleString() : scheduleOption === "draft" ? "Save as draft" : "—"}
+                    {scheduleOption === "schedule" && scheduledAt ? new Date(scheduledAt).toLocaleString() : scheduleOption === "draft" ? "Save as draft" : "—"}
                   </p>
                 </div>
               </div>

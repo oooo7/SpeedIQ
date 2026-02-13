@@ -13,21 +13,31 @@ export default function ContactsUploadPage() {
         description="Import contacts from a CSV file. CSV import is available for WhatsApp contacts."
       />
       <Card className="bg-white dark:bg-gray-900 w-full">
-        <CardContent className="p-6">
-          <p className="text-sm text-muted-foreground mb-4">
-            Go to WhatsApp contacts to upload a CSV with columns: phone (required), name, email.
-          </p>
-          <Link href="/dashboard/whatsapp/contacts">
-            <Button className="gap-2">
-              <Upload className="h-4 w-4" />
-              Open WhatsApp contacts to import
-            </Button>
-          </Link>
+        <CardContent className="p-6 space-y-4">
+          <div>
+            <p className="text-sm text-muted-foreground mb-2">
+              WhatsApp: CSV with columns phone (required), name, email.
+            </p>
+            <Link href="/dashboard/whatsapp/contacts">
+              <Button variant="outline" className="gap-2">
+                <Upload className="h-4 w-4" />
+                WhatsApp contacts import
+              </Button>
+            </Link>
+          </div>
+          <div className="border-t border-gray-100 dark:border-gray-800/80 pt-4">
+            <p className="text-sm text-muted-foreground mb-2">
+              Email: CSV with columns email (required), name.
+            </p>
+            <Link href="/dashboard/email/subscribers">
+              <Button className="gap-2">
+                <Upload className="h-4 w-4" />
+                Email subscribers import
+              </Button>
+            </Link>
+          </div>
         </CardContent>
       </Card>
-      <p className="text-xs text-muted-foreground">
-        Email subscriber import will be available when Email Marketing is launched.
-      </p>
     </div>
   );
 }

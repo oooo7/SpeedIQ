@@ -38,31 +38,88 @@ export default function AllContactsPage() {
     setLoading(true);
     try {
       if (channel === "email") {
-        setContacts([]);
-        setTotal(0);
+        const params = new URLSearchParams();
+        if (search) params.set("search", search);
+        params.set("limit", "200");
+        const res = await fetch(`/api/projects/${activeProject.id}/email/subscribers?${params}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Failed to load");
+        const list = (data.subscribers ?? []) as Array<{
+          id: string;
+          email: string;
+          name: string | null;
+          tags: string[];
+          source: string | null;
+          created_at: string;
+        }>;
+        setContacts(
+          list.map((s) => ({
+            id: s.id,
+            channel: "email" as const,
+            email: s.email,
+            name: s.name,
+            tags: s.tags ?? [],
+            source: s.source,
+            created_at: s.created_at,
+          }))
+        );
+        setTotal(data.total ?? 0);
         setLoading(false);
         return;
       }
-      const params = new URLSearchParams();
-      if (search) params.set("search", search);
-      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/contacts?${params}&limit=200`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to load");
-      const list = (data.contacts ?? []) as Array<{
-        id: string;
-        phone: string;
-        name: string | null;
-        email: string | null;
-        tags: string[];
-        source: string | null;
-        created_at: string;
-      }>;
-      setContacts(
-        channel === "all"
-          ? list.map((c) => ({ ...c, channel: "whatsapp" as const }))
-          : list.map((c) => ({ ...c, channel: "whatsapp" as const }))
-      );
-      setTotal(data.total ?? 0);
+      if (channel === "whatsapp" || channel === "all") {
+        const params = new URLSearchParams();
+        if (search) params.set("search", search);
+        params.set("limit", "200");
+        const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/contacts?${params}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Failed to load");
+        const waList = (data.contacts ?? []) as Array<{
+          id: string;
+          phone: string;
+          name: string | null;
+          email: string | null;
+          tags: Array<{ id: string; name: string }> | string[];
+          source: string | null;
+          created_at: string;
+        }>;
+        const waRows: ContactRow[] = waList.map((c) => ({
+          id: c.id,
+          channel: "whatsapp" as const,
+          phone: c.phone,
+          name: c.name,
+          email: c.email ?? null,
+          tags: Array.isArray(c.tags) ? (c.tags as Array<{ name: string }>).map((t) => (typeof t === "object" && t?.name ? t.name : String(t))) : [],
+          source: c.source,
+          created_at: c.created_at,
+        }));
+        if (channel === "all") {
+          const emailRes = await fetch(`/api/projects/${activeProject.id}/email/subscribers?limit=200`);
+          const emailData = await emailRes.json();
+          const emailList = (emailData.subscribers ?? []) as Array<{
+            id: string;
+            email: string;
+            name: string | null;
+            tags: string[];
+            source: string | null;
+            created_at: string;
+          }>;
+          const emailRows: ContactRow[] = emailList.map((s) => ({
+            id: s.id,
+            channel: "email" as const,
+            name: s.name,
+            email: s.email,
+            tags: s.tags ?? [],
+            source: s.source,
+            created_at: s.created_at,
+          }));
+          setContacts([...waRows, ...emailRows].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+          setTotal(waRows.length + emailRows.length);
+        } else {
+          setContacts(waRows);
+          setTotal(data.total ?? 0);
+        }
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not load contacts");
       setContacts([]);
@@ -98,6 +155,12 @@ export default function AllContactsPage() {
               WhatsApp contacts
             </Button>
           </Link>
+          <Link href="/dashboard/email/subscribers">
+            <Button variant="outline" size="sm" className="gap-1">
+              <Mail className="h-4 w-4" />
+              Email subscribers
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -118,38 +181,35 @@ export default function AllContactsPage() {
             </button>
           ))}
         </div>
-        {channel !== "email" && (
-          <Input
-            placeholder="Search by phone, name, email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="max-w-xs"
-          />
-        )}
+        <Input
+          placeholder={channel === "email" ? "Search by email, name..." : "Search by phone, name, email..."}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-xs"
+        />
       </div>
 
-      {channel === "email" ? (
-        <div className="bg-white dark:bg-gray-900 p-12 text-center">
-          <div className="flex h-14 w-14 items-center justify-center bg-gray-100 dark:bg-gray-800/80 text-muted-foreground mx-auto mb-4">
-            <Mail className="h-7 w-7" />
-          </div>
-          <h2 className="text-lg font-medium mb-2">Email contacts</h2>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Email subscribers and contacts will appear here when Email Marketing is available. Coming soon.
-          </p>
-        </div>
-      ) : loading ? (
+      {loading ? (
         <LoadingState message="Loading contacts…" />
       ) : contacts.length === 0 ? (
         <div className="bg-white dark:bg-gray-900 p-10 text-center">
           <p className="text-sm text-muted-foreground mb-4">
-            No {channel === "all" ? "" : "WhatsApp "}contacts yet.
+            No {channel === "all" ? "" : channel === "email" ? "email " : "WhatsApp "}contacts yet.
           </p>
-          <Link href="/dashboard/whatsapp/contacts">
-            <Button variant="outline" size="sm">
-              Add WhatsApp contacts
-            </Button>
-          </Link>
+          {channel !== "email" && (
+            <Link href="/dashboard/whatsapp/contacts">
+              <Button variant="outline" size="sm" className="mr-2">
+                Add WhatsApp contacts
+              </Button>
+            </Link>
+          )}
+          {channel !== "whatsapp" && (
+            <Link href="/dashboard/email/subscribers">
+              <Button variant="outline" size="sm">
+                Add email subscribers
+              </Button>
+            </Link>
+          )}
         </div>
       ) : (
         <div className="bg-white dark:bg-gray-900 overflow-hidden">
@@ -205,8 +265,14 @@ export default function AllContactsPage() {
                       {new Date(c.created_at).toLocaleString()}
                     </td>
                     <td className="p-3">
-                      {c.channel === "whatsapp" && (
+                      {c.channel === "whatsapp" ? (
                         <Link href="/dashboard/whatsapp/contacts">
+                          <Button variant="ghost" size="sm">
+                            Edit
+                          </Button>
+                        </Link>
+                      ) : (
+                        <Link href="/dashboard/email/subscribers">
                           <Button variant="ghost" size="sm">
                             Edit
                           </Button>
@@ -220,10 +286,10 @@ export default function AllContactsPage() {
           </div>
           {total > contacts.length && (
             <p className="text-xs text-muted-foreground p-4 border-t border-gray-100 dark:border-gray-800/80">
-              Showing {contacts.length} of {total}. Manage all in{" "}
-              <Link href="/dashboard/whatsapp/contacts" className="underline">
-                WhatsApp contacts
-              </Link>
+              Showing {contacts.length} of {total}. Manage in{" "}
+              <Link href="/dashboard/whatsapp/contacts" className="underline">WhatsApp contacts</Link>
+              {channel === "all" && " and "}
+              {channel === "all" && <Link href="/dashboard/email/subscribers" className="underline">Email subscribers</Link>}
               .
             </p>
           )}

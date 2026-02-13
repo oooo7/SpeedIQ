@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
-  BarChart3,
   Mail,
   MessageSquare,
   Percent,
@@ -38,6 +37,35 @@ const defaultOverview: WhatsAppOverview = {
   messages_failed: 0,
   delivery_rate: 0,
 };
+
+interface EmailOverview {
+  total_subscribers: number;
+  total_campaigns: number;
+  campaigns_completed: number;
+  emails_sent: number;
+  emails_delivered: number;
+  emails_failed: number;
+  delivery_rate: number;
+}
+
+const defaultEmailOverview: EmailOverview = {
+  total_subscribers: 0,
+  total_campaigns: 0,
+  campaigns_completed: 0,
+  emails_sent: 0,
+  emails_delivered: 0,
+  emails_failed: 0,
+  delivery_rate: 0,
+};
+
+const emailStatCards = [
+  { key: "subscribers", label: "Total subscribers", sublabel: () => "Subscribed", value: (o: EmailOverview) => o.total_subscribers, icon: Users },
+  { key: "campaigns", label: "Campaigns", sublabel: (o: EmailOverview) => `${o.campaigns_completed} / ${o.total_campaigns} completed`, value: (o: EmailOverview) => o.total_campaigns, icon: Megaphone },
+  { key: "sent", label: "Emails sent", sublabel: (o: EmailOverview) => "Successfully sent", value: (o: EmailOverview) => o.emails_sent, icon: Mail },
+  { key: "delivered", label: "Delivered", sublabel: () => "Count", value: (o: EmailOverview) => o.emails_delivered, icon: Mail },
+  { key: "failed", label: "Failed", sublabel: () => "Delivery failed", value: (o: EmailOverview) => o.emails_failed, icon: Mail },
+  { key: "rate", label: "Delivery rate", sublabel: () => "Of sent", value: (o: EmailOverview) => `${o.delivery_rate}%`, icon: Percent },
+];
 
 const statCards = [
   {
@@ -91,6 +119,7 @@ export default function AnalyticsPage() {
 
   const { activeProject } = useProjectContext();
   const [whatsappOverview, setWhatsappOverview] = useState<WhatsAppOverview | null>(null);
+  const [emailOverview, setEmailOverview] = useState<EmailOverview | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchWhatsAppOverview = useCallback(async () => {
@@ -108,10 +137,26 @@ export default function AnalyticsPage() {
     }
   }, [activeProject?.id]);
 
+  const fetchEmailOverview = useCallback(async () => {
+    if (!activeProject?.id) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/projects/${activeProject.id}/email/analytics`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load");
+      setEmailOverview(data.overview ?? null);
+    } catch {
+      setEmailOverview(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeProject?.id]);
+
   useEffect(() => {
     if (tab === "whatsapp") fetchWhatsAppOverview();
+    else if (tab === "email") fetchEmailOverview();
     else setLoading(false);
-  }, [tab, fetchWhatsAppOverview]);
+  }, [tab, fetchWhatsAppOverview, fetchEmailOverview]);
 
   if (!activeProject) {
     return (
@@ -125,6 +170,7 @@ export default function AnalyticsPage() {
   }
 
   const o = whatsappOverview ?? defaultOverview;
+  const e = emailOverview ?? defaultEmailOverview;
 
   return (
     <div className="flex flex-col gap-10">
@@ -193,18 +239,36 @@ export default function AnalyticsPage() {
             })}
           </div>
         )
+      ) : loading ? (
+        <LoadingState message="Loading analytics…" />
       ) : (
-        <Card className="bg-white dark:bg-gray-900">
-          <CardContent className="p-10 flex flex-col items-center justify-center text-center">
-            <div className="flex h-14 w-14 items-center justify-center bg-gray-100 dark:bg-gray-800/80 text-muted-foreground mb-4">
-              <BarChart3 className="h-7 w-7" />
-            </div>
-            <h2 className="text-lg font-medium text-foreground mb-2">Email analytics coming soon</h2>
-            <p className="text-sm text-muted-foreground max-w-md">
-              Email analytics will be available when email campaigns are implemented.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {emailStatCards.map((stat) => {
+            const Icon = stat.icon;
+            return (
+              <Card key={stat.key} className="bg-white dark:bg-gray-900">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        {stat.label}
+                      </p>
+                      <p className="text-2xl font-medium tabular-nums mt-2 text-foreground">
+                        {stat.value(e)}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {stat.sublabel(e)}
+                      </p>
+                    </div>
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center bg-gray-100 dark:bg-gray-800/80 text-muted-foreground">
+                      <Icon className="h-6 w-6" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
     </div>
   );
