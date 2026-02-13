@@ -119,7 +119,7 @@ export function DashboardWhatsAppCard() {
             <MessageSquare className="h-6 w-6" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="font-medium text-base text-foreground">WhatsApp Account</h3>
+            <h3 className="font-medium text-base text-foreground">WhatsApp</h3>
             <p className="text-sm text-green-800/80 dark:text-green-200/80 mt-0.5">
               {account?.connected
                 ? "Connected for campaigns and live chat"

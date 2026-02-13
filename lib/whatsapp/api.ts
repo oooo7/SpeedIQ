@@ -424,6 +424,50 @@ export async function sendTextMessage(
   return { message_id: messageId };
 }
 
+export type MediaMessageType = "image" | "video" | "audio" | "document";
+
+/**
+ * Send a media message (image, video, audio, document) via URL. Used for auto-replies and canned-style messages.
+ * See https://developers.facebook.com/docs/whatsapp/cloud-api/reference/media
+ */
+export async function sendMediaMessage(
+  accessToken: string,
+  phoneNumberId: string,
+  to: string,
+  type: MediaMessageType,
+  mediaUrl: string,
+  options?: { caption?: string; filename?: string }
+): Promise<{ message_id: string } | { error: { message: string; code?: number } }> {
+  const url = `${META_GRAPH_BASE}/v22.0/${phoneNumberId}/messages`;
+  const body: Record<string, unknown> = {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: to.replace(/\D/g, ""),
+    type,
+    [type]: { link: mediaUrl },
+  };
+  if (options?.caption && (type === "image" || type === "video" || type === "document")) {
+    (body[type] as Record<string, string>).caption = options.caption.slice(0, 1024);
+  }
+  if (type === "document" && options?.filename) {
+    (body[type] as Record<string, string>).filename = options.filename.slice(0, 256);
+  }
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    return { error: { message: data.error?.message ?? "Meta API error", code: data.error?.code } };
+  }
+  const messageId = data.messages?.[0]?.id;
+  if (!messageId) {
+    return { error: { message: "No message id in response" } };
+  }
+  return { message_id: messageId };
+}
+
 /**
  * Mark an incoming message as read (and optionally show typing indicator).
  * Use the message_id from the messages webhook (incoming message id).

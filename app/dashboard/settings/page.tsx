@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 
 const settingLinks = [
-  { title: "WhatsApp Account", href: "/dashboard/settings/whatsapp-account", icon: MessageSquare },
+  { title: "WhatsApp", href: "/dashboard/settings/whatsapp-account", icon: MessageSquare },
   { title: "Email", href: "/dashboard/settings/email", icon: Mail },
   { title: "Tags", href: "/dashboard/settings/tags", icon: Tag },
   { title: "Canned Messages", href: "/dashboard/settings/canned-message", icon: MessageSquareQuote },

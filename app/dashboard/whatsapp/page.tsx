@@ -8,7 +8,7 @@ const links = [
   { title: "Campaigns", href: "/dashboard/whatsapp/campaigns", icon: Megaphone },
   { title: "Contacts", href: "/dashboard/whatsapp/contacts", icon: Users },
   { title: "Templates", href: "/dashboard/whatsapp/templates", icon: LayoutTemplate },
-  { title: "Live Chat", href: "/dashboard/whatsapp/live-chat", icon: MessageSquare },
+  { title: "Chats", href: "/dashboard/whatsapp/live-chat", icon: MessageSquare },
 ];
 
 export default function WhatsAppPage() {

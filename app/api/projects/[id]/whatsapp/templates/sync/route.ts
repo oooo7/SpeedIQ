@@ -39,7 +39,7 @@ export async function POST(
   const account = await getWhatsAppAccountToken(supabase, projectId);
   if (!account) {
     return NextResponse.json(
-      { error: "WhatsApp account not connected. Connect in Settings → WhatsApp Account." },
+      { error: "WhatsApp account not connected. Connect in Settings → WhatsApp." },
       { status: 400 }
     );
   }

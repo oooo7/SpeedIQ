@@ -28,7 +28,7 @@ export async function GET(
 
   const { data: contact, error } = await supabase
     .from("whatsapp_contacts")
-    .select("id, project_id, phone, name, email, custom_fields, source, last_inbound_at, created_at, updated_at")
+    .select("id, project_id, phone, name, email, custom_fields, source, last_inbound_at, created_at, updated_at, opt_out, profile_picture_url")
     .eq("project_id", projectId)
     .eq("id", contactId)
     .single();
@@ -85,13 +85,14 @@ export async function PATCH(
   if (body.email !== undefined) updates.email = body.email?.trim() ?? null;
   if (body.custom_fields !== undefined && typeof body.custom_fields === "object") updates.custom_fields = body.custom_fields;
   if (body.source !== undefined) updates.source = body.source?.trim() ?? null;
+  if (typeof body.opt_out === "boolean") updates.opt_out = body.opt_out;
 
   const { data: contact, error } = await supabase
     .from("whatsapp_contacts")
     .update(updates)
     .eq("project_id", projectId)
     .eq("id", contactId)
-    .select("id, project_id, phone, name, email, custom_fields, source, last_inbound_at, created_at, updated_at")
+    .select("id, project_id, phone, name, email, custom_fields, source, last_inbound_at, created_at, updated_at, opt_out, profile_picture_url")
     .single();
 
   if (error) {

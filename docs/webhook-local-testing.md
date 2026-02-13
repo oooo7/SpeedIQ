@@ -59,9 +59,9 @@ Copy the **https** URL (e.g. `https://abc123.ngrok-free.app`).
    - From your **personal WhatsApp** (phone), send any text (e.g. "Hi") to your **WhatsApp Business** number (the one linked in Meta / your app).
    - Meta will send a webhook POST to your ngrok URL → your local app stores the message and creates/updates the conversation.
 
-2. **Open Live Chat in the app**
+2. **Open Chats in the app**
    - In the browser: http://localhost:3000 (log in if needed).
-   - Go to **Dashboard → WhatsApp → Live Chat**.
+   - Go to **Dashboard → WhatsApp → Chats**.
    - Select the same **project** that has the WhatsApp account connected.
    - You should see a **new conversation** (or an existing one) with your phone number / name and an **unread** badge.
    - Click the conversation to open the thread; your incoming message ("Hi") should appear.

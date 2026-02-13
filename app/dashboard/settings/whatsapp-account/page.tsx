@@ -1,20 +1,72 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronDown, Loader2, MessageSquare, Send } from "lucide-react";
+import { ChevronDown, FileText, Image, Loader2, MessageSquare, MessageSquareQuote, Music, Pencil, Send, Settings2, Video } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadingState } from "@/components/ui/loading-state";
+import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { WhatsAppConnectButton } from "@/components/whatsapp/whatsapp-connect-button";
 import { useProjectContext } from "@/lib/projects/project-context";
+
+type WhatsAppSettingsTab = "account" | "optin" | "automation";
+
+type WhatsAppMessageType = "text" | "image" | "video" | "audio" | "file";
+
+const WHATSAPP_MESSAGE_TYPE_OPTIONS: { value: WhatsAppMessageType; label: string; icon: React.ElementType }[] = [
+  { value: "text", label: "Text", icon: FileText },
+  { value: "image", label: "Image", icon: Image },
+  { value: "video", label: "Video", icon: Video },
+  { value: "audio", label: "Audio", icon: Music },
+  { value: "file", label: "File", icon: FileText },
+];
+
+interface WhatsAppSettings {
+  respect_opt_out_for_campaigns: boolean;
+  opt_out_keywords: string[];
+  opt_out_response_enabled: boolean;
+  opt_out_response_text: string | null;
+  opt_out_response_type?: WhatsAppMessageType | null;
+  opt_out_response_attachment_path?: string | null;
+  opt_out_response_attachment_filename?: string | null;
+  opt_in_keywords: string[];
+  opt_in_response_enabled: boolean;
+  opt_in_response_text: string | null;
+  opt_in_response_type?: WhatsAppMessageType | null;
+  opt_in_response_attachment_path?: string | null;
+  opt_in_response_attachment_filename?: string | null;
+  auto_resolve_chats: boolean;
+  welcome_message_enabled: boolean;
+  welcome_message_text: string | null;
+  welcome_message_type?: WhatsAppMessageType | null;
+  welcome_message_attachment_path?: string | null;
+  welcome_message_attachment_filename?: string | null;
+  off_hours_message_enabled: boolean;
+  off_hours_message_text: string | null;
+  off_hours_message_type?: WhatsAppMessageType | null;
+  off_hours_message_attachment_path?: string | null;
+  off_hours_message_attachment_filename?: string | null;
+  timezone: string;
+  working_hours: Record<string, { enabled: boolean; from?: string; to?: string }>;
+}
 
 interface WhatsAppOAuthConfig {
   appId: string;
@@ -110,6 +162,58 @@ export default function WhatsAppAccountPage() {
   const [showDomainHelp, setShowDomainHelp] = useState(false);
   const [currentOrigin, setCurrentOrigin] = useState<string>("");
   const [currentRedirectUri, setCurrentRedirectUri] = useState<string>("");
+
+  const tabParam = searchParams.get("tab");
+  const tab: WhatsAppSettingsTab =
+    tabParam === "optin" || tabParam === "automation" ? tabParam : "account";
+
+  const [settings, setSettings] = useState<WhatsAppSettings | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+
+  const fetchSettings = useCallback(async () => {
+    if (!activeProject?.id) return;
+    setSettingsLoading(true);
+    try {
+      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/settings`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load settings");
+      setSettings(data.settings ?? null);
+    } catch {
+      setSettings(null);
+    } finally {
+      setSettingsLoading(false);
+    }
+  }, [activeProject?.id]);
+
+  useEffect(() => {
+    if (tab === "optin" || tab === "automation") {
+      fetchSettings();
+    }
+  }, [tab, fetchSettings]);
+
+  const updateSettings = useCallback(
+    async (updates: Partial<WhatsAppSettings>) => {
+      if (!activeProject?.id) return;
+      setSettingsSaving(true);
+      try {
+        const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/settings`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updates),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Failed to save");
+        setSettings(data.settings ?? null);
+        toast.success("Settings saved");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not save settings");
+      } finally {
+        setSettingsSaving(false);
+      }
+    },
+    [activeProject?.id]
+  );
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -283,7 +387,7 @@ export default function WhatsAppAccountPage() {
   if (!activeProject) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-xl font-medium">WhatsApp Account</h1>
+        <h1 className="text-xl font-medium">WhatsApp</h1>
         <p className="text-sm text-muted-foreground">Select a project to connect a WhatsApp Business account.</p>
       </div>
     );
@@ -292,7 +396,7 @@ export default function WhatsAppAccountPage() {
   if (loading) {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-xl font-medium">WhatsApp Account</h1>
+        <h1 className="text-xl font-medium">WhatsApp</h1>
         <LoadingState message="Loading account…" />
       </div>
     );
@@ -301,10 +405,50 @@ export default function WhatsAppAccountPage() {
   return (
     <div className="flex flex-col gap-10 w-full">
       <PageHeader
-        title="WhatsApp Account"
-        description="Connect a WhatsApp Business number to send campaigns and messages for this project."
+        title="WhatsApp"
+        description="Connect a WhatsApp Business number and configure opt-in, opt-out, and automated messages."
       />
 
+      <nav className="border-b border-gray-200 dark:border-gray-800" aria-label="WhatsApp settings tabs">
+        <div className="flex gap-0">
+          <Link
+            href="/dashboard/settings/whatsapp-account?tab=account"
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              tab === "account"
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300 dark:hover:border-gray-600"
+            }`}
+          >
+            <MessageSquare className="h-4 w-4 shrink-0" />
+            Account
+          </Link>
+          <Link
+            href="/dashboard/settings/whatsapp-account?tab=optin"
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              tab === "optin"
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300 dark:hover:border-gray-600"
+            }`}
+          >
+            <Settings2 className="h-4 w-4 shrink-0" />
+            Opt-in & Opt-out
+          </Link>
+          <Link
+            href="/dashboard/settings/whatsapp-account?tab=automation"
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              tab === "automation"
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300 dark:hover:border-gray-600"
+            }`}
+          >
+            <MessageSquareQuote className="h-4 w-4 shrink-0" />
+            Automated Messages
+          </Link>
+        </div>
+      </nav>
+
+      {tab === "account" && (
+        <>
       {account?.connected ? (
         <Card className="bg-white dark:bg-gray-900">
           <CardHeader className="flex flex-row items-center justify-between gap-2">
@@ -719,6 +863,662 @@ export default function WhatsAppAccountPage() {
           </Button>
         </form>
       )}
+        </>
+      )}
+
+      {tab === "optin" && (
+        <OptInOptOutTab
+          activeProjectId={activeProject?.id ?? null}
+          settings={settings}
+          settingsLoading={settingsLoading}
+          settingsSaving={settingsSaving}
+          onUpdate={updateSettings}
+        />
+      )}
+
+      {tab === "automation" && (
+        <AutomationTab
+          activeProjectId={activeProject?.id ?? null}
+          settings={settings}
+          settingsLoading={settingsLoading}
+          settingsSaving={settingsSaving}
+          onUpdate={updateSettings}
+        />
+      )}
+    </div>
+  );
+}
+
+function ChatBubblePreview({
+  text,
+  type,
+  attachmentFilename,
+}: {
+  text: string | null;
+  type?: WhatsAppMessageType | null;
+  attachmentFilename?: string | null;
+}) {
+  const isMedia = type && type !== "text";
+  const display =
+    isMedia && attachmentFilename
+      ? `Attachment: ${attachmentFilename}${text?.trim() ? ` — ${text.trim()}` : ""}`
+      : text?.trim() || "Your auto response is disabled";
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-[85%] rounded-lg bg-green-600 px-3 py-2 text-sm text-white">
+        {display}
+      </div>
+    </div>
+  );
+}
+
+type ResponseSlotKey = "opt_out_response" | "opt_in_response" | "welcome_message" | "off_hours_message";
+
+function getAcceptForType(type: WhatsAppMessageType): string {
+  switch (type) {
+    case "image":
+      return "image/*";
+    case "video":
+      return "video/*";
+    case "audio":
+      return "audio/*";
+    case "file":
+      return "*";
+    default:
+      return "";
+  }
+}
+
+function ResponseMessageConfigDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  slotKey,
+  current,
+  onSave,
+  projectId,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  slotKey: ResponseSlotKey;
+  current: {
+    type: WhatsAppMessageType;
+    text: string | null;
+    attachment_path: string | null;
+    attachment_filename: string | null;
+  };
+  onSave: (u: Partial<WhatsAppSettings>) => Promise<void>;
+  projectId: string;
+}) {
+  const [type, setType] = useState<WhatsAppMessageType>(current.type ?? "text");
+  const [text, setText] = useState(current.text ?? "");
+  const [attachmentPath, setAttachmentPath] = useState<string | null>(current.attachment_path);
+  const [attachmentFilename, setAttachmentFilename] = useState<string | null>(current.attachment_filename);
+  const [uploading, setUploading] = useState(false);
+  const [fileInputKey, setFileInputKey] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      setType((current.type ?? "text") as WhatsAppMessageType);
+      setText(current.text ?? "");
+      setAttachmentPath(current.attachment_path);
+      setAttachmentFilename(current.attachment_filename);
+    }
+  }, [open, current.type, current.text, current.attachment_path, current.attachment_filename]);
+
+  const handleSave = async () => {
+    const typeKey = `${slotKey}_type` as keyof WhatsAppSettings;
+    const textKey = `${slotKey}_text` as keyof WhatsAppSettings;
+    const pathKey = `${slotKey}_attachment_path` as keyof WhatsAppSettings;
+    const filenameKey = `${slotKey}_attachment_filename` as keyof WhatsAppSettings;
+    await onSave({
+      [typeKey]: type,
+      [textKey]: text.trim() || null,
+      [pathKey]: type === "text" ? null : attachmentPath,
+      [filenameKey]: type === "text" ? null : attachmentFilename,
+    } as Partial<WhatsAppSettings>);
+    onOpenChange(false);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !projectId) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      const res = await fetch(`/api/projects/${projectId}/whatsapp/settings/upload`, { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      setAttachmentPath(data.path);
+      setAttachmentFilename(data.filename);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      setFileInputKey((k) => k + 1);
+    }
+  };
+
+  const isText = type === "text";
+
+  return (
+    <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label className="mb-2 block">Message type</Label>
+            <div className="flex flex-wrap gap-2">
+              {WHATSAPP_MESSAGE_TYPE_OPTIONS.map((opt) => (
+                <Button
+                  key={opt.value}
+                  type="button"
+                  variant={type === opt.value ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setType(opt.value as WhatsAppMessageType)}
+                >
+                  <opt.icon className="mr-1 h-4 w-4" />
+                  {opt.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+          {isText ? (
+            <div className="space-y-2">
+              <Label>Message</Label>
+              <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Enter your message" />
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label>File</Label>
+                <input
+                  key={fileInputKey}
+                  ref={fileInputRef}
+                  type="file"
+                  accept={getAcceptForType(type)}
+                  className="block w-full text-sm text-muted-foreground file:mr-2 file:rounded file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:text-primary-foreground"
+                  onChange={handleFileChange}
+                />
+                {uploading && (
+                  <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Uploading…
+                  </span>
+                )}
+                {attachmentFilename && !uploading && (
+                  <p className="text-sm text-muted-foreground">Uploaded: {attachmentFilename}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Caption (optional)</Label>
+                <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Caption for the attachment" />
+              </div>
+            </>
+          )}
+        </div>
+        <DialogFooter>
+          <Button onClick={handleSave} disabled={uploading || (!isText && !attachmentPath)}>
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+  );
+}
+
+function OptInOptOutTab({
+  activeProjectId,
+  settings,
+  settingsLoading,
+  settingsSaving,
+  onUpdate,
+}: {
+  activeProjectId: string | null;
+  settings: WhatsAppSettings | null;
+  settingsLoading: boolean;
+  settingsSaving: boolean;
+  onUpdate: (u: Partial<WhatsAppSettings>) => Promise<void>;
+}) {
+  const [optOutKeywords, setOptOutKeywords] = useState<string[]>(settings?.opt_out_keywords?.length ? [...settings.opt_out_keywords] : ["Stop"]);
+  const [optInKeywords, setOptInKeywords] = useState<string[]>(settings?.opt_in_keywords?.length ? [...settings.opt_in_keywords] : ["Allow"]);
+  const [optOutDialogOpen, setOptOutDialogOpen] = useState(false);
+  const [optInDialogOpen, setOptInDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (settings?.opt_out_keywords?.length) setOptOutKeywords([...settings.opt_out_keywords]);
+    else setOptOutKeywords(["Stop"]);
+    if (settings?.opt_in_keywords?.length) setOptInKeywords([...settings.opt_in_keywords]);
+    else setOptInKeywords(["Allow"]);
+  }, [settings]);
+
+  if (!activeProjectId) return null;
+  if (settingsLoading || !settings) {
+    return <LoadingState message="Loading settings…" />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card className="bg-white dark:bg-gray-900">
+        <CardContent className="flex flex-row items-center justify-between gap-4 pt-6">
+          <div>
+            <p className="font-medium">API Campaign Opt-out</p>
+            <p className="text-sm text-muted-foreground">
+              Enable this if you don&apos;t wish to send API campaign to opted-out contacts.
+            </p>
+          </div>
+          <Switch
+            checked={settings.respect_opt_out_for_campaigns}
+            onCheckedChange={(checked) => onUpdate({ respect_opt_out_for_campaigns: checked })}
+          />
+        </CardContent>
+      </Card>
+
+      <Card className="bg-white dark:bg-gray-900">
+        <CardHeader>
+          <CardTitle className="text-base">Opt-out Settings</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-4">
+            <div>
+              <Label>Opt-out Keywords</Label>
+              <p className="text-xs text-muted-foreground">
+                The user will have to type exactly one of these messages on which they should be automatically opted-out.
+              </p>
+            </div>
+            <div className="space-y-2">
+              {optOutKeywords.map((kw, i) => (
+                <Input
+                  key={i}
+                  value={kw}
+                  onChange={(e) => {
+                    const next = [...optOutKeywords];
+                    next[i] = e.target.value;
+                    setOptOutKeywords(next);
+                  }}
+                  placeholder="Keyword"
+                />
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setOptOutKeywords((prev) => [...prev, ""])}
+              >
+                + Add more
+              </Button>
+            </div>
+            <Button
+              disabled={settingsSaving}
+              onClick={() => onUpdate({ opt_out_keywords: optOutKeywords.filter((k) => k.trim()) })}
+            >
+              {settingsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Settings"}
+            </Button>
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <Label>Opt-out Response</Label>
+                <p className="text-xs text-muted-foreground">Setup a response message for opt-out user keywords.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={settings.opt_out_response_enabled}
+                  onCheckedChange={(checked) => onUpdate({ opt_out_response_enabled: checked })}
+                />
+                <Dialog open={optOutDialogOpen} onOpenChange={setOptOutDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Pencil className="h-4 w-4" />
+                      Configure
+                    </Button>
+                  </DialogTrigger>
+                  <ResponseMessageConfigDialog
+                    open={optOutDialogOpen}
+                    onOpenChange={setOptOutDialogOpen}
+                    title="Opt-out Response"
+                    description="Message sent when a contact opts out."
+                    slotKey="opt_out_response"
+                    current={{
+                      type: (settings.opt_out_response_type as WhatsAppMessageType) ?? "text",
+                      text: settings.opt_out_response_text,
+                      attachment_path: settings.opt_out_response_attachment_path ?? null,
+                      attachment_filename: settings.opt_out_response_attachment_filename ?? null,
+                    }}
+                    onSave={onUpdate}
+                    projectId={activeProjectId}
+                  />
+                </Dialog>
+              </div>
+            </div>
+            <ChatBubblePreview
+              text={settings.opt_out_response_text}
+              type={settings.opt_out_response_type}
+              attachmentFilename={settings.opt_out_response_attachment_filename}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-white dark:bg-gray-900">
+        <CardHeader>
+          <CardTitle className="text-base">Opt-in Settings</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-4">
+            <div>
+              <Label>Opt-in Keywords</Label>
+              <p className="text-xs text-muted-foreground">
+                The user will have to type exactly one of these messages on which they should be automatically opted-in.
+              </p>
+            </div>
+            <div className="space-y-2">
+              {optInKeywords.map((kw, i) => (
+                <Input
+                  key={i}
+                  value={kw}
+                  onChange={(e) => {
+                    const next = [...optInKeywords];
+                    next[i] = e.target.value;
+                    setOptInKeywords(next);
+                  }}
+                  placeholder="Keyword"
+                />
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setOptInKeywords((prev) => [...prev, ""])}
+              >
+                + Add more
+              </Button>
+            </div>
+            <Button
+              disabled={settingsSaving}
+              onClick={() => onUpdate({ opt_in_keywords: optInKeywords.filter((k) => k.trim()) })}
+            >
+              {settingsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Settings"}
+            </Button>
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <Label>Opt-in Response</Label>
+                <p className="text-xs text-muted-foreground">Setup a response message for opt-in user keywords.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={settings.opt_in_response_enabled}
+                  onCheckedChange={(checked) => onUpdate({ opt_in_response_enabled: checked })}
+                />
+                <Dialog open={optInDialogOpen} onOpenChange={setOptInDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Pencil className="h-4 w-4" />
+                      Configure
+                    </Button>
+                  </DialogTrigger>
+                  <ResponseMessageConfigDialog
+                    open={optInDialogOpen}
+                    onOpenChange={setOptInDialogOpen}
+                    title="Opt-in Response"
+                    description="Message sent when a contact opts in."
+                    slotKey="opt_in_response"
+                    current={{
+                      type: (settings.opt_in_response_type as WhatsAppMessageType) ?? "text",
+                      text: settings.opt_in_response_text,
+                      attachment_path: settings.opt_in_response_attachment_path ?? null,
+                      attachment_filename: settings.opt_in_response_attachment_filename ?? null,
+                    }}
+                    onSave={onUpdate}
+                    projectId={activeProjectId}
+                  />
+                </Dialog>
+              </div>
+            </div>
+            <ChatBubblePreview
+              text={settings.opt_in_response_text}
+              type={settings.opt_in_response_type}
+              attachmentFilename={settings.opt_in_response_attachment_filename}
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+const TIMEZONES = [
+  "UTC",
+  "Asia/Calcutta",
+  "Asia/Kolkata",
+  "America/New_York",
+  "America/Los_Angeles",
+  "Europe/London",
+  "Europe/Paris",
+  "Australia/Sydney",
+];
+
+function AutomationTab({
+  activeProjectId,
+  settings,
+  settingsLoading,
+  settingsSaving,
+  onUpdate,
+}: {
+  activeProjectId: string | null;
+  settings: WhatsAppSettings | null;
+  settingsLoading: boolean;
+  settingsSaving: boolean;
+  onUpdate: (u: Partial<WhatsAppSettings>) => Promise<void>;
+}) {
+  const [welcomeDialogOpen, setWelcomeDialogOpen] = useState(false);
+  const [offHoursDialogOpen, setOffHoursDialogOpen] = useState(false);
+  const [workingHours, setWorkingHours] = useState<Record<string, { enabled: boolean; from?: string; to?: string }>>(
+    settings?.working_hours ?? {}
+  );
+
+  useEffect(() => {
+    setWorkingHours(settings?.working_hours ?? {});
+  }, [settings]);
+
+  if (!activeProjectId) return null;
+  if (settingsLoading || !settings) {
+    return <LoadingState message="Loading settings…" />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card className="bg-white dark:bg-gray-900">
+        <CardContent className="flex flex-row items-center justify-between gap-4 pt-6">
+          <div>
+            <p className="font-medium">Auto Resolve Chats</p>
+            <p className="text-sm text-muted-foreground">Disable auto resolve intervened chats.</p>
+          </div>
+          <Switch
+            checked={settings.auto_resolve_chats}
+            onCheckedChange={(checked) => onUpdate({ auto_resolve_chats: checked })}
+          />
+        </CardContent>
+      </Card>
+
+      <Card className="bg-white dark:bg-gray-900">
+        <CardHeader>
+          <CardTitle className="text-base">Automated Messages</CardTitle>
+          <CardDescription>Welcome and off-hours replies for first-time messages.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <Label className="flex items-center gap-1">
+                  <MessageSquareQuote className="h-4 w-4" />
+                  Welcome Message
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Configure automated reply for user&apos;s first query during working hours.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={settings.welcome_message_enabled}
+                  onCheckedChange={(checked) => onUpdate({ welcome_message_enabled: checked })}
+                />
+                <Dialog open={welcomeDialogOpen} onOpenChange={setWelcomeDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Pencil className="h-4 w-4" />
+                      Configure
+                    </Button>
+                  </DialogTrigger>
+                  <ResponseMessageConfigDialog
+                    open={welcomeDialogOpen}
+                    onOpenChange={setWelcomeDialogOpen}
+                    title="Welcome Message"
+                    description="Sent on first message during working hours."
+                    slotKey="welcome_message"
+                    current={{
+                      type: (settings.welcome_message_type as WhatsAppMessageType) ?? "text",
+                      text: settings.welcome_message_text,
+                      attachment_path: settings.welcome_message_attachment_path ?? null,
+                      attachment_filename: settings.welcome_message_attachment_filename ?? null,
+                    }}
+                    onSave={onUpdate}
+                    projectId={activeProjectId}
+                  />
+                </Dialog>
+              </div>
+            </div>
+            <ChatBubblePreview
+              text={settings.welcome_message_text}
+              type={settings.welcome_message_type}
+              attachmentFilename={settings.welcome_message_attachment_filename}
+            />
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <Label className="flex items-center gap-1">
+                  <MessageSquareQuote className="h-4 w-4" />
+                  Off Hours Message
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Configure automated reply for user&apos;s first query during off hours.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={settings.off_hours_message_enabled}
+                  onCheckedChange={(checked) => onUpdate({ off_hours_message_enabled: checked })}
+                />
+                <Dialog open={offHoursDialogOpen} onOpenChange={setOffHoursDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Pencil className="h-4 w-4" />
+                      Configure
+                    </Button>
+                  </DialogTrigger>
+                  <ResponseMessageConfigDialog
+                    open={offHoursDialogOpen}
+                    onOpenChange={setOffHoursDialogOpen}
+                    title="Off Hours Message"
+                    description="Sent on first message outside working hours."
+                    slotKey="off_hours_message"
+                    current={{
+                      type: (settings.off_hours_message_type as WhatsAppMessageType) ?? "text",
+                      text: settings.off_hours_message_text,
+                      attachment_path: settings.off_hours_message_attachment_path ?? null,
+                      attachment_filename: settings.off_hours_message_attachment_filename ?? null,
+                    }}
+                    onSave={onUpdate}
+                    projectId={activeProjectId}
+                  />
+                </Dialog>
+              </div>
+            </div>
+            <ChatBubblePreview
+              text={settings.off_hours_message_text}
+              type={settings.off_hours_message_type}
+              attachmentFilename={settings.off_hours_message_attachment_filename}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-white dark:bg-gray-900">
+        <CardHeader>
+          <CardTitle className="text-base">Working Hours</CardTitle>
+          <CardDescription>Configure day-wise working hours for automated replies.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-2 sm:max-w-xs">
+            <Label>Timezone</Label>
+            <select
+              className="flex h-9 w-full rounded-md border border-gray-200 bg-transparent px-3 py-1 text-sm dark:border-gray-700"
+              value={settings.timezone}
+              onChange={(e) => onUpdate({ timezone: e.target.value })}
+            >
+              {TIMEZONES.map((tz) => (
+                <option key={tz} value={tz}>
+                  {tz}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-3">
+            {DAYS.map((day) => {
+              const d = workingHours[day] ?? { enabled: false };
+              return (
+                <div key={day} className="flex flex-wrap items-center gap-3">
+                  <Switch
+                    checked={d.enabled}
+                    onCheckedChange={(checked) => {
+                      const next = { ...workingHours, [day]: { ...d, enabled: checked, from: d.from ?? "09:00", to: d.to ?? "18:00" } };
+                      setWorkingHours(next);
+                      onUpdate({ working_hours: next });
+                    }}
+                  />
+                  <span className="capitalize w-24 text-sm">{day}</span>
+                  {d.enabled ? (
+                    <>
+                      <Input
+                        type="time"
+                        className="w-32"
+                        value={d.from ?? "09:00"}
+                        onChange={(e) => {
+                          const next = { ...workingHours, [day]: { ...d, from: e.target.value } };
+                          setWorkingHours(next);
+                          onUpdate({ working_hours: next });
+                        }}
+                      />
+                      <span className="text-sm text-muted-foreground">to</span>
+                      <Input
+                        type="time"
+                        className="w-32"
+                        value={d.to ?? "18:00"}
+                        onChange={(e) => {
+                          const next = { ...workingHours, [day]: { ...d, to: e.target.value } };
+                          setWorkingHours(next);
+                          onUpdate({ working_hours: next });
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Closed</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

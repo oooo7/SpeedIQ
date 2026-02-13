@@ -121,7 +121,7 @@ export async function GET(request: Request) {
     for (const rec of list) {
       const { data: contact } = await supabase
         .from("whatsapp_contacts")
-        .select("phone, name, email, custom_fields")
+        .select("phone, name, email, custom_fields, opt_out")
         .eq("id", rec.contact_id)
         .single();
       const phone = contact?.phone;
@@ -130,6 +130,14 @@ export async function GET(request: Request) {
         await supabase
           .from("whatsapp_campaign_recipients")
           .update({ status: "failed", error_code: "no_phone", retry_count: nextRetryCount })
+          .eq("id", rec.id);
+        totalFailed++;
+        continue;
+      }
+      if (contact?.opt_out) {
+        await supabase
+          .from("whatsapp_campaign_recipients")
+          .update({ status: "failed", error_code: "opt_out", retry_count: nextRetryCount })
           .eq("id", rec.id);
         totalFailed++;
         continue;

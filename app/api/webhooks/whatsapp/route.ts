@@ -1,6 +1,45 @@
 import { NextResponse } from "next/server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureCannedMessageBucket } from "@/lib/supabase/canned-messages-storage";
+import { getWhatsAppAccountToken, sendMediaMessage, sendTextMessage } from "@/lib/whatsapp/api";
+import type { MediaMessageType } from "@/lib/whatsapp/api";
+
+const WHATSAPP_SETTINGS_BUCKET = "canned-message-attachments";
+const SIGNED_URL_EXPIRY = 3600;
+
+type WorkingHoursDay = { enabled: boolean; from?: string; to?: string };
+type WorkingHoursMap = Record<string, WorkingHoursDay>;
+
+/** Check if current time in given timezone is within working hours. */
+function isWithinWorkingHours(timezone: string, workingHours: WorkingHoursMap): boolean {
+  if (!timezone || typeof workingHours !== "object" || Object.keys(workingHours).length === 0) {
+    return true;
+  }
+  try {
+    const dayName = new Intl.DateTimeFormat("en-US", { timeZone: timezone, weekday: "long" })
+      .format(new Date())
+      .toLowerCase();
+    const day = workingHours[dayName];
+    if (!day || !day.enabled || !day.from || !day.to) return false;
+    const time = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+      .format(new Date())
+      .replace(/\D/g, "")
+      .slice(0, 4)
+      .padStart(4, "0");
+    const from = (day.from ?? "").replace(/\D/g, "").slice(0, 4).padStart(4, "0");
+    const to = (day.to ?? "").replace(/\D/g, "").slice(0, 4).padStart(4, "0");
+    if (!from || !to) return false;
+    return time >= from && time <= to;
+  } catch {
+    return true;
+  }
+}
 
 // Must match the "Verify token" value you set in Meta App Dashboard → WhatsApp → Configuration → Webhook.
 // Set this in Vercel: Project → Settings → Environment Variables → WHATSAPP_VERIFY_TOKEN
@@ -129,6 +168,14 @@ export async function POST(request: Request) {
         }
       }
 
+      const { data: settingsRow } = await supabase
+        .from("whatsapp_account_settings")
+        .select("*")
+        .eq("project_id", project_id)
+        .maybeSingle();
+      const settings = settingsRow ?? null;
+      const creds = await getWhatsAppAccountToken(supabase, project_id);
+
       if (value.messages) {
         for (const msg of value.messages) {
           const meta_message_id = msg.id;
@@ -216,6 +263,124 @@ export async function POST(request: Request) {
               updated_at: ts,
               unread_count: 1,
             });
+          }
+
+          if (settings && creds && type === "text" && typeof body === "string" && body.trim()) {
+            const normalized = body.trim().toLowerCase();
+            const optOutKeywords = (settings.opt_out_keywords ?? []) as string[];
+            const optInKeywords = (settings.opt_in_keywords ?? []) as string[];
+            const optOutMatch = optOutKeywords.some((k) => String(k).trim().toLowerCase() === normalized);
+            const optInMatch = optInKeywords.some((k) => String(k).trim().toLowerCase() === normalized);
+
+            type ResponseMessage = {
+              type: string;
+              text?: string | null;
+              attachment_path?: string | null;
+              attachment_filename?: string | null;
+            };
+            const maybeSendResponse = async (msg: ResponseMessage): Promise<void> => {
+              const mType = (msg.type ?? "text") as string;
+              const isText = mType === "text";
+              const hasContent = isText
+                ? !!msg.text?.trim()
+                : !!msg.attachment_path?.trim();
+              if (!hasContent) return;
+              let result: { message_id: string } | { error: { message: string } };
+              let outType = "text";
+              let outBody: string | null = null;
+              if (isText) {
+                result = await sendTextMessage(creds.access_token, creds.phone_number_id, from_wa, msg.text!.trim());
+                outBody = msg.text!.trim();
+              } else {
+                try {
+                  await ensureCannedMessageBucket(supabase);
+                  const { data: signed } = await supabase.storage
+                    .from(WHATSAPP_SETTINGS_BUCKET)
+                    .createSignedUrl(msg.attachment_path!.trim(), SIGNED_URL_EXPIRY);
+                  if (!signed?.signedUrl) return;
+                  const metaType: MediaMessageType = mType === "file" ? "document" : (mType as MediaMessageType);
+                  result = await sendMediaMessage(
+                    creds.access_token,
+                    creds.phone_number_id,
+                    from_wa,
+                    metaType,
+                    signed.signedUrl,
+                    {
+                      caption: msg.text?.trim() || undefined,
+                      filename: mType === "file" ? (msg.attachment_filename ?? undefined) : undefined,
+                    }
+                  );
+                  outType = mType;
+                  outBody = msg.text?.trim() ?? null;
+                } catch {
+                  return;
+                }
+              }
+              if (result && "message_id" in result) {
+                await supabase.from("whatsapp_messages").insert({
+                  project_id,
+                  contact_id,
+                  direction: "out",
+                  type: outType,
+                  body: outBody,
+                  meta_message_id: result.message_id,
+                  meta_timestamp: String(Date.now()),
+                  status: "sent",
+                });
+              }
+            };
+
+            const optOutMsg: ResponseMessage = {
+              type: (settings.opt_out_response_type as string) ?? "text",
+              text: settings.opt_out_response_text,
+              attachment_path: (settings as { opt_out_response_attachment_path?: string }).opt_out_response_attachment_path,
+              attachment_filename: (settings as { opt_out_response_attachment_filename?: string }).opt_out_response_attachment_filename,
+            };
+            const optInMsg: ResponseMessage = {
+              type: (settings.opt_in_response_type as string) ?? "text",
+              text: settings.opt_in_response_text,
+              attachment_path: (settings as { opt_in_response_attachment_path?: string }).opt_in_response_attachment_path,
+              attachment_filename: (settings as { opt_in_response_attachment_filename?: string }).opt_in_response_attachment_filename,
+            };
+            const welcomeMsg: ResponseMessage = {
+              type: (settings.welcome_message_type as string) ?? "text",
+              text: settings.welcome_message_text,
+              attachment_path: (settings as { welcome_message_attachment_path?: string }).welcome_message_attachment_path,
+              attachment_filename: (settings as { welcome_message_attachment_filename?: string }).welcome_message_attachment_filename,
+            };
+            const offHoursMsg: ResponseMessage = {
+              type: (settings.off_hours_message_type as string) ?? "text",
+              text: settings.off_hours_message_text,
+              attachment_path: (settings as { off_hours_message_attachment_path?: string }).off_hours_message_attachment_path,
+              attachment_filename: (settings as { off_hours_message_attachment_filename?: string }).off_hours_message_attachment_filename,
+            };
+
+            if (optOutMatch) {
+              await supabase
+                .from("whatsapp_contacts")
+                .update({ opt_out: true, updated_at: new Date().toISOString() })
+                .eq("id", contact_id);
+              if (settings.opt_out_response_enabled) await maybeSendResponse(optOutMsg);
+            } else if (optInMatch) {
+              await supabase
+                .from("whatsapp_contacts")
+                .update({ opt_out: false, updated_at: new Date().toISOString() })
+                .eq("id", contact_id);
+              if (settings.opt_in_response_enabled) await maybeSendResponse(optInMsg);
+            }
+            const { count: inboundCount } = await supabase
+              .from("whatsapp_messages")
+              .select("id", { count: "exact", head: true })
+              .eq("project_id", project_id)
+              .eq("contact_id", contact_id)
+              .eq("direction", "in");
+            const isFirstInbound = inboundCount === 1;
+            if (isFirstInbound) {
+              const workingHours = (settings.working_hours as WorkingHoursMap) ?? {};
+              const within = isWithinWorkingHours(settings.timezone ?? "UTC", workingHours);
+              if (within && settings.welcome_message_enabled) await maybeSendResponse(welcomeMsg);
+              else if (!within && settings.off_hours_message_enabled) await maybeSendResponse(offHoursMsg);
+            }
           }
         }
       }

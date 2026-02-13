@@ -85,7 +85,7 @@ export async function POST(
     return NextResponse.json({
       sent: 0,
       failed: 0,
-      errors: [{ phone: "(all)", error: "WhatsApp account not connected. Add credentials in Settings > WhatsApp Account." }],
+      errors: [{ phone: "(all)", error: "WhatsApp account not connected. Add credentials in Settings → WhatsApp." }],
     });
   }
 

@@ -169,7 +169,21 @@ export async function PATCH(
     if (contactIds && contactIds.length > 0) {
       for (const id of contactIds) contactIdSet.add(id);
     }
-    const contactIdList = [...contactIdSet];
+    let contactIdList = [...contactIdSet];
+    const { data: settingsRow } = await supabase
+      .from("whatsapp_account_settings")
+      .select("respect_opt_out_for_campaigns")
+      .eq("project_id", projectId)
+      .maybeSingle();
+    if (settingsRow?.respect_opt_out_for_campaigns && contactIdList.length > 0) {
+      const { data: allowed } = await supabase
+        .from("whatsapp_contacts")
+        .select("id")
+        .eq("project_id", projectId)
+        .in("id", contactIdList)
+        .or("opt_out.eq.false,opt_out.is.null");
+      contactIdList = (allowed ?? []).map((r: { id: string }) => r.id);
+    }
     if (contactIdList.length > 0) {
       const recipients = contactIdList.map((contact_id: string) => ({
         campaign_id: campaignId,

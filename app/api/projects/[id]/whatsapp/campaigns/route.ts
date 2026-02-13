@@ -149,6 +149,21 @@ export async function POST(
     contactIdList = [...new Set((links ?? []).map((r: { contact_id: string }) => r.contact_id))];
   }
 
+  const { data: settingsRow } = await supabase
+    .from("whatsapp_account_settings")
+    .select("respect_opt_out_for_campaigns")
+    .eq("project_id", projectId)
+    .maybeSingle();
+  if (settingsRow?.respect_opt_out_for_campaigns && contactIdList.length > 0) {
+    const { data: allowed } = await supabase
+      .from("whatsapp_contacts")
+      .select("id")
+      .eq("project_id", projectId)
+      .in("id", contactIdList)
+      .or("opt_out.eq.false,opt_out.is.null");
+    contactIdList = (allowed ?? []).map((r: { id: string }) => r.id);
+  }
+
   const isDraft = save_as_draft || (!send_now && !scheduled_at);
   if (contactIdList.length === 0 && !isDraft) {
     return NextResponse.json({ error: "Select at least one contact or one or more tags so the campaign has recipients." }, { status: 400 });

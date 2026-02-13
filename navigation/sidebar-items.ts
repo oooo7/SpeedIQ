@@ -65,7 +65,7 @@ export const sidebarItems: NavGroup[] = [
             url: "/dashboard/whatsapp/templates",
           },
           {
-            title: "Live Chat",
+            title: "Chats",
             url: "/dashboard/whatsapp/live-chat",
           },
         ],
@@ -119,7 +119,7 @@ export const sidebarItems: NavGroup[] = [
         requiresProject: true,
         subItems: [
           {
-            title: "WhatsApp Account",
+            title: "WhatsApp",
             url: "/dashboard/settings/whatsapp-account",
           },
           {
