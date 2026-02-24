@@ -40,6 +40,12 @@ npm run dev
 
 4. Open [http://localhost:3000](http://localhost:3000).
 
+## Documentation
+
+- **[WhatsApp setup checklist](docs/whatsapp-setup-checklist.md)** — Env vars, Meta webhook, cron, storage, and in-app settings for WhatsApp (opt-in/opt-out, automated messages, campaigns).
+- [Webhook local testing](docs/webhook-local-testing.md) — Test the WhatsApp webhook with ngrok.
+- [Cron (Supabase)](docs/cron-supabase.md) — WhatsApp and email campaign send cron.
+
 ## Project Structure
 
 ```

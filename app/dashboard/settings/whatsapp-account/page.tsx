@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronDown, FileText, Image, Loader2, MessageSquare, MessageSquareQuote, Music, Pencil, Send, Settings2, Video } from "lucide-react";
+import { ChevronDown, FileText, Image, Loader2, MessageSquare, MessageSquareQuote, Music, Pencil, RefreshCw, Send, Settings2, Video } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -170,6 +170,7 @@ export default function WhatsAppAccountPage() {
   const [settings, setSettings] = useState<WhatsAppSettings | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
+  const [refreshingSettings, setRefreshingSettings] = useState(false);
 
   const fetchSettings = useCallback(async () => {
     if (!activeProject?.id) return;
@@ -183,6 +184,23 @@ export default function WhatsAppAccountPage() {
       setSettings(null);
     } finally {
       setSettingsLoading(false);
+    }
+  }, [activeProject?.id]);
+
+  /** Refresh settings from DB without showing full loading (e.g. after changes from another tab/device). */
+  const refreshSettings = useCallback(async () => {
+    if (!activeProject?.id) return;
+    setRefreshingSettings(true);
+    try {
+      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/settings`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load settings");
+      setSettings(data.settings ?? null);
+      toast.success("Settings refreshed");
+    } catch {
+      toast.error("Could not refresh settings");
+    } finally {
+      setRefreshingSettings(false);
     }
   }, [activeProject?.id]);
 
@@ -498,7 +516,7 @@ export default function WhatsAppAccountPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-xs text-muted-foreground">
-              Click &quot;Refresh health&quot; to fetch the latest data from Meta. Some fields (e.g. verified name, status) only appear after a refresh.
+              This WhatsApp Business number is used when you send messages from this app (test message below, Chats, or Campaigns). Click &quot;Refresh health&quot; to fetch the latest data from Meta.
             </p>
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-3 text-sm first:pt-0">
@@ -575,7 +593,7 @@ export default function WhatsAppAccountPage() {
           <CardHeader>
             <CardTitle className="text-base">Send test message</CardTitle>
             <CardDescription>
-              Same format as Meta dashboard. You must select a template — hello_world for testing or an approved template.
+              Send a real message from your connected number to any phone number. The message is delivered to the recipient&apos;s WhatsApp app — use this to verify sending works.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -586,7 +604,7 @@ export default function WhatsAppAccountPage() {
                   id="test-to"
                   value={testTo}
                   onChange={(e) => setTestTo(e.target.value)}
-                  placeholder="e.g. 917470915225"
+                  placeholder="e.g. 917470915225 (country code, no + or spaces)"
                 />
               </div>
               <div className="space-y-2 py-4">
@@ -873,6 +891,8 @@ export default function WhatsAppAccountPage() {
           settingsLoading={settingsLoading}
           settingsSaving={settingsSaving}
           onUpdate={updateSettings}
+          onRefresh={refreshSettings}
+          refreshingSettings={refreshingSettings}
         />
       )}
 
@@ -883,6 +903,8 @@ export default function WhatsAppAccountPage() {
           settingsLoading={settingsLoading}
           settingsSaving={settingsSaving}
           onUpdate={updateSettings}
+          onRefresh={refreshSettings}
+          refreshingSettings={refreshingSettings}
         />
       )}
     </div>
@@ -1078,12 +1100,16 @@ function OptInOptOutTab({
   settingsLoading,
   settingsSaving,
   onUpdate,
+  onRefresh,
+  refreshingSettings,
 }: {
   activeProjectId: string | null;
   settings: WhatsAppSettings | null;
   settingsLoading: boolean;
   settingsSaving: boolean;
   onUpdate: (u: Partial<WhatsAppSettings>) => Promise<void>;
+  onRefresh: () => Promise<void>;
+  refreshingSettings: boolean;
 }) {
   const [optOutKeywords, setOptOutKeywords] = useState<string[]>(settings?.opt_out_keywords?.length ? [...settings.opt_out_keywords] : ["Stop"]);
   const [optInKeywords, setOptInKeywords] = useState<string[]>(settings?.opt_in_keywords?.length ? [...settings.opt_in_keywords] : ["Allow"]);
@@ -1104,6 +1130,21 @@ function OptInOptOutTab({
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          Stored in Habiv only. Use <strong>Refresh</strong> to load changes made from another device or tab.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onRefresh}
+          disabled={refreshingSettings}
+        >
+          {refreshingSettings ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          <span className="ml-2">{refreshingSettings ? "Refreshing…" : "Refresh settings"}</span>
+        </Button>
+      </div>
       <Card className="bg-white dark:bg-gray-900">
         <CardContent className="flex flex-row items-center justify-between gap-4 pt-6">
           <div>
@@ -1312,12 +1353,16 @@ function AutomationTab({
   settingsLoading,
   settingsSaving,
   onUpdate,
+  onRefresh,
+  refreshingSettings,
 }: {
   activeProjectId: string | null;
   settings: WhatsAppSettings | null;
   settingsLoading: boolean;
   settingsSaving: boolean;
   onUpdate: (u: Partial<WhatsAppSettings>) => Promise<void>;
+  onRefresh: () => Promise<void>;
+  refreshingSettings: boolean;
 }) {
   const [welcomeDialogOpen, setWelcomeDialogOpen] = useState(false);
   const [offHoursDialogOpen, setOffHoursDialogOpen] = useState(false);
@@ -1336,6 +1381,21 @@ function AutomationTab({
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          Stored in Habiv only. Use <strong>Refresh</strong> to load changes made from another device or tab.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onRefresh}
+          disabled={refreshingSettings}
+        >
+          {refreshingSettings ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          <span className="ml-2">{refreshingSettings ? "Refreshing…" : "Refresh settings"}</span>
+        </Button>
+      </div>
       <Card className="bg-white dark:bg-gray-900">
         <CardContent className="flex flex-row items-center justify-between gap-4 pt-6">
           <div>
