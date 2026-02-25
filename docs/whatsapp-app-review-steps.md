@@ -4,7 +4,7 @@ Clear steps for recording and submitting the screencast. Tick off as you go.
 
 ---
 
-## Part 1: Before recording (prep)
+## Part 1: Before recording 
 
 - [ ] **1.** App is deployed and reachable at the URL you’ll show (e.g. production or stable ngrok). Not localhost.
 - [ ] **2.** Env vars set (see `whatsapp-setup-checklist.md`). WhatsApp account can send messages.
