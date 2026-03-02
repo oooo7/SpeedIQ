@@ -20,6 +20,8 @@ Set these in `.env.local` (local) and in your host (e.g. Vercel → Project → 
 | `WHATSAPP_CONFIG_ID` | If using Embedded Signup | Embedded Signup config ID from Meta. |
 | `WHATSAPP_SOLUTION_ID` | Optional | For Meta partners. |
 
+**Embedded Signup not showing WhatsApp accounts?** See [whatsapp-embedded-signup-troubleshooting.md](./whatsapp-embedded-signup-troubleshooting.md) (permissions, domains, and the rule that WABAs created in the developer app cannot be used in Embedded Signup).
+
 ---
 
 ## 2. Meta app: webhook

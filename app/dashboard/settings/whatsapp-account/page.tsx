@@ -660,6 +660,9 @@ export default function WhatsAppAccountPage() {
             <CardDescription>
               Use Meta&apos;s secure login to connect your WhatsApp Business account in seconds. This is the recommended way to connect.
             </CardDescription>
+            <p className="text-xs text-muted-foreground mt-2">
+              If you don&apos;t see your WhatsApp account in the flow, it may have been created in the Meta developer app—those can&apos;t be used here. Create a new one in the flow or connect manually below.
+            </p>
           </CardHeader>
           <CardContent className="space-y-4">
             <WhatsAppConnectButton

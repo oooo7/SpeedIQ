@@ -133,25 +133,48 @@ export async function fetchConnectedWABA(
 
   if (!businessResponse.ok || !businessData.data?.[0]) {
     return {
-      error: "No WhatsApp Business Account found. Please complete the signup process in the popup.",
+      error:
+        "No business or WhatsApp account found. Ensure the Meta app has whatsapp_business_management and whatsapp_business_messaging permissions (and App Review if live). Existing WABAs from the developer app cannot be used with Embedded Signup—use the flow to create a new WABA or connect manually.",
     };
   }
 
   const businessId = businessData.data[0].id;
 
-  // Get WABAs for this business
-  const wabaUrl = `${META_GRAPH_BASE}/${API_VERSION}/${businessId}/owned_whatsapp_business_accounts?access_token=${encodeURIComponent(accessToken)}`;
-  const wabaResponse = await fetch(wabaUrl);
-  const wabaData = await wabaResponse.json();
+  // Try owned WABAs first
+  const ownedUrl = `${META_GRAPH_BASE}/${API_VERSION}/${businessId}/owned_whatsapp_business_accounts?access_token=${encodeURIComponent(accessToken)}`;
+  const ownedResponse = await fetch(ownedUrl);
+  const ownedData = await ownedResponse.json();
+  const ownedList = ownedResponse.ok && Array.isArray(ownedData.data) && ownedData.data.length > 0
+    ? ownedData.data
+    : null;
 
-  if (!wabaResponse.ok || !wabaData.data?.[0]) {
-    return { error: "No WhatsApp Business Account found for this business" };
+  if (ownedList?.[0]) {
+    return {
+      waba_id: ownedList[0].id,
+      business_id: businessId,
+      name: ownedList[0].name,
+    };
+  }
+
+  // Fallback: client WABAs (accounts connected via this app / Embedded Signup)
+  const clientUrl = `${META_GRAPH_BASE}/${API_VERSION}/${businessId}/client_whatsapp_business_accounts?access_token=${encodeURIComponent(accessToken)}`;
+  const clientResponse = await fetch(clientUrl);
+  const clientData = await clientResponse.json();
+  const clientList = clientResponse.ok && Array.isArray(clientData.data) && clientData.data.length > 0
+    ? clientData.data
+    : null;
+
+  if (clientList?.[0]) {
+    return {
+      waba_id: clientList[0].id,
+      business_id: businessId,
+      name: clientList[0].name,
+    };
   }
 
   return {
-    waba_id: wabaData.data[0].id,
-    business_id: businessId,
-    name: wabaData.data[0].name,
+    error:
+      "No WhatsApp Business Account found. Existing WABAs created in the Meta developer app (Quickstart) cannot be used with Embedded Signup—either create a new WABA through the Connect flow or connect manually with Phone Number ID, WABA ID, and Access Token.",
   };
 }
 
