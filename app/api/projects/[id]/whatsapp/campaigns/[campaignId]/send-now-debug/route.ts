@@ -97,7 +97,7 @@ export async function POST(
 
   if (useHelloWorld) {
     templateName = "hello_world";
-    templateLanguage = "en_US";
+      templateLanguage = "en";
   } else {
     const { data: template } = await admin
       .from("whatsapp_templates")
@@ -166,7 +166,10 @@ export async function POST(
       contact.phone,
       templateName,
       templateLanguage,
-      variableValues && variableValues.length > 0 ? { variableValues } : undefined
+      {
+        ...(variableValues && variableValues.length > 0 ? { variableValues } : {}),
+        wabaId: creds.waba_id,
+      }
     );
 
     if ("error" in result) {

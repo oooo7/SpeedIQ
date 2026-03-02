@@ -29,7 +29,7 @@ export async function POST(
 
   const { data: template, error: templateError } = await supabase
     .from("whatsapp_templates")
-    .select("id, name, category, language, body, header, footer, buttons, status, variables")
+    .select("id, name, category, language, body, header, header_format, header_media_url, footer, buttons, status, variables")
     .eq("project_id", projectId)
     .eq("id", templateId)
     .single();
@@ -78,7 +78,8 @@ export async function POST(
   const safeExample = (s: string | null | undefined, fallback: string) =>
     (s != null && String(s).trim()) ? String(s).trim().slice(0, 100) : fallback;
 
-  if (template.header) {
+  const hdrFormat = (template.header_format ?? "text").toUpperCase();
+  if (hdrFormat === "TEXT" && template.header) {
     const headerHasVar = /\{\{1\}\}/.test(template.header);
     const headerComp: { type: "HEADER"; format: string; text: string; example?: { header_text: string[] } } = {
       type: "HEADER",
@@ -90,6 +91,15 @@ export async function POST(
       headerComp.example = { header_text: [headerExample.slice(0, 60)] };
     }
     components.push(headerComp);
+  } else if (["IMAGE", "VIDEO", "DOCUMENT"].includes(hdrFormat)) {
+    const mediaComp: Record<string, unknown> = { type: "HEADER", format: hdrFormat };
+    const mediaUrl = template.header_media_url?.trim();
+    if (mediaUrl) {
+      mediaComp.example = { header_handle: [mediaUrl] };
+    }
+    components.push(mediaComp as typeof components[number]);
+  } else if (hdrFormat === "LOCATION") {
+    components.push({ type: "HEADER", format: "LOCATION" } as typeof components[number]);
   }
   if (template.body) {
     const bodyVarCount = bodyVariableCount(template.body);

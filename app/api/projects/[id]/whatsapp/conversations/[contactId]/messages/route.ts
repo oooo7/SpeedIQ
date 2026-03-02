@@ -132,7 +132,8 @@ export async function POST(
       creds.phone_number_id,
       contact.phone,
       template_name,
-      template_language
+      template_language,
+      { wabaId: creds.waba_id }
     );
     if ("error" in result) {
       return NextResponse.json(

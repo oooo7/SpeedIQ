@@ -37,11 +37,22 @@ export async function POST(
     return NextResponse.json({ error: result.error.message }, { status: 400 });
   }
 
+  const healthData = {
+    display_phone_number: result.display_phone_number,
+    quality_rating: result.quality_rating,
+    platform_type: result.platform_type,
+    verified_name: result.verified_name,
+    code_verification_status: result.code_verification_status,
+    status: result.status,
+    refreshed_at: new Date().toISOString(),
+  };
+
   const { error } = await supabase
     .from("whatsapp_accounts")
     .update({
       phone_number: result.display_phone_number ?? undefined,
       quality_rating: result.quality_rating ?? undefined,
+      health_data: healthData,
       updated_at: new Date().toISOString(),
     })
     .eq("project_id", projectId);
@@ -52,11 +63,6 @@ export async function POST(
 
   return NextResponse.json({
     success: true,
-    quality_rating: result.quality_rating,
-    display_phone_number: result.display_phone_number,
-    platform_type: result.platform_type,
-    verified_name: result.verified_name,
-    code_verification_status: result.code_verification_status,
-    status: result.status,
+    ...healthData,
   });
 }

@@ -28,7 +28,7 @@ export async function GET(
 
   const { data: template, error } = await supabase
     .from("whatsapp_templates")
-    .select("id, project_id, name, category, language, status, rejection_reason, body, header, footer, buttons, variables, variable_field_mapping, meta_template_id, created_at, updated_at")
+    .select("id, project_id, name, category, language, status, rejection_reason, body, header, header_format, header_media_url, footer, buttons, variables, variable_field_mapping, meta_template_id, created_at, updated_at")
     .eq("project_id", projectId)
     .eq("id", templateId)
     .single();
@@ -88,13 +88,15 @@ export async function PATCH(
   if (Array.isArray(body.buttons)) updates.buttons = body.buttons;
   if (Array.isArray(body.variables)) updates.variables = body.variables;
   if (Array.isArray(body.variable_field_mapping)) updates.variable_field_mapping = body.variable_field_mapping;
+  if (body.header_format !== undefined) updates.header_format = body.header_format?.trim() ?? "text";
+  if (body.header_media_url !== undefined) updates.header_media_url = body.header_media_url?.trim() ?? null;
 
   const { data: template, error } = await supabase
     .from("whatsapp_templates")
     .update(updates)
     .eq("project_id", projectId)
     .eq("id", templateId)
-    .select("id, project_id, name, category, language, status, rejection_reason, body, header, footer, buttons, variables, variable_field_mapping, meta_template_id, created_at, updated_at")
+    .select("id, project_id, name, category, language, status, rejection_reason, body, header, header_format, header_media_url, footer, buttons, variables, variable_field_mapping, meta_template_id, created_at, updated_at")
     .single();
 
   if (error) {

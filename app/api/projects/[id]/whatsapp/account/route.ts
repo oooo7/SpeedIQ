@@ -27,15 +27,20 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { data: account, error } = await supabase
-    .from("whatsapp_accounts")
-    .select("id, project_id, phone_number_id, waba_id, phone_number, display_name, quality_rating, tier, connection_type, token_expires_at, created_at, updated_at")
-    .eq("project_id", projectId)
-    .maybeSingle();
+  const [{ data: account, error }, { data: project }] = await Promise.all([
+    supabase
+      .from("whatsapp_accounts")
+      .select("id, project_id, phone_number_id, waba_id, phone_number, display_name, quality_rating, tier, connection_type, token_expires_at, health_data, created_at, updated_at")
+      .eq("project_id", projectId)
+      .maybeSingle(),
+    supabase.from("projects").select("whatsapp_registration_completed_at").eq("id", projectId).maybeSingle(),
+  ]);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  const whatsappRegistrationCompleted = !!project?.whatsapp_registration_completed_at;
 
   return NextResponse.json({
     account: account
@@ -44,6 +49,7 @@ export async function GET(
           connected: true,
         }
       : { connected: false, project_id: projectId },
+    whatsapp_registration_completed: whatsappRegistrationCompleted,
   });
 }
 
@@ -135,4 +141,45 @@ export async function POST(
   return NextResponse.json({
     account: { ...account, connected: true },
   });
+}
+
+/**
+ * DELETE: Remove WhatsApp connection for the project (owner/admin only).
+ * Clears the account and the registration-completed flag so they can reconnect and see setup again.
+ */
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id: projectId } = await params;
+  if (!projectId) {
+    return NextResponse.json({ error: "Project ID is required" }, { status: 400 });
+  }
+
+  const role = await getProjectRole(supabase, projectId, user.id);
+  if (!role || (role !== "owner" && role !== "admin")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { error: deleteError } = await supabase
+    .from("whatsapp_accounts")
+    .delete()
+    .eq("project_id", projectId);
+
+  if (deleteError) {
+    return NextResponse.json({ error: deleteError.message }, { status: 500 });
+  }
+
+  await supabase.rpc("clear_whatsapp_registration_completed", { p_project_id: projectId });
+
+  return NextResponse.json({ success: true });
 }

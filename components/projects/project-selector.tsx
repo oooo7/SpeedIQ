@@ -23,26 +23,20 @@ type ViewMode = "grid" | "list";
 
 function ProjectCard({
   project,
-  isActive,
   isSwitching,
   onSelect,
+  onOpenDashboard,
   onDelete,
 }: {
   project: Project;
-  isActive: boolean;
   isSwitching: boolean;
   onSelect: (id: string) => Promise<void>;
+  onOpenDashboard: () => void;
   onDelete: (id: string, name: string) => void;
 }) {
-  const router = useRouter();
-
   const handleSelect = useCallback(async () => {
-    if (isActive) {
-      router.push("/dashboard");
-      return;
-    }
     await onSelect(project.id);
-  }, [project.id, isActive, onSelect, router]);
+  }, [project.id, onSelect]);
 
   const handleDelete = useCallback(
     (e: React.MouseEvent) => {
@@ -67,7 +61,7 @@ function ProjectCard({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => router.push("/dashboard")}>
+            <DropdownMenuItem onClick={onOpenDashboard}>
               Open project
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -105,26 +99,20 @@ function ProjectCard({
 
 function ProjectCardList({
   project,
-  isActive,
   isSwitching,
   onSelect,
+  onOpenDashboard,
   onDelete,
 }: {
   project: Project;
-  isActive: boolean;
   isSwitching: boolean;
   onSelect: (id: string) => Promise<void>;
+  onOpenDashboard: () => void;
   onDelete: (id: string, name: string) => void;
 }) {
-  const router = useRouter();
-
   const handleSelect = useCallback(async () => {
-    if (isActive) {
-      router.push("/dashboard");
-      return;
-    }
     await onSelect(project.id);
-  }, [project.id, isActive, onSelect, router]);
+  }, [project.id, onSelect]);
 
   const handleDelete = useCallback(
     (e: React.MouseEvent) => {
@@ -164,7 +152,7 @@ function ProjectCardList({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => router.push("/dashboard")}>
+          <DropdownMenuItem onClick={onOpenDashboard}>
             Open project
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -197,6 +185,7 @@ export function ProjectSelector() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [isOpeningDashboard, setIsOpeningDashboard] = useState(false);
 
   const filteredProjects = useMemo(() => {
     if (!searchQuery.trim()) return projects;
@@ -212,14 +201,32 @@ export function ProjectSelector() {
     [filteredProjects]
   );
 
-  const handleSelectProject = useCallback(async (projectId: string) => {
-    if (projectId === activeProject?.id) {
-      window.location.href = "/dashboard";
-      return;
-    }
-    await selectProject(projectId);
-    window.location.href = "/dashboard";
-  }, [activeProject?.id, selectProject]);
+  const handleOpenDashboard = useCallback(() => {
+    setIsOpeningDashboard(true);
+    router.push("/dashboard");
+  }, [router]);
+
+  const handleSelectProject = useCallback(
+    async (projectId: string) => {
+      setIsOpeningDashboard(true);
+
+      if (projectId === activeProject?.id) {
+        router.push("/dashboard");
+        return;
+      }
+
+      try {
+        await selectProject(projectId);
+        router.push("/dashboard");
+      } catch (error) {
+        setIsOpeningDashboard(false);
+        toast.error("Unable to switch project", {
+          description: error instanceof Error ? error.message : "Please try again.",
+        });
+      }
+    },
+    [activeProject?.id, router, selectProject]
+  );
 
   const handleDeleteProject = useCallback(
     async (projectId: string, projectName: string) => {
@@ -371,7 +378,16 @@ export function ProjectSelector() {
         />
       )}
 
-      {sortedProjects.length > 0 && (
+      {isOpeningDashboard && (
+        <div className="flex min-h-[240px] items-center justify-center bg-white dark:bg-gray-900">
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+            <Loader2 className="size-4 animate-spin" />
+            Opening dashboard...
+          </div>
+        </div>
+      )}
+
+      {!isOpeningDashboard && sortedProjects.length > 0 && (
         <div
           className={
             viewMode === "grid"
@@ -384,18 +400,18 @@ export function ProjectSelector() {
               <ProjectCard
                 key={project.id}
                 project={project}
-                isActive={project.id === activeProject?.id}
                 isSwitching={isSwitching}
                 onSelect={handleSelectProject}
+                onOpenDashboard={handleOpenDashboard}
                 onDelete={handleDeleteProject}
               />
             ) : (
               <ProjectCardList
                 key={project.id}
                 project={project}
-                isActive={project.id === activeProject?.id}
                 isSwitching={isSwitching}
                 onSelect={handleSelectProject}
+                onOpenDashboard={handleOpenDashboard}
                 onDelete={handleDeleteProject}
               />
             )

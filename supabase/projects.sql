@@ -3,7 +3,8 @@ create table if not exists public.projects (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references auth.users (id) on delete cascade,
   name text not null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  whatsapp_registration_completed_at timestamptz
 );
 
 alter table public.projects enable row level security;

@@ -16,6 +16,7 @@ create table if not exists public.whatsapp_accounts (
   connection_type text default 'manual' check (connection_type in ('manual', 'embedded_signup')),
   token_expires_at timestamptz,
   business_id text,
+  health_data jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (project_id)

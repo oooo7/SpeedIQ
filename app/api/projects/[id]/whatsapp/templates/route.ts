@@ -32,7 +32,7 @@ export async function GET(
 
   let query = supabase
     .from("whatsapp_templates")
-    .select("id, project_id, name, category, language, status, rejection_reason, body, header, footer, buttons, variables, variable_field_mapping, meta_template_id, created_at, updated_at")
+    .select("id, project_id, name, category, language, status, rejection_reason, body, header, header_format, header_media_url, footer, buttons, variables, variable_field_mapping, meta_template_id, created_at, updated_at")
     .eq("project_id", projectId)
     .order("updated_at", { ascending: false });
 
@@ -83,6 +83,8 @@ export async function POST(
   const buttons = Array.isArray(body?.buttons) ? body.buttons : [];
   const variables = Array.isArray(body?.variables) ? body.variables : [];
   const variableFieldMapping = Array.isArray(body?.variable_field_mapping) ? body.variable_field_mapping : [];
+  const headerFormat = body?.header_format?.trim() ?? "text";
+  const headerMediaUrl = body?.header_media_url?.trim() ?? null;
 
   if (!name) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
@@ -101,13 +103,15 @@ export async function POST(
       language,
       body: templateBody,
       header,
+      header_format: headerFormat,
+      header_media_url: headerMediaUrl,
       footer,
       buttons,
       variables,
       variable_field_mapping: variableFieldMapping,
       status: "draft",
     })
-    .select("id, project_id, name, category, language, status, rejection_reason, body, header, footer, buttons, variables, variable_field_mapping, meta_template_id, created_at, updated_at")
+    .select("id, project_id, name, category, language, status, rejection_reason, body, header, header_format, header_media_url, footer, buttons, variables, variable_field_mapping, meta_template_id, created_at, updated_at")
     .single();
 
   if (insertError) {

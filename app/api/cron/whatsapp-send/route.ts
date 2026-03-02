@@ -82,7 +82,7 @@ export async function GET(request: Request) {
 
     if (useHelloWorld) {
       templateName = "hello_world";
-      templateLanguage = "en_US";
+      templateLanguage = "en";
     } else {
       const { data: template } = await supabase
         .from("whatsapp_templates")
@@ -157,7 +157,10 @@ export async function GET(request: Request) {
         phone,
         templateName,
         templateLanguage,
-        variableValues && variableValues.length > 0 ? { variableValues } : undefined
+        {
+          ...(variableValues && variableValues.length > 0 ? { variableValues } : {}),
+          wabaId: creds.waba_id,
+        }
       );
 
       if ("error" in result) {

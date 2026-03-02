@@ -2,16 +2,19 @@ import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
-import { getWhatsAppAccountToken, sendTemplateMessage } from "@/lib/whatsapp/api";
+import {
+  fetchMessageTemplatesFromMeta,
+  getFriendlyErrorMessage,
+  getWhatsAppAccountToken,
+  sendTemplateMessage,
+} from "@/lib/whatsapp/api";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Send a test template message (same format as Meta dashboard).
- * POST body: { to: string, template_name?: string, template_id?: string }
- * - to: recipient phone (e.g. 917470915225)
- * - template_name: "hello_world" for testing, or use template_id for a project template
- * - template_id: optional UUID of a project template (approved); overrides template_name
+ * Send a test template message.
+ * POST body: { to, template_name?, template_id?, auto_pick? }
+ * - auto_pick: true = pick any approved template from Meta (for "just test it works")
  */
 export async function POST(
   request: Request,
@@ -40,24 +43,21 @@ export async function POST(
   const to = body?.to?.trim();
   const templateName = body?.template_name?.trim();
   const templateId = body?.template_id?.trim();
+  const autoPick = body?.auto_pick === true;
 
   if (!to) {
-    return NextResponse.json({ error: "to (phone number) is required" }, { status: 400 });
-  }
-
-  if (!templateName && !templateId) {
-    return NextResponse.json({ error: "A template must be selected. Send template_name (e.g. hello_world) or template_id." }, { status: 400 });
+    return NextResponse.json({ error: "Enter a phone number to send to." }, { status: 400 });
   }
 
   const creds = await getWhatsAppAccountToken(supabase, projectId);
   if (!creds) {
-    return NextResponse.json({ error: "WhatsApp account not connected" }, { status: 400 });
+    return NextResponse.json({ error: "WhatsApp account not connected." }, { status: 400 });
   }
 
   let name: string;
   let language: string;
-
   let variableValues: string[] | undefined;
+
   if (templateId) {
     const { data: template, error: tErr } = await supabase
       .from("whatsapp_templates")
@@ -67,19 +67,45 @@ export async function POST(
       .single();
 
     if (tErr || !template) {
-      return NextResponse.json({ error: "Template not found" }, { status: 404 });
+      return NextResponse.json({ error: "Template not found." }, { status: 404 });
     }
     if (template.status !== "approved") {
-      return NextResponse.json({ error: "Only approved templates can be used. This template is not approved." }, { status: 400 });
+      return NextResponse.json({ error: "This template isn't approved yet. Use an approved template." }, { status: 400 });
     }
     name = template.name;
     language = template.language ?? "en_US";
     if (Array.isArray(template.variables) && template.variables.length > 0) {
       variableValues = (template.variables as string[]).map(String);
     }
+  } else if (templateName) {
+    name = templateName;
+    language = "en";
+  } else if (autoPick) {
+    const metaResult = await fetchMessageTemplatesFromMeta(creds.access_token, creds.waba_id);
+    if ("error" in metaResult) {
+      return NextResponse.json(
+        { error: "Couldn't fetch templates from Meta. Check your WhatsApp connection." },
+        { status: 400 }
+      );
+    }
+    const approved = metaResult.templates.filter(
+      (t) => t.status.toLowerCase() === "approved"
+    );
+    if (approved.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "No approved templates found on your WhatsApp account. Create and approve a template in WhatsApp Manager first, then sync templates here.",
+          noTemplates: true,
+        },
+        { status: 400 }
+      );
+    }
+    const picked = approved[0];
+    name = picked.name;
+    language = picked.language;
   } else {
-    name = templateName as string;
-    language = name === "hello_world" ? "en_US" : "en";
+    return NextResponse.json({ error: "Select a template to send." }, { status: 400 });
   }
 
   const result = await sendTemplateMessage(
@@ -88,15 +114,30 @@ export async function POST(
     to,
     name,
     language,
-    variableValues ? { variableValues } : undefined
+    { ...(variableValues ? { variableValues } : {}), wabaId: creds.waba_id }
   );
 
+  const debug = {
+    request: { to, template_name: name, template_language: language, variable_values: variableValues },
+    meta_response: "error" in result ? { error: result.error } : { message_id: result.message_id },
+  };
+
   if ("error" in result) {
+    const code = result.error.code;
+    const needsRegistration = code === 133010;
+    const errorMessage = needsRegistration
+      ? "Your WhatsApp number isn't set up for sending yet. Complete the quick step in the popup to start messaging."
+      : getFriendlyErrorMessage(result.error.message ?? "", code);
     return NextResponse.json(
-      { error: result.error.message, code: result.error.code },
+      { error: errorMessage, code, needsRegistration: needsRegistration || undefined, debug },
       { status: 400 }
     );
   }
 
-  return NextResponse.json({ success: true, message_id: result.message_id });
+  return NextResponse.json({
+    success: true,
+    message_id: result.message_id,
+    template_used: name,
+    debug,
+  });
 }

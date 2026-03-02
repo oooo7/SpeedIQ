@@ -24,7 +24,8 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
   }
 
   const cookieStore = await cookies();
-  const defaultOpen = cookieStore.get("sidebar_state")?.value === "true";
+  const sidebarState = cookieStore.get("sidebar_state")?.value;
+  const defaultOpen = sidebarState !== "false";
 
   const { projects, activeProject } = await loadProjectsForUser(supabase, user.id, cookieStore);
 

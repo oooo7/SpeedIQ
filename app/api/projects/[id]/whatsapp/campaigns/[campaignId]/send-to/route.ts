@@ -107,7 +107,7 @@ export async function POST(
 
   if (useHelloWorld) {
     templateName = "hello_world";
-    templateLanguage = "en_US";
+    templateLanguage = "en";
     variableValues = undefined;
   } else {
     const { data: template } = await admin
@@ -147,7 +147,10 @@ export async function POST(
     phone,
     templateName,
     templateLanguage,
-    variableValues && variableValues.length > 0 ? { variableValues } : undefined
+    {
+      ...(variableValues && variableValues.length > 0 ? { variableValues } : {}),
+      wabaId: creds.waba_id,
+    }
   );
 
   if ("error" in result) {

@@ -101,6 +101,36 @@ export async function submitTemplateToMeta(
 
 const META_API_VERSION = "v21.0";
 
+/**
+ * Map Meta/WhatsApp API error codes to detailed, user-friendly messages (no codes or technical terms).
+ */
+export function getFriendlyErrorMessage(message: string, code?: number): string {
+  if (code === 133010 || (message && String(message).includes("133010"))) {
+    return "Your WhatsApp number isn't set up for sending yet. Complete the one-time setup in WhatsApp settings to start messaging.";
+  }
+  if (code === 132001 || (message && (String(message).includes("132001") || String(message).toLowerCase().includes("template name does not exist in the translation")))) {
+    return "This template isn't available on your connected WhatsApp number for the selected language. In WhatsApp Manager, make sure the template is approved for this same number and language, or choose another approved template.";
+  }
+  if (code === 131026 || (message && String(message).includes("131026"))) {
+    return "You can't send to this number yet—the person needs to message you first within the last 24 hours, or you need to use an approved message template.";
+  }
+  if (code === 131047 || (message && String(message).includes("131047"))) {
+    return "This template isn't approved or doesn't exist for your account. Check WhatsApp Manager and use an approved template, or try \"hello_world\" for testing.";
+  }
+  if (message && (message.includes("does not exist") || message.includes("missing permissions") || message.toLowerCase().includes("cannot be loaded"))) {
+    return "We couldn't complete this. Check that your WhatsApp account is connected and that you're using the correct number and templates in Settings.";
+  }
+  if (message && message.toLowerCase().includes("rate limit")) {
+    return "You're sending too many messages too quickly. Please wait a few minutes and try again.";
+  }
+  return message && message.length > 0 && !message.includes("(#") ? message : "Something went wrong. Please try again.";
+}
+
+/** Use friendly messages for send errors (template, text, media). */
+function formatSendError(message: string, code?: number): string {
+  return getFriendlyErrorMessage(message, code);
+}
+
 /** Meta template node from GET /message_templates */
 export interface MetaMessageTemplate {
   id: string;
@@ -145,6 +175,75 @@ export async function fetchMessageTemplatesFromMeta(
   }
 
   return { templates: all };
+}
+
+async function getTemplateLanguages(
+  accessToken: string,
+  wabaId: string,
+  templateName: string
+): Promise<string[]> {
+  const normalized = templateName.trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+  if (!normalized) return [];
+  const filteredUrl = `${META_GRAPH_BASE}/${META_API_VERSION}/${wabaId}/message_templates?name=${encodeURIComponent(normalized)}&fields=id,name,language,status&access_token=${encodeURIComponent(accessToken)}`;
+  const res = await fetch(filteredUrl);
+  const data = (await res.json()) as {
+    data?: Array<{ name?: string; language?: string; status?: string }>;
+  };
+  if (!res.ok || !Array.isArray(data.data)) return [];
+  const fromFiltered = data.data
+    .filter((t) => (t.name ?? "").trim().toLowerCase() === normalized)
+    .filter((t) => {
+      const s = (t.status ?? "").toLowerCase();
+      return s === "approved" || s === "active";
+    })
+    .map((t) => (t.language ?? "").trim())
+    .filter((l) => l.length > 0);
+  if (fromFiltered.length > 0) return [...new Set(fromFiltered)];
+
+  // Fallback: Meta can occasionally return empty results with the name filter.
+  const fullUrl = `${META_GRAPH_BASE}/${META_API_VERSION}/${wabaId}/message_templates?fields=id,name,language,status&access_token=${encodeURIComponent(accessToken)}`;
+  const fullRes = await fetch(fullUrl);
+  const fullData = (await fullRes.json()) as {
+    data?: Array<{ name?: string; language?: string; status?: string }>;
+  };
+  if (!fullRes.ok || !Array.isArray(fullData.data)) return [];
+  return [
+    ...new Set(
+      fullData.data
+        .filter((t) => (t.name ?? "").trim().toLowerCase() === normalized)
+        .filter((t) => {
+          const s = (t.status ?? "").toLowerCase();
+          return s === "approved" || s === "active";
+        })
+        .map((t) => (t.language ?? "").trim())
+        .filter((l) => l.length > 0)
+    ),
+  ];
+}
+
+async function resolveTemplateLanguageForSend(
+  accessToken: string,
+  wabaId: string,
+  templateName: string,
+  preferredLanguage: string
+): Promise<string> {
+  const available = await getTemplateLanguages(accessToken, wabaId, templateName);
+  if (available.length === 0) return templateName === "hello_world" ? "en" : toMetaLanguageCode(preferredLanguage);
+
+  const preferred = [preferredLanguage, toMetaLanguageCode(preferredLanguage), "en", "en_US"]
+    .map((v) => String(v ?? "").trim())
+    .filter(Boolean);
+  for (const cand of preferred) {
+    const exact = available.find((l) => l === cand);
+    if (exact) return exact;
+  }
+
+  if (templateName === "hello_world") {
+    const helloPreferred = available.find((l) => l === "en" || l === "en_US");
+    if (helloPreferred) return helloPreferred;
+  }
+
+  return available[0];
 }
 
 /** Parse variable indices from body text e.g. {{1}} {{2}} -> [1,2]. Meta uses {{1}} in API. */
@@ -348,17 +447,28 @@ export async function sendTemplateMessage(
   options?: {
     components?: Array<{ type: "button" | "body" | "header"; parameters: Array<{ type: "text"; text: string }> }>;
     variableValues?: string[];
+    wabaId?: string;
   }
 ): Promise<{ message_id: string } | { error: { message: string; code?: number } }> {
-  const languageCode =
-    language === "en" && templateName === "hello_world" ? "en_US" : toMetaLanguageCode(language);
+  const normalizedTemplateName = templateName.trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+  let languageCode =
+    normalizedTemplateName === "hello_world" ? "en" : toMetaLanguageCode(language);
+  if (options?.wabaId) {
+    // Pick the exact approved language that exists on this WABA to avoid 132001.
+    languageCode = await resolveTemplateLanguageForSend(
+      accessToken,
+      options.wabaId,
+      normalizedTemplateName || templateName,
+      languageCode
+    );
+  }
   const url = `${META_GRAPH_BASE}/v22.0/${phoneNumberId}/messages`;
   const body: Record<string, unknown> = {
     messaging_product: "whatsapp",
     to: to.replace(/\D/g, ""),
     type: "template",
     template: {
-      name: templateName,
+      name: normalizedTemplateName || templateName,
       language: { code: languageCode },
     },
   };
@@ -374,14 +484,34 @@ export async function sendTemplateMessage(
   if (components && components.length > 0) {
     (body.template as Record<string, unknown>).components = components;
   }
-  const res = await fetch(url, {
+  let res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
     body: JSON.stringify(body),
   });
-  const data = await res.json();
+  let data = await res.json();
+  if (!res.ok && data?.error?.code === 132001 && options?.wabaId) {
+    // Retry once with any other approved language available on this WABA.
+    const available = await getTemplateLanguages(
+      accessToken,
+      options.wabaId,
+      normalizedTemplateName || templateName
+    );
+    const alternate = available.find((l) => l !== languageCode);
+    if (alternate) {
+      (body.template as { language: { code: string } }).language.code = alternate;
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(body),
+      });
+      data = await res.json();
+    }
+  }
   if (!res.ok) {
-    return { error: { message: data.error?.message ?? "Meta API error", code: data.error?.code } };
+    const code = data.error?.code;
+    const msg = data.error?.message ?? "Meta API error";
+    return { error: { message: formatSendError(msg, code), code } };
   }
   const messageId = data.messages?.[0]?.id;
   if (!messageId) {
@@ -415,7 +545,9 @@ export async function sendTextMessage(
   });
   const data = await res.json();
   if (!res.ok) {
-    return { error: { message: data.error?.message ?? "Meta API error", code: data.error?.code } };
+    const code = data.error?.code;
+    const msg = data.error?.message ?? "Meta API error";
+    return { error: { message: formatSendError(msg, code), code } };
   }
   const messageId = data.messages?.[0]?.id;
   if (!messageId) {
@@ -459,7 +591,9 @@ export async function sendMediaMessage(
   });
   const data = await res.json();
   if (!res.ok) {
-    return { error: { message: data.error?.message ?? "Meta API error", code: data.error?.code } };
+    const code = data.error?.code;
+    const msg = data.error?.message ?? "Meta API error";
+    return { error: { message: formatSendError(msg, code), code } };
   }
   const messageId = data.messages?.[0]?.id;
   if (!messageId) {
@@ -505,4 +639,39 @@ export function isWithin24hWindow(lastInboundAt: string | null): boolean {
   const last = new Date(lastInboundAt).getTime();
   const now = Date.now();
   return now - last < 24 * 60 * 60 * 1000;
+}
+
+/**
+ * Register a business phone number for the WhatsApp Cloud API (fixes error 133010).
+ * Requires access token with whatsapp_business_management.
+ * See https://developers.facebook.com/docs/whatsapp/cloud-api/reference/registration
+ */
+export async function registerPhoneNumberForCloudApi(
+  accessToken: string,
+  phoneNumberId: string,
+  pin: string
+): Promise<{ success: true } | { error: { message: string; code?: number } }> {
+  const trimmedPin = pin.replace(/\D/g, "").slice(0, 6);
+  if (trimmedPin.length !== 6) {
+    return { error: { message: "PIN must be exactly 6 digits (0–9).", code: 400 } };
+  }
+  const url = `${META_GRAPH_BASE}/v22.0/${phoneNumberId}/register`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      pin: trimmedPin,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const msg = data.error?.message ?? "Registration failed";
+    const code = data.error?.code;
+    return { error: { message: msg, code } };
+  }
+  return { success: true };
 }

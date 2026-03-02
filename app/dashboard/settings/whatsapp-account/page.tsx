@@ -82,6 +82,13 @@ interface TemplateOption {
   status: string;
 }
 
+interface MetaTemplateOption {
+  id: string;
+  name: string;
+  language: string;
+  category: string;
+}
+
 interface WhatsAppAccountData {
   id?: string;
   project_id: string;
@@ -98,6 +105,15 @@ interface WhatsAppAccountData {
   connected: boolean;
   connection_type?: "manual" | "embedded_signup";
   token_expires_at?: string | null;
+  health_data?: {
+    display_phone_number?: string;
+    quality_rating?: string;
+    platform_type?: string;
+    verified_name?: string;
+    code_verification_status?: string;
+    status?: string;
+    refreshed_at?: string;
+  } | null;
 }
 
 function formatDisplayPhone(raw: string | null | undefined): string {
@@ -157,6 +173,10 @@ export default function WhatsAppAccountPage() {
   const [testTemplate, setTestTemplate] = useState<string>("");
   const [testSending, setTestSending] = useState(false);
   const [approvedTemplates, setApprovedTemplates] = useState<TemplateOption[]>([]);
+  const [metaTemplates, setMetaTemplates] = useState<MetaTemplateOption[]>([]);
+  const [metaTemplatesLoading, setMetaTemplatesLoading] = useState(false);
+  const [metaTemplatesError, setMetaTemplatesError] = useState<string | null>(null);
+  const [testLog, setTestLog] = useState<{ request: unknown; response: unknown; status: number } | null>(null);
   const [oauthConfig, setOauthConfig] = useState<WhatsAppOAuthConfig | null>(null);
   const [showManualForm, setShowManualForm] = useState(false);
   const [showDomainHelp, setShowDomainHelp] = useState(false);
@@ -171,6 +191,12 @@ export default function WhatsAppAccountPage() {
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [refreshingSettings, setRefreshingSettings] = useState(false);
+  const [registerPin, setRegisterPin] = useState("");
+  const [registerLoading, setRegisterLoading] = useState(false);
+  const [showRegisterSection, setShowRegisterSection] = useState(false);
+  const [registerDialogOpen, setRegisterDialogOpen] = useState(false);
+  const [registerDialogPin, setRegisterDialogPin] = useState("");
+  const [whatsappRegistrationCompleted, setWhatsappRegistrationCompleted] = useState(false);
 
   const fetchSettings = useCallback(async () => {
     if (!activeProject?.id) return;
@@ -285,8 +311,19 @@ export default function WhatsAppAccountPage() {
           setAccount(null);
           return;
         }
-        const acc = data.account as WhatsAppAccountData;
+        const accRaw = data.account as WhatsAppAccountData;
+        const health = accRaw.health_data ?? null;
+        const acc: WhatsAppAccountData = {
+          ...accRaw,
+          phone_number: accRaw.phone_number ?? health?.display_phone_number ?? null,
+          quality_rating: accRaw.quality_rating ?? health?.quality_rating ?? null,
+          platform_type: accRaw.platform_type ?? health?.platform_type ?? null,
+          verified_name: accRaw.verified_name ?? health?.verified_name ?? null,
+          code_verification_status: accRaw.code_verification_status ?? health?.code_verification_status ?? null,
+          status: accRaw.status ?? health?.status ?? null,
+        };
         setAccount(acc);
+        setWhatsappRegistrationCompleted(!!data.whatsapp_registration_completed);
         if (acc.connected) {
           setPhoneNumberId(acc.phone_number_id ?? "");
           setWabaId(acc.waba_id ?? "");
@@ -310,7 +347,40 @@ export default function WhatsAppAccountPage() {
       .then((r) => r.json())
       .then((d) => setApprovedTemplates(d.templates ?? []))
       .catch(() => setApprovedTemplates([]));
+
+    setMetaTemplatesLoading(true);
+    setMetaTemplatesError(null);
+    fetch(`/api/projects/${activeProject.id}/whatsapp/templates/meta`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.error) {
+          setMetaTemplatesError(d.error);
+          setMetaTemplates([]);
+        } else {
+          const list = d.templates ?? [];
+          setMetaTemplates(list);
+          if (list.length > 0 && !testTemplate) {
+            const first = list[0];
+            setTestTemplate(`meta:${first.name}:${first.language}`);
+          }
+        }
+      })
+      .catch(() => {
+        setMetaTemplatesError("Could not load templates from Meta.");
+        setMetaTemplates([]);
+      })
+      .finally(() => setMetaTemplatesLoading(false));
   }, [activeProject?.id, account?.connected]);
+
+  useEffect(() => {
+    if (testTemplate) return;
+    if (metaTemplates.length > 0) {
+      const first = metaTemplates[0];
+      setTestTemplate(`meta:${first.name}:${first.language}`);
+    } else if (approvedTemplates.length > 0) {
+      setTestTemplate(approvedTemplates[0].id);
+    }
+  }, [metaTemplates, approvedTemplates, testTemplate]);
 
   const handleSendTest = async (e: FormEvent) => {
     e.preventDefault();
@@ -324,23 +394,36 @@ export default function WhatsAppAccountPage() {
       return;
     }
     setTestSending(true);
+    const requestBody: { to: string; template_name?: string; template_id?: string } = { to: testTo.trim() };
+    if (testTemplate.startsWith("meta:")) {
+      requestBody.template_name = testTemplate.split(":")[1];
+    } else {
+      requestBody.template_id = testTemplate;
+    }
     try {
-      const body: { to: string; template_name?: string; template_id?: string } = { to: testTo.trim() };
-      if (testTemplate === "hello_world") {
-        body.template_name = "hello_world";
-      } else {
-        body.template_id = testTemplate;
-      }
       const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/test-message`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(requestBody),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Send failed");
-      toast.success("Test message sent. Check WhatsApp.");
+      const data = await res.json().catch(() => ({}));
+      setTestLog({ request: requestBody, response: data, status: res.status });
+      if (!res.ok) {
+        if (data.needsRegistration && !whatsappRegistrationCompleted) {
+          setRegisterDialogOpen(true);
+        } else {
+          toast.error(data.error ?? "Could not send. Please try again.");
+        }
+        return;
+      }
+      toast.success("Message sent. Check the recipient's WhatsApp—it may take a few seconds. Use the exact number you entered (with country code, no +).");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not send test message");
+      setTestLog({
+        request: requestBody,
+        response: { error: err instanceof Error ? err.message : "Request failed" },
+        status: 0,
+      });
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setTestSending(false);
     }
@@ -477,6 +560,7 @@ export default function WhatsAppAccountPage() {
                 {account.connection_type === "embedded_signup" ? "Via Meta" : "Manual"}
               </Badge>
             </div>
+            <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -500,6 +584,17 @@ export default function WhatsAppAccountPage() {
                           verified_name: data.verified_name ?? prev.verified_name,
                           code_verification_status: data.code_verification_status ?? prev.code_verification_status,
                           status: data.status ?? prev.status,
+                          health_data: {
+                            ...(prev.health_data ?? {}),
+                            display_phone_number: data.display_phone_number ?? prev.health_data?.display_phone_number,
+                            quality_rating: data.quality_rating ?? prev.health_data?.quality_rating,
+                            platform_type: data.platform_type ?? prev.health_data?.platform_type,
+                            verified_name: data.verified_name ?? prev.health_data?.verified_name,
+                            code_verification_status:
+                              data.code_verification_status ?? prev.health_data?.code_verification_status,
+                            status: data.status ?? prev.health_data?.status,
+                            refreshed_at: data.refreshed_at ?? new Date().toISOString(),
+                          },
                         }
                       : prev
                   );
@@ -513,29 +608,49 @@ export default function WhatsAppAccountPage() {
             >
               {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Refresh health"}
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+              disabled={refreshing}
+              onClick={async () => {
+                if (!activeProject?.id || !confirm("Remove this WhatsApp connection? You can connect again later.")) return;
+                try {
+                  const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/account`, { method: "DELETE" });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.error ?? "Failed to disconnect");
+                  setAccount({ connected: false, project_id: activeProject.id });
+                  setWhatsappRegistrationCompleted(false);
+                  toast.success("WhatsApp disconnected. You can connect again anytime.");
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Could not disconnect");
+                }
+              }}
+            >
+              Remove connection
+            </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-xs text-muted-foreground">
               This WhatsApp Business number is used when you send messages from this app (test message below, Chats, or Campaigns). Click &quot;Refresh health&quot; to fetch the latest data from Meta.
             </p>
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-3 text-sm first:pt-0">
-                <dt className="text-muted-foreground font-medium">Phone number</dt>
-                <dd className="font-mono tabular-nums">
-                  {formatDisplayPhone(account.phone_number)}
-                </dd>
-              </dl>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-3 text-sm">
-                <dt className="text-muted-foreground font-medium">Verified name</dt>
-                <dd>{account.verified_name?.trim() || "—"}</dd>
-              </dl>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-3 text-sm">
-                <dt className="text-muted-foreground font-medium">Display name (optional)</dt>
-                <dd>{account.display_name?.trim() || "—"}</dd>
-              </dl>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-3 text-sm">
-                <dt className="text-muted-foreground font-medium">Quality rating</dt>
-                <dd>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+              <div>
+                <dt className="text-muted-foreground text-xs font-medium">Phone number</dt>
+                <dd className="font-mono tabular-nums mt-0.5">{formatDisplayPhone(account.phone_number)}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs font-medium">Verified name</dt>
+                <dd className="mt-0.5">{account.verified_name?.trim() || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs font-medium">Display name</dt>
+                <dd className="mt-0.5">{account.display_name?.trim() || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs font-medium">Quality rating</dt>
+                <dd className="mt-0.5">
                   <span
                     className={
                       account.quality_rating === "GREEN"
@@ -549,40 +664,105 @@ export default function WhatsAppAccountPage() {
                   >
                     {qualityLabel(account.quality_rating)}
                   </span>
+                  {account.quality_rating === "UNKNOWN" && (
+                    <span className="text-xs text-muted-foreground ml-1">(new number)</span>
+                  )}
                 </dd>
-              </dl>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-3 text-sm">
-                <dt className="text-muted-foreground font-medium">Status</dt>
-                <dd>{statusLabel(account.status)}</dd>
-              </dl>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-3 text-sm">
-                <dt className="text-muted-foreground font-medium">Code verification</dt>
-                <dd>{codeVerificationLabel(account.code_verification_status)}</dd>
-              </dl>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-3 text-sm">
-                <dt className="text-muted-foreground font-medium">Platform</dt>
-                <dd>{account.platform_type?.replace(/_/g, " ") ?? "—"}</dd>
-              </dl>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-3 text-sm last:pb-0">
-                <dt className="text-muted-foreground font-medium">Tier</dt>
-                <dd>{account.tier?.trim() || "—"}</dd>
-              </dl>
-            </div>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs font-medium">Status</dt>
+                <dd className="mt-0.5">{statusLabel(account.status)}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs font-medium">Code verification</dt>
+                <dd className="mt-0.5">{codeVerificationLabel(account.code_verification_status)}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs font-medium">Platform</dt>
+                <dd className="mt-0.5">{account.platform_type?.replace(/_/g, " ") ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs font-medium">Tier</dt>
+                <dd className="mt-0.5">{account.tier?.trim() || "—"}</dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-muted-foreground text-xs font-medium">Last health sync</dt>
+                <dd className="mt-0.5">
+                  {account.health_data?.refreshed_at
+                    ? new Date(account.health_data.refreshed_at).toLocaleString()
+                    : "Never — click Refresh health above"}
+                </dd>
+              </div>
+            </dl>
 
-            {account.quality_rating === "UNKNOWN" && (
-              <p className="text-xs text-muted-foreground">
-                Meta shows &quot;Unknown&quot; for new or test numbers until there is enough messaging history. Send messages and wait; the rating will update to Good, Medium, or Low.
-              </p>
-            )}
             {account.quality_rating && account.quality_rating !== "GREEN" && account.quality_rating !== "UNKNOWN" && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground mt-3">
                 Keep response times low and avoid user reports to improve quality rating.
               </p>
             )}
 
-            <p className="text-sm text-muted-foreground">
-              To update credentials, use the form below and submit again. Leave access token empty to keep the
-              current one.
+            {!whatsappRegistrationCompleted && (
+              <Collapsible open={showRegisterSection} onOpenChange={setShowRegisterSection} className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
+                <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
+                  <ChevronDown className={`h-4 w-4 transition-transform ${showRegisterSection ? "rotate-180" : ""}`} />
+                  Your number isn&apos;t set up for sending yet
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-3 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Complete this one-time setup so you can send messages. Choose a 6-digit PIN (numbers only) and remember it. You can only try a few times per day, so use a PIN you&apos;ll remember.
+                  </p>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="register-pin" className="text-xs">6-digit PIN</Label>
+                      <Input
+                        id="register-pin"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        placeholder="e.g. 123456"
+                        value={registerPin}
+                        onChange={(e) => setRegisterPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        className="w-28 font-mono"
+                        disabled={registerLoading}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={registerLoading || registerPin.length !== 6}
+                      onClick={async () => {
+                        if (!activeProject?.id || registerPin.length !== 6) return;
+                        setRegisterLoading(true);
+                        try {
+                          const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/account/register`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ pin: registerPin }),
+                          });
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.error ?? "Something went wrong");
+                          const accRes = await fetch(`/api/projects/${activeProject.id}/whatsapp/account`);
+                          const accData = await accRes.json();
+                          if (accRes.ok && accData.whatsapp_registration_completed) setWhatsappRegistrationCompleted(true);
+                          toast.success("You're all set! You can send messages now.");
+                          setRegisterPin("");
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Please try again.");
+                        } finally {
+                          setRegisterLoading(false);
+                        }
+                      }}
+                    >
+                      {registerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Finish setup"}
+                    </Button>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+
+            <p className="text-sm text-muted-foreground mt-4">
+              To change your connected number or account details, use the form below. Leave the access token blank to keep your current one.
             </p>
           </CardContent>
         </Card>
@@ -593,53 +773,106 @@ export default function WhatsAppAccountPage() {
           <CardHeader>
             <CardTitle className="text-base">Send test message</CardTitle>
             <CardDescription>
-              Send a real message from your connected number to any phone number. The message is delivered to the recipient&apos;s WhatsApp app — use this to verify sending works.
+              Send a real message to any phone number. The recipient will get it in WhatsApp—use this to confirm everything works.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSendTest} className="divide-y divide-gray-100 dark:divide-gray-800">
               <div className="space-y-2 pb-4">
-                <Label htmlFor="test-to">To (phone number) *</Label>
+                <Label htmlFor="test-to">Recipient&apos;s phone number</Label>
                 <Input
                   id="test-to"
                   value={testTo}
                   onChange={(e) => setTestTo(e.target.value)}
-                  placeholder="e.g. 917470915225 (country code, no + or spaces)"
+                  placeholder="e.g. 919876543210"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Full number with country code only (e.g. 91 for India), no + or spaces. The message will appear in that number&apos;s WhatsApp chat.
+                </p>
               </div>
               <div className="space-y-2 py-4">
-                <Label>Template *</Label>
-                <p className="text-xs text-muted-foreground mb-1">Select a template. Only approved templates can be sent.</p>
-                <div className="flex flex-col gap-2">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="radio"
-                      name="test-template"
-                      checked={testTemplate === "hello_world"}
-                      onChange={() => setTestTemplate("hello_world")}
-                    />
-                    hello_world (for testing)
-                  </label>
-                  {approvedTemplates.length > 0 && (
-                    <>
-                      <span className="text-xs text-muted-foreground">Approved templates:</span>
-                      {approvedTemplates.map((t) => (
-                        <label key={t.id} className="flex items-center gap-2 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <Label>Template</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-muted-foreground gap-1 shrink-0"
+                    disabled={metaTemplatesLoading}
+                    onClick={() => {
+                      if (!activeProject?.id) return;
+                      setMetaTemplatesLoading(true);
+                      setMetaTemplatesError(null);
+                      fetch(`/api/projects/${activeProject.id}/whatsapp/templates/meta`)
+                        .then((r) => r.json())
+                        .then((d) => {
+                          if (d.error) {
+                            setMetaTemplatesError(d.error);
+                            setMetaTemplates([]);
+                          } else {
+                            setMetaTemplates(d.templates ?? []);
+                            toast.success(`Found ${(d.templates ?? []).length} template(s)`);
+                          }
+                        })
+                        .catch(() => {
+                          setMetaTemplatesError("Could not load templates.");
+                          setMetaTemplates([]);
+                        })
+                        .finally(() => setMetaTemplatesLoading(false));
+                    }}
+                  >
+                    {metaTemplatesLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                    Refresh
+                  </Button>
+                </div>
+                {metaTemplatesLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Loading templates…
+                  </div>
+                ) : metaTemplatesError ? (
+                  <p className="text-sm text-red-600">{metaTemplatesError}</p>
+                ) : metaTemplates.length === 0 && approvedTemplates.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No approved templates yet. Create one in{" "}
+                    <a href="https://business.facebook.com/wa/manage/message-templates/" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">WhatsApp Manager</a>, then click Refresh.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    {metaTemplates.map((t) => {
+                      const value = `meta:${t.name}:${t.language}`;
+                      return (
+                        <label key={value} className="flex items-center gap-2 text-sm cursor-pointer py-1">
+                          <input
+                            type="radio"
+                            name="test-template"
+                            checked={testTemplate === value}
+                            onChange={() => setTestTemplate(value)}
+                          />
+                          <span>{t.name}</span>
+                          <span className="text-muted-foreground text-xs">({t.language})</span>
+                        </label>
+                      );
+                    })}
+                    {approvedTemplates
+                      .filter((t) => !metaTemplates.some((m) => m.name === t.name && m.language === (t.language ?? "")))
+                      .map((t) => (
+                        <label key={t.id} className="flex items-center gap-2 text-sm cursor-pointer py-1">
                           <input
                             type="radio"
                             name="test-template"
                             checked={testTemplate === t.id}
                             onChange={() => setTestTemplate(t.id)}
                           />
-                          {t.name} ({t.language})
+                          <span>{t.name}</span>
+                          <span className="text-muted-foreground text-xs">({t.language})</span>
                         </label>
                       ))}
-                    </>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
               <div className="pt-4">
-              <Button type="submit" disabled={testSending || !testTemplate} className="gap-1">
+              <Button type="submit" disabled={testSending || !testTemplate || metaTemplatesLoading} className="gap-1">
                 {testSending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
@@ -648,10 +881,103 @@ export default function WhatsAppAccountPage() {
                 Send test message
               </Button>
               </div>
+
+              {testLog && (
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-800 mt-4 space-y-3">
+                  {testLog.status === 200 && (testLog.response as { success?: boolean })?.success === true && (
+                    <div className="text-sm text-amber-700 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded p-3">
+                      <p className="font-medium">API says sent but you don&apos;t see the message?</p>
+                      <ul className="list-disc list-inside mt-1.5 space-y-0.5 text-muted-foreground">
+                        <li>Open WhatsApp on the <strong>recipient</strong> phone (the number you typed above). The message appears there, from your business number.</li>
+                        <li>Don&apos;t send to the same number as your connected business number—use a different phone (e.g. a friend&apos;s or second device) to test.</li>
+                        <li>Confirm that number has WhatsApp and has internet. Wait 1–2 minutes and pull to refresh the chat.</li>
+                        <li>Check that the recipient hasn&apos;t blocked your business or archived the chat.</li>
+                      </ul>
+                    </div>
+                  )}
+                  <Collapsible defaultOpen>
+                    <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
+                      <ChevronDown className="h-4 w-4" />
+                      Full request / response log
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-3">
+                      <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-3 rounded overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-all">
+                        {JSON.stringify({ status: testLog.status, request: testLog.request, response: testLog.response }, null, 2)}
+                      </pre>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              )}
             </form>
           </CardContent>
         </Card>
       ) : null}
+
+      <Dialog open={registerDialogOpen} onOpenChange={setRegisterDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>One more step to start messaging</DialogTitle>
+            <DialogDescription>
+              Your number needs a quick one-time setup before you can send messages. Choose a 6-digit PIN (numbers only) and remember it—you may need it later for your WhatsApp Business account.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label htmlFor="dialog-register-pin">6-digit PIN</Label>
+              <Input
+                id="dialog-register-pin"
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="e.g. 123456"
+                value={registerDialogPin}
+                onChange={(e) => setRegisterDialogPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                className="w-32 font-mono text-lg"
+                disabled={registerLoading}
+              />
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setRegisterDialogOpen(false)}
+                disabled={registerLoading}
+              >
+                I&apos;ll do this later
+              </Button>
+              <Button
+                type="button"
+                disabled={registerLoading || registerDialogPin.length !== 6}
+                onClick={async () => {
+                  if (!activeProject?.id || registerDialogPin.length !== 6) return;
+                  setRegisterLoading(true);
+                  try {
+                    const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/account/register`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ pin: registerDialogPin }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error ?? "Setup failed");
+                    const accRes = await fetch(`/api/projects/${activeProject.id}/whatsapp/account`);
+                    const accData = await accRes.json();
+                    if (accRes.ok && accData.whatsapp_registration_completed) setWhatsappRegistrationCompleted(true);
+                    setRegisterDialogOpen(false);
+                    setRegisterDialogPin("");
+                    toast.success("You're all set! Try sending a test message again.");
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+                  } finally {
+                    setRegisterLoading(false);
+                  }
+                }}
+              >
+                {registerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Finish setup"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {!account?.connected && oauthConfig ? (
         <Card className="bg-white dark:bg-gray-900">
@@ -661,7 +987,7 @@ export default function WhatsAppAccountPage() {
               Use Meta&apos;s secure login to connect your WhatsApp Business account in seconds. This is the recommended way to connect.
             </CardDescription>
             <p className="text-xs text-muted-foreground mt-2">
-              If you don&apos;t see your WhatsApp account in the flow, it may have been created in the Meta developer app—those can&apos;t be used here. Create a new one in the flow or connect manually below.
+              Don&apos;t see your WhatsApp number in the list? You can connect it manually below by entering your account details, or create a new number in the flow.
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -734,155 +1060,157 @@ export default function WhatsAppAccountPage() {
         </Card>
       ) : null}
 
-      {/* Manual credentials form - collapsible when OAuth is available */}
-      {oauthConfig ? (
-        <Collapsible open={showManualForm} onOpenChange={setShowManualForm}>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="gap-2 text-muted-foreground hover:text-foreground">
-              <ChevronDown className={`h-4 w-4 transition-transform ${showManualForm ? "rotate-180" : ""}`} />
-              {account?.connected ? "Update credentials manually" : "Or enter credentials manually"}
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pt-4">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="phone_number_id">Phone Number ID *</Label>
-                <Input
-                  id="phone_number_id"
-                  value={phone_number_id}
-                  onChange={(e) => setPhoneNumberId(e.target.value)}
-                  placeholder="From Meta Developer Console"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="waba_id">WABA ID (WhatsApp Business Account ID) *</Label>
-                <Input
-                  id="waba_id"
-                  value={waba_id}
-                  onChange={(e) => setWabaId(e.target.value)}
-                  placeholder="From Meta Business Suite"
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  Business Manager → Business Settings → Accounts → WhatsApp Business Accounts. Required for template submission and status.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="access_token">Access Token *</Label>
-                <Input
-                  id="access_token"
-                  type="password"
-                  value={access_token}
-                  onChange={(e) => setAccessToken(e.target.value)}
-                  placeholder={account?.connected ? "Leave blank to keep current" : "Permanent or temporary token"}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Tokens expire (temporary ~1 hour; long-lived up to 60 days). If you see &quot;Session has expired&quot;, get a new token from Meta → your app → WhatsApp → API Setup and paste it here.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone_number">Phone number (optional)</Label>
-                <Input
-                  id="phone_number"
-                  value={phone_number}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="e.g. +1234567890"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="display_name">Display name (optional)</Label>
-                <Input
-                  id="display_name"
-                  value={display_name}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Business name"
-                />
-              </div>
-              <Button type="submit" disabled={saving}>
-                {saving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Saving…
-                  </>
-                ) : account?.connected ? (
-                  "Update account"
-                ) : (
-                  "Connect account"
-                )}
+      {/* Manual credentials: hidden when connected via Embedded Signup so users can't overwrite OAuth credentials */}
+      {(!account?.connected || account?.connection_type === "manual") && (
+        oauthConfig ? (
+          <Collapsible open={showManualForm} onOpenChange={setShowManualForm}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="gap-2 text-muted-foreground hover:text-foreground">
+                <ChevronDown className={`h-4 w-4 transition-transform ${showManualForm ? "rotate-180" : ""}`} />
+                {account?.connected ? "Update credentials manually" : "Or enter credentials manually"}
               </Button>
-            </form>
-          </CollapsibleContent>
-        </Collapsible>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="phone_number_id">Phone Number ID *</Label>
-            <Input
-              id="phone_number_id"
-              value={phone_number_id}
-              onChange={(e) => setPhoneNumberId(e.target.value)}
-              placeholder="From Meta Developer Console"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="waba_id">WABA ID (WhatsApp Business Account ID) *</Label>
-            <Input
-              id="waba_id"
-              value={waba_id}
-              onChange={(e) => setWabaId(e.target.value)}
-              placeholder="From Meta Business Suite"
-              required
-            />
-            <p className="text-xs text-muted-foreground">
-              Business Manager → Business Settings → Accounts → WhatsApp Business Accounts. Required for template submission and status.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="access_token">Access Token *</Label>
-            <Input
-              id="access_token"
-              type="password"
-              value={access_token}
-              onChange={(e) => setAccessToken(e.target.value)}
-              placeholder={account?.connected ? "Leave blank to keep current" : "Permanent or temporary token"}
-            />
-            <p className="text-xs text-muted-foreground">
-              Tokens expire (temporary ~1 hour; long-lived up to 60 days). If you see &quot;Session has expired&quot;, get a new token from Meta → your app → WhatsApp → API Setup and paste it here.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="phone_number">Phone number (optional)</Label>
-            <Input
-              id="phone_number"
-              value={phone_number}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="e.g. +1234567890"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="display_name">Display name (optional)</Label>
-            <Input
-              id="display_name"
-              value={display_name}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Business name"
-            />
-          </div>
-          <Button type="submit" disabled={saving}>
-            {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Saving…
-              </>
-            ) : account?.connected ? (
-              "Update account"
-            ) : (
-              "Connect account"
-            )}
-          </Button>
-        </form>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phone_number_id">Phone Number ID *</Label>
+                  <Input
+                    id="phone_number_id"
+                    value={phone_number_id}
+                    onChange={(e) => setPhoneNumberId(e.target.value)}
+                    placeholder="From Meta Developer Console"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="waba_id">WABA ID (WhatsApp Business Account ID) *</Label>
+                  <Input
+                    id="waba_id"
+                    value={waba_id}
+                    onChange={(e) => setWabaId(e.target.value)}
+                    placeholder="From Meta Business Suite"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Business Manager → Business Settings → Accounts → WhatsApp Business Accounts. Required for template submission and status.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="access_token">Access Token *</Label>
+                  <Input
+                    id="access_token"
+                    type="password"
+                    value={access_token}
+                    onChange={(e) => setAccessToken(e.target.value)}
+                    placeholder={account?.connected ? "Leave blank to keep current" : "Permanent or temporary token"}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Tokens expire (temporary ~1 hour; long-lived up to 60 days). If you see &quot;Session has expired&quot;, get a new token from Meta → your app → WhatsApp → API Setup and paste it here.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone_number">Phone number (optional)</Label>
+                  <Input
+                    id="phone_number"
+                    value={phone_number}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="e.g. +1234567890"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="display_name">Display name (optional)</Label>
+                  <Input
+                    id="display_name"
+                    value={display_name}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="Business name"
+                  />
+                </div>
+                <Button type="submit" disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Saving…
+                    </>
+                  ) : account?.connected ? (
+                    "Update account"
+                  ) : (
+                    "Connect account"
+                  )}
+                </Button>
+              </form>
+            </CollapsibleContent>
+          </Collapsible>
+        ) : !account?.connected ? (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="phone_number_id_plain">Phone Number ID *</Label>
+              <Input
+                id="phone_number_id_plain"
+                value={phone_number_id}
+                onChange={(e) => setPhoneNumberId(e.target.value)}
+                placeholder="From Meta Developer Console"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="waba_id_plain">WABA ID (WhatsApp Business Account ID) *</Label>
+              <Input
+                id="waba_id_plain"
+                value={waba_id}
+                onChange={(e) => setWabaId(e.target.value)}
+                placeholder="From Meta Business Suite"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Business Manager → Business Settings → Accounts → WhatsApp Business Accounts. Required for template submission and status.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="access_token_plain">Access Token *</Label>
+              <Input
+                id="access_token_plain"
+                type="password"
+                value={access_token}
+                onChange={(e) => setAccessToken(e.target.value)}
+                placeholder={account?.connected ? "Leave blank to keep current" : "Permanent or temporary token"}
+              />
+              <p className="text-xs text-muted-foreground">
+                Tokens expire (temporary ~1 hour; long-lived up to 60 days). If you see &quot;Session has expired&quot;, get a new token from Meta → your app → WhatsApp → API Setup and paste it here.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone_number_plain">Phone number (optional)</Label>
+              <Input
+                id="phone_number_plain"
+                value={phone_number}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="e.g. +1234567890"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="display_name_plain">Display name (optional)</Label>
+              <Input
+                id="display_name_plain"
+                value={display_name}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Business name"
+              />
+            </div>
+            <Button type="submit" disabled={saving}>
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Saving…
+                </>
+              ) : account?.connected ? (
+                "Update account"
+              ) : (
+                "Connect account"
+              )}
+            </Button>
+          </form>
+        ) : null
       )}
         </>
       )}
