@@ -48,15 +48,25 @@ export async function GET(
 
   const approved = result.templates
     .filter((t) => t.status.toLowerCase() === "approved")
-    .map((t) => ({
-      name: t.name,
-      language: t.language,
-      category: t.category,
-      id: t.id,
-    }));
+    .map((t) => {
+      const bodyComp = t.components?.find((c) => c.type === "BODY");
+      const variableCount = (bodyComp?.text?.match(/\{\{\d+\}\}/g) || []).length;
+      return {
+        name: t.name,
+        language: t.language,
+        category: t.category,
+        id: t.id,
+        hasVariables: variableCount > 0,
+        variableCount,
+      };
+    });
+
+  // For test messages, only show templates without variables
+  // since we don't have a way to provide variable values in the simple test flow
+  const testSafeTemplates = approved.filter((t) => !t.hasVariables);
 
   const uniqueByName = new Map<string, typeof approved[number]>();
-  for (const t of approved) {
+  for (const t of testSafeTemplates) {
     if (!uniqueByName.has(t.name)) {
       uniqueByName.set(t.name, t);
     }
@@ -65,5 +75,7 @@ export async function GET(
   return NextResponse.json({
     templates: [...uniqueByName.values()],
     total_approved: approved.length,
+    test_safe_count: testSafeTemplates.length,
+    has_templates_with_variables: approved.some((t) => t.hasVariables),
   });
 }

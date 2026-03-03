@@ -108,6 +108,9 @@ export function getFriendlyErrorMessage(message: string, code?: number): string 
   if (code === 133010 || (message && String(message).includes("133010"))) {
     return "Your WhatsApp number isn't set up for sending yet. Complete the one-time setup in WhatsApp settings to start messaging.";
   }
+  if (code === 131042 || (message && String(message).includes("131042"))) {
+    return "Your WhatsApp account has a payment issue. Add or fix the payment method in your Meta Business account to resume message delivery.";
+  }
   if (code === 132001 || (message && (String(message).includes("132001") || String(message).toLowerCase().includes("template name does not exist in the translation")))) {
     return "This template isn't available on your connected WhatsApp number for the selected language. In WhatsApp Manager, make sure the template is approved for this same number and language, or choose another approved template.";
   }
@@ -242,7 +245,6 @@ async function resolveTemplateLanguageForSend(
     const helloPreferred = available.find((l) => l === "en" || l === "en_US");
     if (helloPreferred) return helloPreferred;
   }
-
   return available[0];
 }
 
@@ -357,6 +359,15 @@ export type PhoneNumberInfo = {
   verified_name?: string;
   code_verification_status?: string;
   status?: string;
+  health_status?: {
+    can_send_message?: string;
+    entities?: Array<{
+      entity_type?: string;
+      id?: string;
+      can_send_message?: string;
+      errors?: Array<{ error_code?: number; error_description?: string }>;
+    }>;
+  };
 };
 
 export async function getPhoneNumberInfo(
@@ -370,6 +381,7 @@ export async function getPhoneNumberInfo(
     "verified_name",
     "code_verification_status",
     "status",
+    "health_status",
   ].join(",");
   const url = `${META_GRAPH_BASE}/v21.0/${phoneNumberId}?fields=${fields}&access_token=${encodeURIComponent(accessToken)}`;
   const res = await fetch(url);

@@ -117,11 +117,6 @@ export async function POST(
     { ...(variableValues ? { variableValues } : {}), wabaId: creds.waba_id }
   );
 
-  const debug = {
-    request: { to, template_name: name, template_language: language, variable_values: variableValues },
-    meta_response: "error" in result ? { error: result.error } : { message_id: result.message_id },
-  };
-
   if ("error" in result) {
     const code = result.error.code;
     const needsRegistration = code === 133010;
@@ -129,7 +124,7 @@ export async function POST(
       ? "Your WhatsApp number isn't set up for sending yet. Complete the quick step in the popup to start messaging."
       : getFriendlyErrorMessage(result.error.message ?? "", code);
     return NextResponse.json(
-      { error: errorMessage, code, needsRegistration: needsRegistration || undefined, debug },
+      { error: errorMessage, code, needsRegistration: needsRegistration || undefined },
       { status: 400 }
     );
   }
@@ -138,6 +133,5 @@ export async function POST(
     success: true,
     message_id: result.message_id,
     template_used: name,
-    debug,
   });
 }

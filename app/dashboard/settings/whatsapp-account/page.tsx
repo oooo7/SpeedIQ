@@ -112,6 +112,15 @@ interface WhatsAppAccountData {
     verified_name?: string;
     code_verification_status?: string;
     status?: string;
+    can_send_message?: string;
+    health_status?: {
+      can_send_message?: string;
+      entities?: Array<{
+        entity_type?: string;
+        can_send_message?: string;
+        errors?: Array<{ error_code?: number; error_description?: string }>;
+      }>;
+    };
     refreshed_at?: string;
   } | null;
 }
@@ -157,6 +166,25 @@ function codeVerificationLabel(code: string | null | undefined): string {
   return labels[code] ?? code;
 }
 
+type AccountIssue = { type: "payment" | "blocked" | "limited"; message: string };
+
+function deriveAccountIssue(healthData: WhatsAppAccountData["health_data"]): AccountIssue | null {
+  if (!healthData) return null;
+  const canSend = healthData.can_send_message ?? healthData.health_status?.can_send_message;
+  const entities = healthData.health_status?.entities ?? [];
+  const allErrors = entities.flatMap((e) => e.errors ?? []);
+  if (allErrors.some((e) => e.error_code === 131042)) {
+    return { type: "payment", message: "Your WhatsApp account has a payment issue. Messages are accepted but not delivered. Fix the payment method in your Meta Business account." };
+  }
+  if (canSend === "BLOCKED") {
+    return { type: "blocked", message: "Your WhatsApp account is blocked from sending messages. Check your Meta Business account for more details." };
+  }
+  if (canSend === "LIMITED") {
+    return { type: "limited", message: "Your WhatsApp account has a sending restriction. Messages may not be delivered. Check your Meta Business account." };
+  }
+  return null;
+}
+
 export default function WhatsAppAccountPage() {
   const { activeProject } = useProjectContext();
   const searchParams = useSearchParams();
@@ -176,6 +204,8 @@ export default function WhatsAppAccountPage() {
   const [metaTemplates, setMetaTemplates] = useState<MetaTemplateOption[]>([]);
   const [metaTemplatesLoading, setMetaTemplatesLoading] = useState(false);
   const [metaTemplatesError, setMetaTemplatesError] = useState<string | null>(null);
+  const [hasVariableTemplates, setHasVariableTemplates] = useState(false);
+  const [accountIssue, setAccountIssue] = useState<{ type: "payment" | "blocked" | "limited"; message: string } | null>(null);
   const [testLog, setTestLog] = useState<{ request: unknown; response: unknown; status: number } | null>(null);
   const [oauthConfig, setOauthConfig] = useState<WhatsAppOAuthConfig | null>(null);
   const [showManualForm, setShowManualForm] = useState(false);
@@ -323,6 +353,7 @@ export default function WhatsAppAccountPage() {
           status: accRaw.status ?? health?.status ?? null,
         };
         setAccount(acc);
+        setAccountIssue(deriveAccountIssue(acc.health_data));
         setWhatsappRegistrationCompleted(!!data.whatsapp_registration_completed);
         if (acc.connected) {
           setPhoneNumberId(acc.phone_number_id ?? "");
@@ -343,6 +374,44 @@ export default function WhatsAppAccountPage() {
 
   useEffect(() => {
     if (!activeProject?.id || !account?.connected) return;
+
+    const hasHealthStatus = !!account.health_data?.health_status || !!account.health_data?.can_send_message;
+    if (!hasHealthStatus) {
+      fetch(`/api/projects/${activeProject.id}/whatsapp/account/refresh`, { method: "POST" })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success) {
+            const newHealthData: WhatsAppAccountData["health_data"] = {
+              display_phone_number: d.display_phone_number,
+              quality_rating: d.quality_rating,
+              platform_type: d.platform_type,
+              verified_name: d.verified_name,
+              code_verification_status: d.code_verification_status,
+              status: d.status,
+              can_send_message: d.can_send_message,
+              health_status: d.health_status,
+              refreshed_at: d.refreshed_at ?? new Date().toISOString(),
+            };
+            setAccount((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    quality_rating: d.quality_rating ?? prev.quality_rating,
+                    phone_number: d.display_phone_number ?? prev.phone_number,
+                    platform_type: d.platform_type ?? prev.platform_type,
+                    verified_name: d.verified_name ?? prev.verified_name,
+                    code_verification_status: d.code_verification_status ?? prev.code_verification_status,
+                    status: d.status ?? prev.status,
+                    health_data: newHealthData,
+                  }
+                : prev
+            );
+            setAccountIssue(deriveAccountIssue(newHealthData));
+          }
+        })
+        .catch(() => {});
+    }
+
     fetch(`/api/projects/${activeProject.id}/whatsapp/templates?status=approved`)
       .then((r) => r.json())
       .then((d) => setApprovedTemplates(d.templates ?? []))
@@ -359,6 +428,7 @@ export default function WhatsAppAccountPage() {
         } else {
           const list = d.templates ?? [];
           setMetaTemplates(list);
+          setHasVariableTemplates(d.has_templates_with_variables ?? false);
           if (list.length > 0 && !testTemplate) {
             const first = list[0];
             setTestTemplate(`meta:${first.name}:${first.language}`);
@@ -416,7 +486,11 @@ export default function WhatsAppAccountPage() {
         }
         return;
       }
-      toast.success("Message sent. Check the recipient's WhatsApp—it may take a few seconds. Use the exact number you entered (with country code, no +).");
+      if (accountIssue) {
+        toast.warning("Request accepted by Meta, but your account has an issue that may prevent delivery. Fix it using the banner above.");
+      } else {
+        toast.success("Request accepted by Meta. Check the recipient's WhatsApp — delivery usually takes a few seconds.");
+      }
     } catch (err) {
       setTestLog({
         request: requestBody,
@@ -574,6 +648,17 @@ export default function WhatsAppAccountPage() {
                   });
                   const data = await res.json();
                   if (!res.ok) throw new Error(data.error ?? "Refresh failed");
+                  const newHealthData: WhatsAppAccountData["health_data"] = {
+                    display_phone_number: data.display_phone_number,
+                    quality_rating: data.quality_rating,
+                    platform_type: data.platform_type,
+                    verified_name: data.verified_name,
+                    code_verification_status: data.code_verification_status,
+                    status: data.status,
+                    can_send_message: data.can_send_message,
+                    health_status: data.health_status,
+                    refreshed_at: data.refreshed_at ?? new Date().toISOString(),
+                  };
                   setAccount((prev) =>
                     prev
                       ? {
@@ -584,21 +669,16 @@ export default function WhatsAppAccountPage() {
                           verified_name: data.verified_name ?? prev.verified_name,
                           code_verification_status: data.code_verification_status ?? prev.code_verification_status,
                           status: data.status ?? prev.status,
-                          health_data: {
-                            ...(prev.health_data ?? {}),
-                            display_phone_number: data.display_phone_number ?? prev.health_data?.display_phone_number,
-                            quality_rating: data.quality_rating ?? prev.health_data?.quality_rating,
-                            platform_type: data.platform_type ?? prev.health_data?.platform_type,
-                            verified_name: data.verified_name ?? prev.health_data?.verified_name,
-                            code_verification_status:
-                              data.code_verification_status ?? prev.health_data?.code_verification_status,
-                            status: data.status ?? prev.health_data?.status,
-                            refreshed_at: data.refreshed_at ?? new Date().toISOString(),
-                          },
+                          health_data: newHealthData,
                         }
                       : prev
                   );
-                  toast.success("Account info refreshed");
+                  setAccountIssue(deriveAccountIssue(newHealthData));
+                  if (data.payment_issue) {
+                    toast.warning("Payment issue detected. Messages won't be delivered until you fix the payment method in Meta Business Suite.");
+                  } else {
+                    toast.success("Account info refreshed");
+                  }
                 } catch (err) {
                   toast.error(err instanceof Error ? err.message : "Could not refresh");
                 } finally {
@@ -621,6 +701,7 @@ export default function WhatsAppAccountPage() {
                   if (!res.ok) throw new Error(data.error ?? "Failed to disconnect");
                   setAccount({ connected: false, project_id: activeProject.id });
                   setWhatsappRegistrationCompleted(false);
+                  setAccountIssue(null);
                   toast.success("WhatsApp disconnected. You can connect again anytime.");
                 } catch (err) {
                   toast.error(err instanceof Error ? err.message : "Could not disconnect");
@@ -632,6 +713,19 @@ export default function WhatsAppAccountPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {accountIssue && (
+              <div className={`flex gap-3 rounded-md border p-3 text-sm ${accountIssue.type === "payment" ? "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-200" : "bg-red-50 border-red-200 text-red-800 dark:bg-red-950/30 dark:border-red-800 dark:text-red-200"}`}>
+                <div className="flex-1">
+                  <p className="font-medium">{accountIssue.type === "payment" ? "Payment issue" : "Account restricted"}</p>
+                  <p className="mt-0.5">{accountIssue.message}</p>
+                  {accountIssue.type === "payment" && (
+                    <a href="https://business.facebook.com/settings/payment-methods" target="_blank" rel="noopener noreferrer" className="inline-block mt-1.5 underline font-medium">
+                      Fix in Meta Business Suite →
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">
               This WhatsApp Business number is used when you send messages from this app (test message below, Chats, or Campaigns). Click &quot;Refresh health&quot; to fetch the latest data from Meta.
             </p>
@@ -684,6 +778,18 @@ export default function WhatsAppAccountPage() {
               <div>
                 <dt className="text-muted-foreground text-xs font-medium">Tier</dt>
                 <dd className="mt-0.5">{account.tier?.trim() || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs font-medium">Messaging</dt>
+                <dd className="mt-0.5">
+                  {(() => {
+                    const canSend = account.health_data?.can_send_message ?? account.health_data?.health_status?.can_send_message;
+                    if (!canSend) return <span className="text-muted-foreground">Unknown — click Refresh health</span>;
+                    if (canSend === "AVAILABLE") return <span className="text-green-600 dark:text-green-500 font-medium">Available</span>;
+                    if (canSend === "LIMITED") return <span className="text-amber-600 dark:text-amber-500 font-medium">Limited</span>;
+                    return <span className="text-red-600 dark:text-red-500 font-medium">{canSend.charAt(0) + canSend.slice(1).toLowerCase()}</span>;
+                  })()}
+                </dd>
               </div>
               <div className="sm:col-span-2">
                 <dt className="text-muted-foreground text-xs font-medium">Last health sync</dt>
@@ -811,6 +917,7 @@ export default function WhatsAppAccountPage() {
                             setMetaTemplates([]);
                           } else {
                             setMetaTemplates(d.templates ?? []);
+                            setHasVariableTemplates(d.has_templates_with_variables ?? false);
                             toast.success(`Found ${(d.templates ?? []).length} template(s)`);
                           }
                         })
@@ -833,10 +940,21 @@ export default function WhatsAppAccountPage() {
                 ) : metaTemplatesError ? (
                   <p className="text-sm text-red-600">{metaTemplatesError}</p>
                 ) : metaTemplates.length === 0 && approvedTemplates.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No approved templates yet. Create one in{" "}
-                    <a href="https://business.facebook.com/wa/manage/message-templates/" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">WhatsApp Manager</a>, then click Refresh.
-                  </p>
+                  <div className="text-sm text-muted-foreground space-y-2">
+                    <p>No simple templates found.</p>
+                    {hasVariableTemplates ? (
+                      <p className="text-amber-600">
+                        You have templates with variables (like {"{{1}}"}), which can&apos;t be used for quick test messages.
+                        Create a simple template without variables in{" "}
+                        <a href="https://business.facebook.com/wa/manage/message-templates/" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">WhatsApp Manager</a>{" "}
+                        for testing.
+                      </p>
+                    ) : (
+                      <p>Create one in{" "}
+                        <a href="https://business.facebook.com/wa/manage/message-templates/" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">WhatsApp Manager</a>, then click Refresh.
+                      </p>
+                    )}
+                  </div>
                 ) : (
                   <div className="flex flex-col gap-1.5">
                     {metaTemplates.map((t) => {
@@ -854,7 +972,7 @@ export default function WhatsAppAccountPage() {
                         </label>
                       );
                     })}
-                    {approvedTemplates
+                      {approvedTemplates
                       .filter((t) => !metaTemplates.some((m) => m.name === t.name && m.language === (t.language ?? "")))
                       .map((t) => (
                         <label key={t.id} className="flex items-center gap-2 text-sm cursor-pointer py-1">
@@ -868,6 +986,11 @@ export default function WhatsAppAccountPage() {
                           <span className="text-muted-foreground text-xs">({t.language})</span>
                         </label>
                       ))}
+                    {hasVariableTemplates && (
+                      <p className="text-xs text-amber-600 mt-2">
+                        Templates with variables (like {"{{1}}"}) are hidden. Create a template without variables for quick testing, or use Campaigns where you can provide variable values.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

@@ -37,6 +37,12 @@ export async function POST(
     return NextResponse.json({ error: result.error.message }, { status: 400 });
   }
 
+  const healthStatus = result.health_status ?? null;
+  const canSendMessage = healthStatus?.can_send_message ?? null;
+  const paymentError = healthStatus?.entities
+    ?.flatMap((e) => e.errors ?? [])
+    .find((e) => e.error_code === 131042) ?? null;
+
   const healthData = {
     display_phone_number: result.display_phone_number,
     quality_rating: result.quality_rating,
@@ -44,6 +50,8 @@ export async function POST(
     verified_name: result.verified_name,
     code_verification_status: result.code_verification_status,
     status: result.status,
+    health_status: healthStatus,
+    can_send_message: canSendMessage,
     refreshed_at: new Date().toISOString(),
   };
 
@@ -64,5 +72,7 @@ export async function POST(
   return NextResponse.json({
     success: true,
     ...healthData,
+    payment_issue: paymentError ? true : false,
+    payment_error_description: paymentError?.error_description ?? null,
   });
 }
