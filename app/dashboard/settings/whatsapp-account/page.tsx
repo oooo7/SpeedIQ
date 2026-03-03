@@ -166,21 +166,76 @@ function codeVerificationLabel(code: string | null | undefined): string {
   return labels[code] ?? code;
 }
 
-type AccountIssue = { type: "payment" | "blocked" | "limited"; message: string };
+type AccountIssue = {
+  type: "payment" | "blocked" | "limited" | "other";
+  title: string;
+  message: string;
+  fixUrl?: string;
+};
+
+const KNOWN_ERROR_TITLES: Record<number, string> = {
+  131042: "Payment method issue",
+  131049: "Message delivery restricted",
+};
+
+function friendlyErrorTitle(description: string | undefined, code: number | undefined): string {
+  if (code !== undefined && KNOWN_ERROR_TITLES[code]) return KNOWN_ERROR_TITLES[code];
+  if (!description) return "Sending restricted";
+  const d = description.trim();
+  if (d.toLowerCase().includes("payment")) return "Payment method issue";
+  if (d.toLowerCase().includes("eligibility")) return "Account eligibility issue";
+  if (d.toLowerCase().includes("restrict")) return "Sending restricted";
+  if (d.toLowerCase().includes("block")) return "Sending blocked";
+  return d.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function isMessagingRelatedError(desc: string | undefined, code: number | undefined): boolean {
+  if (code === 131042) return true;
+  if (code === 131049) return true;
+  const d = (desc ?? "").toLowerCase();
+  if (d.includes("sip") || d.includes("calling")) return false;
+  if (d.includes("payment") || d.includes("eligibility") || d.includes("block") || d.includes("restrict") || d.includes("deliver")) return true;
+  return true;
+}
 
 function deriveAccountIssue(healthData: WhatsAppAccountData["health_data"]): AccountIssue | null {
   if (!healthData) return null;
   const canSend = healthData.can_send_message ?? healthData.health_status?.can_send_message;
   const entities = healthData.health_status?.entities ?? [];
-  const allErrors = entities.flatMap((e) => e.errors ?? []);
-  if (allErrors.some((e) => e.error_code === 131042)) {
-    return { type: "payment", message: "Your WhatsApp account has a payment issue. Messages are accepted but not delivered. Fix the payment method in your Meta Business account." };
+  const allErrors = entities.flatMap((e) => e.errors ?? []).filter((e) => isMessagingRelatedError(e.error_description, e.error_code));
+
+  if (allErrors.length > 0) {
+    const first = allErrors[0];
+    const code = first?.error_code;
+    const desc = first?.error_description?.trim();
+    const title = friendlyErrorTitle(desc, code);
+    const message = desc
+      ? `Meta reports: ${desc}. Messages may be accepted but not delivered until this is resolved.`
+      : "Messages may be accepted but not delivered. Resolve this in your Meta Business account.";
+    const type: AccountIssue["type"] = code === 131042 ? "payment" : canSend === "LIMITED" ? "limited" : "other";
+    return {
+      type,
+      title,
+      message,
+      fixUrl: code === 131042 ? "https://business.facebook.com/settings/payment-methods" : undefined,
+    };
   }
+
   if (canSend === "BLOCKED") {
-    return { type: "blocked", message: "Your WhatsApp account is blocked from sending messages. Check your Meta Business account for more details." };
+    return {
+      type: "blocked",
+      title: "Sending blocked",
+      message: "Your WhatsApp account cannot send messages right now. Resolve the issue in your Meta Business account to restore messaging.",
+      fixUrl: "https://business.facebook.com",
+    };
   }
   if (canSend === "LIMITED") {
-    return { type: "limited", message: "Your WhatsApp account has a sending restriction. Messages may not be delivered. Check your Meta Business account." };
+    return {
+      type: "limited",
+      title: "Sending limited",
+      message: "Your account has a restriction; some messages may not be delivered. Check your Meta Business account for details.",
+      fixUrl: "https://business.facebook.com",
+    };
   }
   return null;
 }
@@ -205,7 +260,7 @@ export default function WhatsAppAccountPage() {
   const [metaTemplatesLoading, setMetaTemplatesLoading] = useState(false);
   const [metaTemplatesError, setMetaTemplatesError] = useState<string | null>(null);
   const [hasVariableTemplates, setHasVariableTemplates] = useState(false);
-  const [accountIssue, setAccountIssue] = useState<{ type: "payment" | "blocked" | "limited"; message: string } | null>(null);
+  const [accountIssue, setAccountIssue] = useState<AccountIssue | null>(null);
   const [testLog, setTestLog] = useState<{ request: unknown; response: unknown; status: number } | null>(null);
   const [oauthConfig, setOauthConfig] = useState<WhatsAppOAuthConfig | null>(null);
   const [showManualForm, setShowManualForm] = useState(false);
@@ -716,10 +771,10 @@ export default function WhatsAppAccountPage() {
             {accountIssue && (
               <div className={`flex gap-3 rounded-md border p-3 text-sm ${accountIssue.type === "payment" ? "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-200" : "bg-red-50 border-red-200 text-red-800 dark:bg-red-950/30 dark:border-red-800 dark:text-red-200"}`}>
                 <div className="flex-1">
-                  <p className="font-medium">{accountIssue.type === "payment" ? "Payment issue" : "Account restricted"}</p>
+                  <p className="font-medium">{accountIssue.title}</p>
                   <p className="mt-0.5">{accountIssue.message}</p>
-                  {accountIssue.type === "payment" && (
-                    <a href="https://business.facebook.com/settings/payment-methods" target="_blank" rel="noopener noreferrer" className="inline-block mt-1.5 underline font-medium">
+                  {accountIssue.fixUrl && (
+                    <a href={accountIssue.fixUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-1.5 underline font-medium">
                       Fix in Meta Business Suite →
                     </a>
                   )}
