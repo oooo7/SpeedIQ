@@ -365,7 +365,11 @@ export default function WhatsAppAccountPage() {
       refreshAccountData();
       window.history.replaceState({}, "", window.location.pathname);
     } else if (error) {
-      const msg = message ? decodeURIComponent(message) : error;
+      const friendlyMessages: Record<string, string> = {
+        whatsapp_cancelled: "WhatsApp connection was cancelled. You can try again when ready.",
+        whatsapp_denied: "WhatsApp connection could not be completed. Please try again or use manual connection.",
+      };
+      const msg = message ? decodeURIComponent(message) : friendlyMessages[error] ?? error;
       toast.error(msg || "Connection failed");
       window.history.replaceState({}, "", window.location.pathname);
     }

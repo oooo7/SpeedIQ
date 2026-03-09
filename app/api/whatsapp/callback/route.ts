@@ -24,13 +24,36 @@ export async function GET(request: NextRequest) {
 
   const code = request.nextUrl.searchParams.get("code")?.trim();
   const state = request.nextUrl.searchParams.get("state")?.trim();
+  const metaError = request.nextUrl.searchParams.get("error")?.trim();
 
   const dashboardPath = "/dashboard/settings/whatsapp-account";
   const loginPath = "/auth/login";
 
-  if (!code || !state) {
-    const url = new URL(loginPath, request.url);
-    url.searchParams.set("error", "whatsapp_callback_missing_params");
+  // No authorization code: user cancelled, Meta error (e.g. "Failed to share WABA"), or invalid callback.
+  // Redirect to dashboard with a WhatsApp error so the user stays logged in; only send to login if session is missing.
+  if (!code) {
+    if (user && state) {
+      const url = new URL(dashboardPath, request.url);
+      url.searchParams.set("error", metaError === "access_denied" ? "whatsapp_cancelled" : "whatsapp_denied");
+      if (metaError) url.searchParams.set("meta_error", metaError);
+      return NextResponse.redirect(url);
+    }
+    if (!user) {
+      const url = new URL(loginPath, request.url);
+      url.searchParams.set("error", "whatsapp_callback_session");
+      url.searchParams.set("next", dashboardPath);
+      return NextResponse.redirect(url);
+    }
+    const url = new URL(dashboardPath, request.url);
+    url.searchParams.set("error", "whatsapp_denied");
+    return NextResponse.redirect(url);
+  }
+
+  if (!state) {
+    const url = new URL(user ? dashboardPath : loginPath, request.url);
+    if (user) url.searchParams.set("error", "whatsapp_denied");
+    else url.searchParams.set("error", "whatsapp_callback_missing_params");
+    if (!user) url.searchParams.set("next", dashboardPath);
     return NextResponse.redirect(url);
   }
 
