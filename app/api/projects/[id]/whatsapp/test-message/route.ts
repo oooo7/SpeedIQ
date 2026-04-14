@@ -42,6 +42,7 @@ export async function POST(
   const body = await request.json().catch(() => ({}));
   const to = body?.to?.trim();
   const templateName = body?.template_name?.trim();
+  const templateLanguage = body?.template_language?.trim();
   const templateId = body?.template_id?.trim();
   const autoPick = body?.auto_pick === true;
 
@@ -79,7 +80,7 @@ export async function POST(
     }
   } else if (templateName) {
     name = templateName;
-    language = "en";
+    language = templateLanguage || "en";
   } else if (autoPick) {
     const metaResult = await fetchMessageTemplatesFromMeta(creds.access_token, creds.waba_id);
     if ("error" in metaResult) {

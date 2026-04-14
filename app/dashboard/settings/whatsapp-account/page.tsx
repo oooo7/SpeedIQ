@@ -523,9 +523,11 @@ export default function WhatsAppAccountPage() {
       return;
     }
     setTestSending(true);
-    const requestBody: { to: string; template_name?: string; template_id?: string } = { to: testTo.trim() };
+    const requestBody: { to: string; template_name?: string; template_language?: string; template_id?: string } = { to: testTo.trim() };
     if (testTemplate.startsWith("meta:")) {
-      requestBody.template_name = testTemplate.split(":")[1];
+      const parts = testTemplate.split(":");
+      requestBody.template_name = parts[1];
+      if (parts[2]) requestBody.template_language = parts[2];
     } else {
       requestBody.template_id = testTemplate;
     }

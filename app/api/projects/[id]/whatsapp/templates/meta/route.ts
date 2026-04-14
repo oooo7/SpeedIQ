@@ -61,21 +61,20 @@ export async function GET(
       };
     });
 
-  // For test messages, only show templates without variables
-  // since we don't have a way to provide variable values in the simple test flow
-  const testSafeTemplates = approved.filter((t) => !t.hasVariables);
-
+  // Deduplicate by name — keep first occurrence per template name
   const uniqueByName = new Map<string, typeof approved[number]>();
-  for (const t of testSafeTemplates) {
+  for (const t of approved) {
     if (!uniqueByName.has(t.name)) {
       uniqueByName.set(t.name, t);
     }
   }
 
+  const templates = [...uniqueByName.values()];
+
   return NextResponse.json({
-    templates: [...uniqueByName.values()],
+    templates,
     total_approved: approved.length,
-    test_safe_count: testSafeTemplates.length,
+    test_safe_count: approved.filter((t) => !t.hasVariables).length,
     has_templates_with_variables: approved.some((t) => t.hasVariables),
   });
 }

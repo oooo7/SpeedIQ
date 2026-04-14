@@ -204,12 +204,20 @@ export async function POST(
     .eq("campaign_id", campaignId)
     .eq("status", "pending");
   if ((remainingPending ?? 0) === 0) {
-    const { count: failedCount } = await admin
-      .from("whatsapp_campaign_recipients")
-      .select("id", { count: "exact", head: true })
-      .eq("campaign_id", campaignId)
-      .eq("status", "failed");
-    const finalStatus = (failedCount ?? 0) > 0 ? "failed" : "completed";
+    const [{ count: sentCount }, { count: failedCount }] = await Promise.all([
+      admin
+        .from("whatsapp_campaign_recipients")
+        .select("id", { count: "exact", head: true })
+        .eq("campaign_id", campaignId)
+        .in("status", ["sent", "delivered", "read"]),
+      admin
+        .from("whatsapp_campaign_recipients")
+        .select("id", { count: "exact", head: true })
+        .eq("campaign_id", campaignId)
+        .eq("status", "failed"),
+    ]);
+    // Only mark as "failed" if every single recipient failed (none sent)
+    const finalStatus = (sentCount ?? 0) === 0 && (failedCount ?? 0) > 0 ? "failed" : "completed";
     await admin
       .from("whatsapp_campaigns")
       .update({

@@ -195,12 +195,20 @@ export async function GET(request: Request) {
       .eq("campaign_id", campaign.id)
       .eq("status", "pending");
     if ((pendingCount ?? 0) === 0) {
-      const { count: failedCount } = await supabase
-        .from("whatsapp_campaign_recipients")
-        .select("id", { count: "exact", head: true })
-        .eq("campaign_id", campaign.id)
-        .eq("status", "failed");
-      const finalStatus = (failedCount ?? 0) > 0 ? "failed" : "completed";
+      const [{ count: sentCount }, { count: failedCount }] = await Promise.all([
+        supabase
+          .from("whatsapp_campaign_recipients")
+          .select("id", { count: "exact", head: true })
+          .eq("campaign_id", campaign.id)
+          .in("status", ["sent", "delivered", "read"]),
+        supabase
+          .from("whatsapp_campaign_recipients")
+          .select("id", { count: "exact", head: true })
+          .eq("campaign_id", campaign.id)
+          .eq("status", "failed"),
+      ]);
+      // Only mark as "failed" if every single recipient failed (none sent)
+      const finalStatus = (sentCount ?? 0) === 0 && (failedCount ?? 0) > 0 ? "failed" : "completed";
       await supabase
         .from("whatsapp_campaigns")
         .update({
