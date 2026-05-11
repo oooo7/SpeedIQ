@@ -11,6 +11,7 @@ import { ProjectProvider } from "@/lib/projects/project-context";
 import { loadProjectsForUser } from "@/lib/projects/server";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { headers } from "next/headers";
 
 export default async function Layout({ children }: Readonly<{ children: ReactNode }>) {
   const supabase = await createClient();
@@ -32,6 +33,10 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
   if (!activeProject) {
     redirect("/projects");
   }
+
+  const headerList = await headers();
+  const pathname = headerList.get("x-pathname") ?? "";
+  const isWhatsAppLiveChat = pathname.startsWith("/dashboard/whatsapp/live-chat");
 
   // Transform user data for the sidebar
   const userData = {
@@ -57,7 +62,14 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
         />
         <SidebarInset className={cn("max-w-full bg-gray-100 dark:bg-gray-900")}>
           <DashboardHeader />
-          <div className="h-full w-full max-w-7xl mx-auto p-4 md:p-6">{children}</div>
+          <div
+            className={cn(
+              "h-full w-full",
+              isWhatsAppLiveChat ? "max-w-none p-0" : "max-w-7xl mx-auto p-4 md:p-6",
+            )}
+          >
+            {children}
+          </div>
         </SidebarInset>
       </SidebarProvider>
       </BreadcrumbOverrideProvider>

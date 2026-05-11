@@ -145,12 +145,15 @@ export async function POST(
 
   const { data: templateRow } = await supabase
     .from("email_templates")
-    .select("id")
+    .select("id, subject")
     .eq("project_id", projectId)
     .eq("id", template_id)
     .single();
   if (!templateRow) {
     return NextResponse.json({ error: "Template not found" }, { status: 400 });
+  }
+  if (send_now && !templateRow.subject?.trim()) {
+    return NextResponse.json({ error: "Template has no subject line — edit the template before sending" }, { status: 400 });
   }
 
   const status = send_now ? "sending" : isDraft || !scheduled_at ? "draft" : "scheduled";
@@ -171,20 +174,29 @@ export async function POST(
     return NextResponse.json({ error: campaignError?.message ?? "Failed to create campaign" }, { status: 500 });
   }
 
+  let activeSubscriberIds: string[] = [];
   if (subscriber_ids.length > 0) {
-    const recipients = subscriber_ids.map((subscriber_id: string) => ({
-      campaign_id: campaign.id,
-      subscriber_id,
-      status: "pending",
-    }));
+    // Only add subscribed contacts — skip unsubscribed/bounced
+    const { data: activeSubs } = await supabase
+      .from("email_subscribers")
+      .select("id")
+      .in("id", subscriber_ids)
+      .eq("project_id", projectId)
+      .eq("status", "subscribed");
+    activeSubscriberIds = (activeSubs ?? []).map((s: { id: string }) => s.id);
 
-    const { error: recipientsError } = await supabase
-      .from("email_campaign_recipients")
-      .insert(recipients);
-
-    if (recipientsError) {
-      await supabase.from("email_campaigns").delete().eq("id", campaign.id);
-      return NextResponse.json({ error: recipientsError.message }, { status: 500 });
+    if (activeSubscriberIds.length > 0) {
+      const { error: recipientsError } = await supabase
+        .from("email_campaign_recipients")
+        .insert(activeSubscriberIds.map((subscriber_id) => ({
+          campaign_id: campaign.id,
+          subscriber_id,
+          status: "pending",
+        })));
+      if (recipientsError) {
+        await supabase.from("email_campaigns").delete().eq("id", campaign.id);
+        return NextResponse.json({ error: recipientsError.message }, { status: 500 });
+      }
     }
   }
 
@@ -192,7 +204,8 @@ export async function POST(
     {
       campaign: {
         ...campaign,
-        recipient_count: subscriber_ids.length,
+        recipient_count: activeSubscriberIds.length,
+        skipped_opt_out: subscriber_ids.length - activeSubscriberIds.length,
       },
     },
     { status: 201 }

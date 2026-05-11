@@ -80,6 +80,7 @@ interface TemplateOption {
   name: string;
   language: string;
   status: string;
+  variables?: string[];
 }
 
 interface MetaTemplateOption {
@@ -87,6 +88,8 @@ interface MetaTemplateOption {
   name: string;
   language: string;
   category: string;
+  variableCount?: number;
+  hasVariables?: boolean;
 }
 
 interface WhatsAppAccountData {
@@ -252,8 +255,10 @@ export default function WhatsAppAccountPage() {
   const [access_token, setAccessToken] = useState("");
   const [phone_number, setPhoneNumber] = useState("");
   const [display_name, setDisplayName] = useState("");
-  const [testTo, setTestTo] = useState("");
+  const [testCountryCode, setTestCountryCode] = useState("91");
+  const [testPhoneNumber, setTestPhoneNumber] = useState("");
   const [testTemplate, setTestTemplate] = useState<string>("");
+  const [testVariables, setTestVariables] = useState<string[]>([]);
   const [testSending, setTestSending] = useState(false);
   const [approvedTemplates, setApprovedTemplates] = useState<TemplateOption[]>([]);
   const [metaTemplates, setMetaTemplates] = useState<MetaTemplateOption[]>([]);
@@ -511,10 +516,25 @@ export default function WhatsAppAccountPage() {
     }
   }, [metaTemplates, approvedTemplates, testTemplate]);
 
+  // Reset variable inputs whenever the selected template changes
+  useEffect(() => {
+    if (!testTemplate) { setTestVariables([]); return; }
+    if (testTemplate.startsWith("meta:")) {
+      const t = metaTemplates.find((m) => `meta:${m.name}:${m.language}` === testTemplate);
+      const count = t?.variableCount ?? 0;
+      setTestVariables(Array(count).fill(""));
+    } else {
+      const t = approvedTemplates.find((at) => at.id === testTemplate);
+      const count = (t?.variables ?? []).length;
+      setTestVariables(Array(count).fill(""));
+    }
+  }, [testTemplate, metaTemplates, approvedTemplates]);
+
   const handleSendTest = async (e: FormEvent) => {
     e.preventDefault();
     if (!activeProject?.id) return;
-    if (!testTo.trim()) {
+    const toNumber = `${testCountryCode}${testPhoneNumber.replace(/\D/g, "")}`;
+    if (!testPhoneNumber.trim()) {
       toast.error("Enter a phone number to send to");
       return;
     }
@@ -523,13 +543,16 @@ export default function WhatsAppAccountPage() {
       return;
     }
     setTestSending(true);
-    const requestBody: { to: string; template_name?: string; template_language?: string; template_id?: string } = { to: testTo.trim() };
+    const requestBody: { to: string; template_name?: string; template_language?: string; template_id?: string; variable_values?: string[] } = { to: toNumber };
     if (testTemplate.startsWith("meta:")) {
       const parts = testTemplate.split(":");
       requestBody.template_name = parts[1];
       if (parts[2]) requestBody.template_language = parts[2];
     } else {
       requestBody.template_id = testTemplate;
+    }
+    if (testVariables.length > 0) {
+      requestBody.variable_values = testVariables;
     }
     try {
       const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/test-message`, {
@@ -946,15 +969,65 @@ export default function WhatsAppAccountPage() {
           <CardContent>
             <form onSubmit={handleSendTest} className="divide-y divide-gray-100 dark:divide-gray-800">
               <div className="space-y-2 pb-4">
-                <Label htmlFor="test-to">Recipient&apos;s phone number</Label>
-                <Input
-                  id="test-to"
-                  value={testTo}
-                  onChange={(e) => setTestTo(e.target.value)}
-                  placeholder="e.g. 919876543210"
-                />
+                <Label htmlFor="test-phone">Recipient&apos;s phone number</Label>
+                <div className="flex rounded-md border border-input bg-background shadow-sm focus-within:ring-1 focus-within:ring-ring overflow-hidden">
+                  <select
+                    value={testCountryCode}
+                    onChange={(e) => setTestCountryCode(e.target.value)}
+                    className="shrink-0 border-0 border-r border-input bg-muted px-2 py-2 text-sm focus:outline-none focus:ring-0 cursor-pointer"
+                    aria-label="Country code"
+                  >
+                    {[
+                      { code: "91", flag: "🇮🇳", name: "India" },
+                      { code: "1", flag: "🇺🇸", name: "USA / Canada" },
+                      { code: "44", flag: "🇬🇧", name: "UK" },
+                      { code: "61", flag: "🇦🇺", name: "Australia" },
+                      { code: "971", flag: "🇦🇪", name: "UAE" },
+                      { code: "966", flag: "🇸🇦", name: "Saudi Arabia" },
+                      { code: "65", flag: "🇸🇬", name: "Singapore" },
+                      { code: "60", flag: "🇲🇾", name: "Malaysia" },
+                      { code: "92", flag: "🇵🇰", name: "Pakistan" },
+                      { code: "880", flag: "🇧🇩", name: "Bangladesh" },
+                      { code: "94", flag: "🇱🇰", name: "Sri Lanka" },
+                      { code: "977", flag: "🇳🇵", name: "Nepal" },
+                      { code: "49", flag: "🇩🇪", name: "Germany" },
+                      { code: "33", flag: "🇫🇷", name: "France" },
+                      { code: "39", flag: "🇮🇹", name: "Italy" },
+                      { code: "34", flag: "🇪🇸", name: "Spain" },
+                      { code: "31", flag: "🇳🇱", name: "Netherlands" },
+                      { code: "55", flag: "🇧🇷", name: "Brazil" },
+                      { code: "52", flag: "🇲🇽", name: "Mexico" },
+                      { code: "27", flag: "🇿🇦", name: "South Africa" },
+                      { code: "234", flag: "🇳🇬", name: "Nigeria" },
+                      { code: "254", flag: "🇰🇪", name: "Kenya" },
+                      { code: "20", flag: "🇪🇬", name: "Egypt" },
+                      { code: "62", flag: "🇮🇩", name: "Indonesia" },
+                      { code: "63", flag: "🇵🇭", name: "Philippines" },
+                      { code: "66", flag: "🇹🇭", name: "Thailand" },
+                      { code: "84", flag: "🇻🇳", name: "Vietnam" },
+                      { code: "82", flag: "🇰🇷", name: "South Korea" },
+                      { code: "81", flag: "🇯🇵", name: "Japan" },
+                      { code: "86", flag: "🇨🇳", name: "China" },
+                    ].map(({ code, flag, name }) => (
+                      <option key={code} value={code}>
+                        {flag} +{code} {name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex items-center px-3 text-sm text-muted-foreground select-none border-r border-input bg-muted/50">
+                    +{testCountryCode}
+                  </div>
+                  <Input
+                    id="test-phone"
+                    type="tel"
+                    value={testPhoneNumber}
+                    onChange={(e) => setTestPhoneNumber(e.target.value.replace(/[^\d\s\-()]/g, ""))}
+                    placeholder="98765 43210"
+                    className="border-0 shadow-none focus-visible:ring-0 rounded-none"
+                  />
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Full number with country code only (e.g. 91 for India), no + or spaces. The message will appear in that number&apos;s WhatsApp chat.
+                  Select country, then enter the number without the country code. Must be an active WhatsApp number.
                 </p>
               </div>
               <div className="space-y-2 py-4">
@@ -1055,6 +1128,28 @@ export default function WhatsAppAccountPage() {
                   </div>
                 )}
               </div>
+              {testVariables.length > 0 && (
+                <div className="space-y-2 py-4">
+                  <Label>Template variables</Label>
+                  <p className="text-xs text-muted-foreground">Fill in each variable that appears in the template body.</p>
+                  <div className="space-y-2">
+                    {testVariables.map((val, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground w-16 shrink-0">{`{{${i + 1}}}`}</span>
+                        <Input
+                          value={val}
+                          onChange={(e) => {
+                            const next = [...testVariables];
+                            next[i] = e.target.value;
+                            setTestVariables(next);
+                          }}
+                          placeholder={`Value for {{${i + 1}}}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="pt-4">
               <Button type="submit" disabled={testSending || !testTemplate || metaTemplatesLoading} className="gap-1">
                 {testSending ? (

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Mail, MessageSquare, MessageSquareQuote, Tag } from "lucide-react";
+import { Mail, MessageSquare, MessageSquareQuote, MessageSquareText, Tag } from "lucide-react";
 
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 const settingLinks = [
   { title: "WhatsApp", href: "/dashboard/settings/whatsapp-account", icon: MessageSquare },
   { title: "Email", href: "/dashboard/settings/email", icon: Mail },
+  { title: "SMS", href: "/dashboard/settings/sms", icon: MessageSquareText },
   { title: "Tags", href: "/dashboard/settings/tags", icon: Tag },
   { title: "Canned Messages", href: "/dashboard/settings/canned-message", icon: MessageSquareQuote },
 ];

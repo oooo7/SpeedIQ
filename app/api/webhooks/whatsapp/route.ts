@@ -253,6 +253,8 @@ export async function POST(request: Request) {
                 last_message_at: ts,
                 updated_at: ts,
                 unread_count: (existingConv.unread_count ?? 0) + 1,
+                // Unarchive when the contact replies — bring it back to the main list
+                is_archived: false,
               })
               .eq("id", existingConv.id);
           } else {
@@ -269,8 +271,11 @@ export async function POST(request: Request) {
             const normalized = body.trim().toLowerCase();
             const optOutKeywords = (settings.opt_out_keywords ?? []) as string[];
             const optInKeywords = (settings.opt_in_keywords ?? []) as string[];
-            const optOutMatch = optOutKeywords.some((k) => String(k).trim().toLowerCase() === normalized);
-            const optInMatch = optInKeywords.some((k) => String(k).trim().toLowerCase() === normalized);
+            // Standard CTIA/WhatsApp keywords — always honored regardless of user configuration
+            const STANDARD_OPT_OUT = new Set(["stop", "stopall", "unsubscribe", "cancel", "end", "quit"]);
+            const STANDARD_OPT_IN  = new Set(["start", "yes", "unstop"]);
+            const optOutMatch = STANDARD_OPT_OUT.has(normalized) || optOutKeywords.some((k) => String(k).trim().toLowerCase() === normalized);
+            const optInMatch  = !optOutMatch && (STANDARD_OPT_IN.has(normalized) || optInKeywords.some((k) => String(k).trim().toLowerCase() === normalized));
 
             type ResponseMessage = {
               type: string;
@@ -317,16 +322,25 @@ export async function POST(request: Request) {
                 }
               }
               if (result && "message_id" in result) {
-                await supabase.from("whatsapp_messages").insert({
-                  project_id,
-                  contact_id,
-                  direction: "out",
-                  type: outType,
-                  body: outBody,
-                  meta_message_id: result.message_id,
-                  meta_timestamp: String(Date.now()),
-                  status: "sent",
-                });
+                const nowIso = new Date().toISOString();
+                await Promise.all([
+                  supabase.from("whatsapp_messages").insert({
+                    project_id,
+                    contact_id,
+                    direction: "out",
+                    type: outType,
+                    body: outBody,
+                    meta_message_id: result.message_id,
+                    meta_timestamp: String(Date.now()),
+                    status: "sent",
+                  }),
+                  // Keep the conversation's last_message_at current so the chat sidebar reflects the reply
+                  supabase
+                    .from("whatsapp_conversations")
+                    .update({ last_message_at: nowIso, updated_at: nowIso })
+                    .eq("project_id", project_id)
+                    .eq("contact_id", contact_id),
+                ]);
               }
             };
 
@@ -368,18 +382,22 @@ export async function POST(request: Request) {
                 .eq("id", contact_id);
               if (settings.opt_in_response_enabled) await maybeSendResponse(optInMsg);
             }
-            const { count: inboundCount } = await supabase
-              .from("whatsapp_messages")
-              .select("id", { count: "exact", head: true })
-              .eq("project_id", project_id)
-              .eq("contact_id", contact_id)
-              .eq("direction", "in");
-            const isFirstInbound = inboundCount === 1;
-            if (isFirstInbound) {
-              const workingHours = (settings.working_hours as WorkingHoursMap) ?? {};
-              const within = isWithinWorkingHours(settings.timezone ?? "UTC", workingHours);
-              if (within && settings.welcome_message_enabled) await maybeSendResponse(welcomeMsg);
-              else if (!within && settings.off_hours_message_enabled) await maybeSendResponse(offHoursMsg);
+            // Don't send welcome/off-hours if this message was a keyword (opt-out/opt-in) —
+            // the keyword response already covers communication for this message.
+            if (!optOutMatch && !optInMatch) {
+              const { count: inboundCount } = await supabase
+                .from("whatsapp_messages")
+                .select("id", { count: "exact", head: true })
+                .eq("project_id", project_id)
+                .eq("contact_id", contact_id)
+                .eq("direction", "in");
+              const isFirstInbound = inboundCount === 1;
+              if (isFirstInbound) {
+                const workingHours = (settings.working_hours as WorkingHoursMap) ?? {};
+                const within = isWithinWorkingHours(settings.timezone ?? "UTC", workingHours);
+                if (within && settings.welcome_message_enabled) await maybeSendResponse(welcomeMsg);
+                else if (!within && settings.off_hours_message_enabled) await maybeSendResponse(offHoursMsg);
+              }
             }
           }
         }

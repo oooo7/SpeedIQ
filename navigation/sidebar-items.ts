@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   MessageSquare,
+  MessageSquareText,
   Mail,
   Users,
   UsersRound,
@@ -91,6 +92,34 @@ export const sidebarItems: NavGroup[] = [
         ],
       },
       {
+        title: "SMS Marketing",
+        url: "/dashboard/sms",
+        icon: MessageSquareText,
+        requiresProject: true,
+        subItems: [
+          {
+            title: "Campaigns",
+            url: "/dashboard/sms/campaigns",
+          },
+          {
+            title: "Contacts",
+            url: "/dashboard/sms/contacts",
+          },
+          {
+            title: "Templates",
+            url: "/dashboard/sms/templates",
+          },
+          {
+            title: "Chats",
+            url: "/dashboard/sms/live-chat",
+          },
+          {
+            title: "Analytics",
+            url: "/dashboard/sms/analytics",
+          },
+        ],
+      },
+      {
         title: "Contacts",
         url: "/dashboard/contacts",
         icon: Users,
@@ -127,6 +156,10 @@ export const sidebarItems: NavGroup[] = [
             url: "/dashboard/settings/email",
           },
           {
+            title: "SMS",
+            url: "/dashboard/settings/sms",
+          },
+          {
             title: "Tags",
             url: "/dashboard/settings/tags",
           },
@@ -140,6 +173,7 @@ export const sidebarItems: NavGroup[] = [
         title: "Billing",
         url: "/dashboard/billing",
         icon: CreditCard,
+        requiresProject: true,
       },
     ],
   },

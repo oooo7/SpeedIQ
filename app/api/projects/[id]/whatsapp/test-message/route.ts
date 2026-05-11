@@ -45,6 +45,10 @@ export async function POST(
   const templateLanguage = body?.template_language?.trim();
   const templateId = body?.template_id?.trim();
   const autoPick = body?.auto_pick === true;
+  const manualVariableValues: string[] | undefined =
+    Array.isArray(body?.variable_values) && body.variable_values.length > 0
+      ? (body.variable_values as unknown[]).map((v) => String(v ?? ""))
+      : undefined;
 
   if (!to) {
     return NextResponse.json({ error: "Enter a phone number to send to." }, { status: 400 });
@@ -81,6 +85,16 @@ export async function POST(
   } else if (templateName) {
     name = templateName;
     language = templateLanguage || "en";
+    // Look up example variable values from local DB (populated during sync)
+    const { data: localTemplate } = await supabase
+      .from("whatsapp_templates")
+      .select("variables")
+      .eq("project_id", projectId)
+      .eq("name", templateName)
+      .maybeSingle();
+    if (Array.isArray(localTemplate?.variables) && localTemplate.variables.length > 0) {
+      variableValues = (localTemplate.variables as string[]).map(String);
+    }
   } else if (autoPick) {
     const metaResult = await fetchMessageTemplatesFromMeta(creds.access_token, creds.waba_id);
     if ("error" in metaResult) {
@@ -109,13 +123,16 @@ export async function POST(
     return NextResponse.json({ error: "Select a template to send." }, { status: 400 });
   }
 
+  // Manual values from the UI take priority over auto-looked-up example values
+  const finalVariableValues = manualVariableValues ?? variableValues;
+
   const result = await sendTemplateMessage(
     creds.access_token,
     creds.phone_number_id,
     to,
     name,
     language,
-    { ...(variableValues ? { variableValues } : {}), wabaId: creds.waba_id }
+    { ...(finalVariableValues ? { variableValues: finalVariableValues } : {}), wabaId: creds.waba_id }
   );
 
   if ("error" in result) {

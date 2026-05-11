@@ -39,6 +39,115 @@
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Marketing site theme — scoped under .speediq-marketing
+   Pure white in light mode, near-black in dark.
+   ───────────────────────────────────────────────────────────────────────── */
+.speediq-marketing {
+  --bg: #ffffff;
+  --bg-elev: #ffffff;
+  --bg-sunken: #f6f6f6;
+  --fg: #0a0a0a;
+  --fg-2: #262626;
+  --fg-3: #666666;
+  --fg-4: #a3a3a3;
+  --line: rgba(10, 10, 10, 0.07);
+  --line-2: rgba(10, 10, 10, 0.13);
+  --accent: #25d366;
+  --accent-ink: #0a3d1d;
+  --radius-sm: 14px;
+  --radius: 20px;
+  --radius-lg: 28px;
+  --section-y: 120px;
+  --container: 1240px;
+  --font-display: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-geist), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.dark .speediq-marketing {
+  --bg: #0a0a0a;
+  --bg-elev: #141414;
+  --bg-sunken: #181818;
+  --fg: #fafafa;
+  --fg-2: #d4d4d4;
+  --fg-3: #a3a3a3;
+  --fg-4: #525252;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-2: rgba(255, 255, 255, 0.14);
+}
+
+.speediq-marketing ::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* Hide the range input native UI; we render our own thumb */
+.speediq-marketing .speediq-slider input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+.speediq-marketing .speediq-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 0;
+  cursor: grab;
+}
+.speediq-marketing .speediq-slider input[type="range"]::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 0;
+  cursor: grab;
+}
+
+/* Animations used in hero & panels */
+@keyframes speediq-liveDot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+@keyframes speediq-fadeSlide {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Marketing-scope overrides: bring Tailwind utilities in line with design tokens
+   (Tailwind's borderRadius is globally set to 0 for the dashboard, so we re-enable
+   rounded corners only inside marketing pages). */
+.speediq-marketing .rounded,
+.speediq-marketing .rounded-md { border-radius: var(--radius); }
+.speediq-marketing .rounded-sm { border-radius: var(--radius-sm); }
+.speediq-marketing .rounded-lg { border-radius: var(--radius-lg); }
+.speediq-marketing .rounded-xl { border-radius: var(--radius-lg); }
+.speediq-marketing .rounded-2xl { border-radius: var(--radius-lg); }
+.speediq-marketing .rounded-full { border-radius: 9999px; }
+
+/* Heading typography in the marketing scope — Geist display with tightened tracking */
+.speediq-marketing h1,
+.speediq-marketing h2,
+.speediq-marketing h3,
+.speediq-marketing h4 {
+  font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.025em;
+}
+.speediq-marketing h1 { letter-spacing: -0.035em; }
+
+/* Marketing-scope color harmonization: keep neutral surfaces tied to design tokens
+   so internal pages still feel consistent with the landing. */
+.speediq-marketing .bg-white { background-color: var(--bg-elev) !important; }
+.speediq-marketing .dark .bg-white,
+.dark .speediq-marketing .bg-white { background-color: var(--bg-elev) !important; }
+
 /* Toast (sonner) – solid background for contrast */
 [data-sonner-toast] {
   background: hsl(var(--popover)) !important;

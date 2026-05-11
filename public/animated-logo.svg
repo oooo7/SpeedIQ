@@ -1,0 +1,89 @@
+
+<svg width="211" height="211" viewBox="0 0 211 211" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <rect x="0.662231" y="0.662109" width="209.247" height="209.247" fill="black"/>
+  <rect x="0.662231" y="0.662109" width="209.247" height="209.247" stroke="black" stroke-width="1.32435"/>
+  <path d="M70.1909 31.1228H27.1495V180.774H70.1909C111.516 180.774 145.017 147.274 145.017 105.949C145.017 64.6234 111.516 31.1228 70.1909 31.1228Z" fill="white" stroke="black" stroke-width="1.32435"/>
+  <path d="M73.4754 180.112H27.1495V30.4604H75.5278C90.0902 30.4604 102.551 33.4564 112.911 39.4483C123.271 45.3915 131.212 53.9409 136.734 65.0966C142.256 76.2035 145.017 89.5027 145.017 104.994C145.017 120.583 142.231 134.004 136.66 145.257C131.09 156.461 122.978 165.083 112.325 171.124C101.672 177.116 88.7219 180.112 73.4754 180.112ZM45.328 164.036H72.3026C84.7148 164.036 95.0013 161.649 103.162 156.875C111.323 152.101 117.407 145.305 121.414 136.488C125.421 127.671 127.425 117.173 127.425 104.994C127.425 92.9127 125.445 82.5121 121.487 73.7922C117.529 65.0235 111.616 58.3009 103.749 53.6243C95.8809 48.899 86.0831 46.5363 74.355 46.5363H45.328V164.036Z" fill="white"/>
+
+  <!-- Lines ordered i=0 (top-right) → i=27 (bottom-left) -->
+  <path id="l0"  d="M79.9211 1.14917L199.921 121.149"  stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l1"  d="M72.7971 2.50757L195.797 125.508"  stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l2"  d="M64.6736 2.86597L191.674 129.866"  stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l3"  d="M58.5496 5.22412L187.55 134.224"   stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l4"  d="M51.426 6.58252L183.426 138.583"   stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l5"  d="M35.7427 2.25854L179.303 142.941"  stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l6"  d="M31.6187 6.6167L175.179 147.299"   stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l7"  d="M27.5073 10.9624L172.496 153.045"  stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l8"  d="M23.3833 15.3208L168.372 157.403"  stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l9"  d="M19.2598 19.679L164.248 161.761"   stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l10" d="M15.1362 24.0374L160.125 166.12"   stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l11" d="M14.6504 30.7444L154.65 170.744"   stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l12" d="M10.5269 35.1028L150.527 175.103"  stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l13" d="M6.75317 39.1946L146.753 179.195"  stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l14" d="M5.62964 45.5527L143.63 183.553"   stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l15" d="M2.50586 50.9111L139.506 187.911"  stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l16" d="M2.94165 59.8828L133.942 190.883"  stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l17" d="M2.81787 68.241L129.818 195.241"   stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l18" d="M1.69434 75.5994L125.694 199.599"  stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l19" d="M1.57056 83.9575L121.571 203.958"  stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l20" d="M3.44702 94.3159L117.447 208.316"  stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l21" d="M2.323 101.674L108.323 207.674"    stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l22" d="M7.19946 115.032L100.199 208.032"  stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l23" d="M3.07593 119.391L93.0759 209.391"  stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l24" d="M6.9519 131.749L83.9519 208.749"   stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l25" d="M5.26904 138.495L74.269 207.495"   stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l26" d="M2.66211 151.853L58.6621 207.853"  stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+  <path id="l27" d="M10.145 151.853L66.145 207.853"    stroke="black" stroke-width="2.82004" stroke-dasharray="300" stroke-dashoffset="300"/>
+
+  <script type="text/javascript"><![CDATA[
+    // Wave parameters
+    const N       = 28;
+    const STAGGER = 0.07;          // seconds between each line starting
+    const DRAW    = 0.467;         // draw-in duration (s)
+    const HOLD    = 0.467;         // fully visible hold (s)
+    const RETRACT = 0.467;         // retract duration (s)
+    const WINDOW  = DRAW + HOLD + RETRACT;   // 1.40s visible per line
+    const CYCLE   = N * STAGGER;             // 1.96s — wave period
+
+    // At any moment: WINDOW/STAGGER = 20 lines visible, guaranteed, no gaps.
+
+    // Grab elements once
+    const els = [];
+    for (let i = 0; i < N; i++) els.push(document.getElementById('l' + i));
+
+    // Easing
+    function easeOut(t) { return 1 - (1 - t) * (1 - t); }
+    function easeIn(t)  { return t * t; }
+
+    let startTime = null;
+
+    function tick(ts) {
+      if (!startTime) startTime = ts;
+      const elapsed = (ts - startTime) * 0.001; // ms → s
+
+      for (let i = 0; i < N; i++) {
+        // Shift elapsed time by this line's phase offset, wrap into [0, CYCLE)
+        const tRel = ((elapsed - i * STAGGER) % CYCLE + CYCLE) % CYCLE;
+
+        let offset;
+        if (tRel < DRAW) {
+          offset = 300 * (1 - easeOut(tRel / DRAW));
+        } else if (tRel < DRAW + HOLD) {
+          offset = 0;
+        } else if (tRel < WINDOW) {
+          offset = 300 * easeIn((tRel - DRAW - HOLD) / RETRACT);
+        } else {
+          offset = 300;
+        }
+
+        els[i].setAttribute('stroke-dashoffset', offset.toFixed(1));
+      }
+
+      requestAnimationFrame(tick);
+    }
+
+    requestAnimationFrame(tick);
+  ]]></script>
+
+</svg>

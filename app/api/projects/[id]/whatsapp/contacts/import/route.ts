@@ -107,11 +107,19 @@ export async function POST(
   const skipped: { row: number; reason: string }[] = [];
   const maxRows = 2000;
 
+  const { normalizePhone, validatePhone } = await import("@/lib/whatsapp/phone");
+
   for (let i = 1; i < rows.length && inserted.length + skipped.length < maxRows; i++) {
     const row = rows[i];
-    const phone = row[phoneIdx]?.trim().replace(/\s+/g, "");
-    if (!phone) {
+    const rawPhone = row[phoneIdx]?.trim().replace(/\s+/g, "");
+    if (!rawPhone) {
       skipped.push({ row: i + 1, reason: "empty phone" });
+      continue;
+    }
+    const phone = normalizePhone(rawPhone);
+    const phoneCheck = validatePhone(phone);
+    if (!phoneCheck.valid) {
+      skipped.push({ row: i + 1, reason: `invalid phone "${rawPhone}": ${phoneCheck.reason}` });
       continue;
     }
     const name = nameIdx != null && nameIdx >= 0 ? row[nameIdx]?.trim() : undefined;
@@ -120,7 +128,7 @@ export async function POST(
     const { error } = await supabase.from("whatsapp_contacts").upsert(
       {
         project_id: projectId,
-        phone,
+        phone, // already normalized
         name: name || null,
         email: email || null,
         source: "import",

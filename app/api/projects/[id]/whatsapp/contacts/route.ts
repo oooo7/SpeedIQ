@@ -134,15 +134,22 @@ export async function POST(
   }
 
   const body = await request.json().catch(() => ({}));
-  const phone = body?.phone?.trim();
+  const rawPhone = body?.phone?.trim();
   const name = body?.name?.trim() ?? null;
   const email = body?.email?.trim() ?? null;
   const custom_fields = body?.custom_fields && typeof body.custom_fields === "object" ? body.custom_fields : {};
   const tag_ids = Array.isArray(body?.tag_ids) ? body.tag_ids.filter((t: unknown) => typeof t === "string").map((t: string) => t.trim()).filter(Boolean) : [];
   const source = body?.source?.trim() ?? "manual";
 
-  if (!phone) {
+  if (!rawPhone) {
     return NextResponse.json({ error: "phone is required" }, { status: 400 });
+  }
+
+  const { normalizePhone, validatePhone } = await import("@/lib/whatsapp/phone");
+  const phone = normalizePhone(rawPhone);
+  const phoneCheck = validatePhone(phone);
+  if (!phoneCheck.valid) {
+    return NextResponse.json({ error: phoneCheck.reason }, { status: 400 });
   }
 
   const { data: contact, error } = await supabase

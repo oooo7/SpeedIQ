@@ -1,11 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { emailCost } from "@/lib/billing/cost";
+import { deductCredits, grantCredits, recordUsageEvent } from "@/lib/billing/credits";
 import { sendEmailForProject } from "@/lib/email/client";
 import { renderEmailBody, buildSubscriberVariables } from "@/lib/email/template";
 import { getUnsubscribeUrl } from "@/lib/email/unsubscribe";
 
 const THROTTLE_MS = 100;
 const BATCH_SIZE = 50;
+const MAX_RETRIES = 3;
 
 export interface ProcessResult {
   sent: number;
@@ -55,7 +58,7 @@ export async function processCampaignBatch(
 
   const { data: recipients } = await supabase
     .from("email_campaign_recipients")
-    .select("id, subscriber_id")
+    .select("id, subscriber_id, retry_count")
     .eq("campaign_id", campaignId)
     .eq("status", "pending")
     .limit(BATCH_SIZE);
@@ -69,12 +72,14 @@ export async function processCampaignBatch(
       .eq("campaign_id", campaignId)
       .eq("status", "pending");
     if ((pendingCount ?? 0) === 0) {
-      const { count: failedCount } = await supabase
-        .from("email_campaign_recipients")
-        .select("id", { count: "exact", head: true })
-        .eq("campaign_id", campaignId)
-        .eq("status", "failed");
-      const finalStatus = (failedCount ?? 0) > 0 ? "failed" : "completed";
+      const [{ count: sentCount }, { count: failedCount }] = await Promise.all([
+        supabase.from("email_campaign_recipients").select("id", { count: "exact", head: true })
+          .eq("campaign_id", campaignId).eq("status", "sent"),
+        supabase.from("email_campaign_recipients").select("id", { count: "exact", head: true })
+          .eq("campaign_id", campaignId).eq("status", "failed"),
+      ]);
+      // Only mark as "failed" if every recipient failed (none sent successfully)
+      const finalStatus = (sentCount ?? 0) === 0 && (failedCount ?? 0) > 0 ? "failed" : "completed";
       await supabase
         .from("email_campaigns")
         .update({
@@ -90,7 +95,7 @@ export async function processCampaignBatch(
   for (const rec of list) {
     const { data: subscriber } = await supabase
       .from("email_subscribers")
-      .select("email, name")
+      .select("email, name, status")
       .eq("id", rec.subscriber_id)
       .single();
 
@@ -104,11 +109,40 @@ export async function processCampaignBatch(
       continue;
     }
 
+    // Skip unsubscribed or bounced contacts — mark as failed so the campaign can complete
+    if (subscriber.status === "unsubscribed" || subscriber.status === "bounced") {
+      await supabase
+        .from("email_campaign_recipients")
+        .update({ status: "failed", error_message: subscriber.status })
+        .eq("id", rec.id);
+      failed++;
+      continue;
+    }
+
     const unsubscribeUrl = getUnsubscribeUrl(campaign.project_id, rec.subscriber_id);
     const variables = buildSubscriberVariables(subscriber?.name ?? null, email, unsubscribeUrl);
     const html = renderEmailBody(template.body_html ?? "", variables);
     const subject = renderEmailBody(template.subject, variables);
     const text = template.body_text ? renderEmailBody(template.body_text, variables) : undefined;
+
+    const credits = emailCost();
+    const balanceAfter = await deductCredits({
+      client: supabase,
+      projectId: campaign.project_id,
+      amount: credits,
+      reason: "email_send",
+      refType: "email_campaign_recipient",
+      refId: rec.id,
+      metadata: { campaign_id: campaignId },
+    });
+    if (balanceAfter === null) {
+      await supabase
+        .from("email_campaign_recipients")
+        .update({ status: "failed", error_message: "insufficient_credits" })
+        .eq("id", rec.id);
+      failed++;
+      continue;
+    }
 
     const result = await sendEmailForProject(campaign.project_id, {
       to: email,
@@ -122,13 +156,42 @@ export async function processCampaignBatch(
         .from("email_campaign_recipients")
         .update({ status: "sent", sent_at: new Date().toISOString(), error_message: null })
         .eq("id", rec.id);
+      await recordUsageEvent({
+        client: supabase,
+        projectId: campaign.project_id,
+        channel: "email",
+        messageType: "campaign",
+        recipientId: rec.subscriber_id,
+        campaignId,
+        creditsCharged: credits,
+        status: "sent",
+      });
       sent++;
     } else {
+      const currentRetry = (rec as { retry_count?: number }).retry_count ?? 0;
+      const nextRetry = currentRetry + 1;
+      // Re-queue for retry if under the limit; permanently fail otherwise
+      const nextStatus = nextRetry < MAX_RETRIES ? "pending" : "failed";
       await supabase
         .from("email_campaign_recipients")
-        .update({ status: "failed", error_message: (result.error ?? "").slice(0, 500) })
+        .update({
+          status: nextStatus,
+          error_message: (result.error ?? "").slice(0, 500),
+          retry_count: nextRetry,
+        })
         .eq("id", rec.id);
-      failed++;
+      // Refund credits on send failure — user shouldn't pay for a failed send.
+      await grantCredits({
+        client: supabase,
+        projectId: campaign.project_id,
+        amount: credits,
+        reason: "refund",
+        refType: "email_campaign_recipient",
+        refId: rec.id,
+        metadata: { reason: "send_failed" },
+      });
+      if (nextStatus === "failed") failed++;
+      // If re-queued, don't count as failed yet — it'll be retried next cron tick
     }
 
     await new Promise((r) => setTimeout(r, THROTTLE_MS));

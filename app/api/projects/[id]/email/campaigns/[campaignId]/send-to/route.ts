@@ -53,18 +53,41 @@ export async function POST(
     return NextResponse.json({ error: "Campaign has no template" }, { status: 400 });
   }
 
+  // Validate the template has a subject before we commit to sending
+  if (send_now) {
+    const { data: tpl } = await supabase
+      .from("email_templates")
+      .select("subject")
+      .eq("id", campaign.template_id)
+      .single();
+    if (!tpl?.subject?.trim()) {
+      return NextResponse.json({ error: "Template has no subject line — edit the template before sending" }, { status: 400 });
+    }
+  }
+
   if (subscriber_ids.length === 0 && !send_now) {
     return NextResponse.json({ error: "subscriber_ids required or send_now to trigger send" }, { status: 400 });
   }
 
   let added = 0;
+  let skippedOptOut = 0;
   if (subscriber_ids.length > 0) {
-    const existing = await supabase
-      .from("email_campaign_recipients")
-      .select("subscriber_id")
-      .eq("campaign_id", campaignId);
-    const existingIds = new Set((existing.data ?? []).map((r: { subscriber_id: string }) => r.subscriber_id));
-    const toAdd = subscriber_ids.filter((id: string) => !existingIds.has(id));
+    const [existingRes, subscribersRes] = await Promise.all([
+      supabase.from("email_campaign_recipients").select("subscriber_id").eq("campaign_id", campaignId),
+      // Only fetch subscribed contacts — skip unsubscribed/bounced up front
+      supabase.from("email_subscribers")
+        .select("id, status")
+        .in("id", subscriber_ids)
+        .eq("project_id", projectId),
+    ]);
+    const existingIds = new Set((existingRes.data ?? []).map((r: { subscriber_id: string }) => r.subscriber_id));
+    const activeIds = new Set(
+      (subscribersRes.data ?? [])
+        .filter((s: { status: string }) => s.status === "subscribed")
+        .map((s: { id: string }) => s.id)
+    );
+    skippedOptOut = subscriber_ids.filter((id: string) => !activeIds.has(id)).length;
+    const toAdd = subscriber_ids.filter((id: string) => activeIds.has(id) && !existingIds.has(id));
     if (toAdd.length > 0) {
       const { error: insertError } = await supabase.from("email_campaign_recipients").insert(
         toAdd.map((subscriber_id: string) => ({
@@ -92,11 +115,12 @@ export async function POST(
     const result = await processCampaignBatch(admin, campaignId);
     return NextResponse.json({
       added,
+      skipped_opt_out: skippedOptOut,
       send_now: true,
       sent: result.sent,
       failed: result.failed,
     });
   }
 
-  return NextResponse.json({ added, send_now });
+  return NextResponse.json({ added, skipped_opt_out: skippedOptOut, send_now });
 }

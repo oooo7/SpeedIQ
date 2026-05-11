@@ -1,16 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertCircle,
+  Archive,
+  ArchiveRestore,
+  Ban,
+  BarChart3,
   Check,
   CheckCheck,
   ChevronDown,
+  Clock,
   Info,
+  LayoutTemplate,
   Loader2,
   MessageSquare,
+  MoreVertical,
   Send,
-  BarChart3,
-  Ban,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -18,6 +25,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -33,6 +46,8 @@ export interface Conversation {
   contact_phone: string | null;
   contact_name: string | null;
   contact_profile_picture_url: string | null;
+  is_archived: boolean;
+  is_deleted: boolean;
 }
 
 export interface Message {
@@ -107,6 +122,30 @@ function formatDateTime(iso: string) {
   return `${formatDateShort(iso)}, ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
 }
 
+const WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function getWindowStatus(lastInboundAt: string | null): {
+  within: boolean;
+  label: string;
+  urgent: boolean; // < 1 hour left
+} {
+  if (!lastInboundAt) {
+    return { within: false, label: "No inbound messages — send a template to start", urgent: false };
+  }
+  const elapsed = Date.now() - new Date(lastInboundAt).getTime();
+  if (elapsed >= WINDOW_MS) {
+    const h = Math.floor(elapsed / (60 * 60 * 1000));
+    const timeAgo = h >= 48 ? `${Math.floor(h / 24)}d ago` : `${h}h ago`;
+    return { within: false, label: `Chat window closed (last reply ${timeAgo})`, urgent: false };
+  }
+  const remaining = WINDOW_MS - elapsed;
+  const h = Math.floor(remaining / (60 * 60 * 1000));
+  const m = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
+  const urgent = remaining < 60 * 60 * 1000;
+  const label = h > 0 ? `Window closes in ${h}h ${m}m` : `Window closes in ${m}m`;
+  return { within: true, label, urgent };
+}
+
 function getInitial(name: string | null, phone: string | null) {
   if (name?.trim()) return name.trim().slice(0, 1).toUpperCase();
   if (phone?.trim()) return phone.slice(-1);
@@ -146,6 +185,7 @@ export function WhatsAppChatLayout({
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [conversationFilter, setConversationFilter] = useState<"all" | "unread" | "archived">("all");
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [contactInfo, setContactInfo] = useState<ContactInfo | null>(null);
   const [profile, setProfile] = useState<ContactProfile | null>(null);
@@ -157,13 +197,16 @@ export function WhatsAppChatLayout({
   const [templates, setTemplates] = useState<Array<{ id: string; name: string; language: string }>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tick every 60 s so the window countdown re-renders without a full fetch
+  const [windowTick, setWindowTick] = useState(0);
 
   const fetchConversations = useCallback(
-    async (silent = false) => {
+    async (silent = false, filter?: "all" | "unread" | "archived") => {
       if (!projectId) return;
       if (!silent) setLoading(true);
       try {
-        const res = await fetch(`/api/projects/${projectId}/whatsapp/conversations`);
+        const f = filter ?? conversationFilter;
+        const res = await fetch(`/api/projects/${projectId}/whatsapp/conversations?filter=${f}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Failed to load");
         setConversations(data.conversations ?? []);
@@ -173,7 +216,7 @@ export function WhatsAppChatLayout({
         if (!silent) setLoading(false);
       }
     },
-    [projectId]
+    [projectId, conversationFilter]
   );
 
   const markAsRead = useCallback(
@@ -241,8 +284,11 @@ export function WhatsAppChatLayout({
   }, [selectedContactId, fetchMessages, fetchProfile]);
 
   useEffect(() => {
-    fetchConversations();
-  }, [fetchConversations]);
+    fetchConversations(false, conversationFilter);
+    // When switching to archived, deselect if current conversation is not in that view
+    setSelectedContactId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationFilter]);
 
   useEffect(() => {
     if (projectId && selectedContactId) {
@@ -258,6 +304,19 @@ export function WhatsAppChatLayout({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Keep the window-status label fresh every minute
+  useEffect(() => {
+    const t = setInterval(() => setWindowTick((n) => n + 1), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Derived: live window status computed from last_inbound_at (re-runs on tick + contactInfo change)
+  const windowStatus = useMemo(
+    () => getWindowStatus(contactInfo?.last_inbound_at ?? null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [contactInfo?.last_inbound_at, windowTick]
+  );
 
   useEffect(() => {
     if (!selectedContactId || !contactInfo?.last_inbound_meta_message_id || !text.trim()) return;
@@ -287,15 +346,26 @@ export function WhatsAppChatLayout({
   const handleSend = async () => {
     if (!projectId || !selectedContactId) return;
     const trimmed = text.trim();
-    if (!trimmed && !contactInfo?.within_24h_window) {
-      toast.error("Outside 24h window. Use a template.");
+    if (!trimmed) { toast.error("Enter a message"); return; }
+    if (!windowStatus.within) {
+      toast.error("24h window closed. Send a template to re-engage.");
       return;
     }
-    if (!trimmed && contactInfo?.within_24h_window) {
-      toast.error("Enter a message");
-      return;
-    }
+
+    // Optimistic: show the message immediately before the API responds
+    const tempId = `temp-${Date.now()}`;
+    const tempMsg: Message = {
+      id: tempId,
+      direction: "out",
+      type: "text",
+      body: trimmed,
+      status: "sending",
+      created_at: new Date().toISOString(),
+    };
+    setText("");
+    setMessages((prev) => [...prev, tempMsg]);
     setSending(true);
+
     try {
       const res = await fetch(
         `/api/projects/${projectId}/whatsapp/conversations/${selectedContactId}/messages`,
@@ -307,18 +377,23 @@ export function WhatsAppChatLayout({
       );
       const data = await res.json();
       if (!res.ok) {
+        // Remove the optimistic message on failure
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
         if (data.within_24h === false) {
-          toast.error("Outside 24h window. Send a template message only.");
+          // Server confirms window is closed — update contactInfo so UI flips to template mode
+          setContactInfo((prev) => prev ? { ...prev, within_24h_window: false } : prev);
+          toast.error("Chat window just expired. Use a template to re-engage.");
         } else {
           toast.error(data.error ?? "Failed to send");
         }
         return;
       }
-      setText("");
-      if (data.message) setMessages((prev) => [...prev, data.message]);
+      // Replace optimistic message with the real one from the server
+      setMessages((prev) => prev.map((m) => m.id === tempId ? (data.message ?? m) : m));
       fetchConversations();
       if (profile) fetchProfile(selectedContactId);
     } catch (err) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
       toast.error(err instanceof Error ? err.message : "Could not send");
     } finally {
       setSending(false);
@@ -327,7 +402,20 @@ export function WhatsAppChatLayout({
 
   const handleSendTemplate = async (templateName: string, templateLanguage: string) => {
     if (!projectId || !selectedContactId) return;
+
+    // Optimistic: show a placeholder immediately
+    const tempId = `temp-${Date.now()}`;
+    const tempMsg: Message = {
+      id: tempId,
+      direction: "out",
+      type: "text",
+      body: `Template: ${templateName}`,
+      status: "sending",
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, tempMsg]);
     setSending(true);
+
     try {
       const res = await fetch(
         `/api/projects/${projectId}/whatsapp/conversations/${selectedContactId}/messages`,
@@ -342,16 +430,74 @@ export function WhatsAppChatLayout({
       );
       const data = await res.json();
       if (!res.ok) {
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        if (data.within_24h === false) {
+          setContactInfo((prev) => prev ? { ...prev, within_24h_window: false } : prev);
+        }
         toast.error(data.error ?? "Failed to send template");
         return;
       }
-      if (data.message) setMessages((prev) => [...prev, data.message]);
+      setMessages((prev) => prev.map((m) => m.id === tempId ? (data.message ?? m) : m));
       fetchConversations();
       if (profile) fetchProfile(selectedContactId);
     } catch (err) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
       toast.error(err instanceof Error ? err.message : "Could not send");
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleArchive = async (conv: Conversation, archive: boolean) => {
+    if (!projectId) return;
+    // Optimistically update the list
+    setConversations((prev) => prev.filter((c) => c.id !== conv.id));
+    if (selectedContactId === conv.contact_id) setSelectedContactId(null);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/whatsapp/conversations/${conv.contact_id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ is_archived: archive }),
+        }
+      );
+      if (!res.ok) {
+        const d = await res.json();
+        toast.error(d.error ?? "Could not update conversation");
+        fetchConversations(true);
+        return;
+      }
+      toast.success(archive ? "Conversation archived" : "Conversation unarchived");
+    } catch {
+      toast.error("Could not update conversation");
+      fetchConversations(true);
+    }
+  };
+
+  const handleDelete = async (conv: Conversation) => {
+    if (!projectId) return;
+    setConversations((prev) => prev.filter((c) => c.id !== conv.id));
+    if (selectedContactId === conv.contact_id) setSelectedContactId(null);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/whatsapp/conversations/${conv.contact_id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ is_deleted: true }),
+        }
+      );
+      if (!res.ok) {
+        const d = await res.json();
+        toast.error(d.error ?? "Could not delete conversation");
+        fetchConversations(true);
+        return;
+      }
+      toast.success("Conversation deleted");
+    } catch {
+      toast.error("Could not delete conversation");
+      fetchConversations(true);
     }
   };
 
@@ -438,6 +584,23 @@ export function WhatsAppChatLayout({
               </Popover>
             )}
           </div>
+          {/* Filter tabs */}
+          <div className="flex border-b border-gray-100 dark:border-gray-800/80 bg-[#f0f2f5] dark:bg-gray-900/80">
+            {(["all", "unread", "archived"] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setConversationFilter(f)}
+                className={`flex-1 py-2 text-xs font-medium capitalize transition-colors ${
+                  conversationFilter === f
+                    ? "border-b-2 border-[#25D366] text-[#25D366]"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
           <div className="border-b border-gray-100 dark:border-gray-800/80 px-2 py-2">
             <Input
               placeholder="Search name or mobile number"
@@ -451,45 +614,86 @@ export function WhatsAppChatLayout({
               <LoadingState message="Loading conversations…" className="py-8 max-w-none" />
             ) : filteredConversations.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">
-                {searchQuery.trim() ? "No matches." : "No conversations yet."}
+                {searchQuery.trim()
+                  ? "No matches."
+                  : conversationFilter === "archived"
+                  ? "No archived conversations."
+                  : "No conversations yet."}
               </p>
             ) : (
               filteredConversations.map((conv) => (
-                <button
+                <div
                   key={conv.id}
-                  type="button"
-                  onClick={() => setSelectedContactId(conv.contact_id)}
-                  className={`flex w-full items-center gap-3 border-b border-gray-100 p-3 text-left hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/50 ${
-                    selectedContactId === conv.contact_id ? "bg-gray-100 dark:bg-gray-900/70" : ""
+                  className={`group relative flex items-center gap-3 border-b border-gray-100 dark:border-gray-800 ${
+                    selectedContactId === conv.contact_id ? "bg-gray-100 dark:bg-gray-900/70" : "hover:bg-gray-50 dark:hover:bg-gray-900/50"
                   }`}
                 >
-                  <ContactAvatar
-                    name={conv.contact_name}
-                    phone={conv.contact_phone}
-                    profilePictureUrl={conv.contact_profile_picture_url}
-                    className="h-12 w-12 shrink-0 text-lg"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate font-medium">
-                        {conv.contact_name || conv.contact_phone || "Unknown"}
-                      </span>
-                      {conv.last_message_at && (
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {formatTime(conv.last_message_at)}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedContactId(conv.contact_id)}
+                    className="flex flex-1 items-center gap-3 p-3 text-left min-w-0"
+                  >
+                    <ContactAvatar
+                      name={conv.contact_name}
+                      phone={conv.contact_phone}
+                      profilePictureUrl={conv.contact_profile_picture_url}
+                      className="h-12 w-12 shrink-0 text-lg"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate font-medium">
+                          {conv.contact_name || conv.contact_phone || "Unknown"}
                         </span>
-                      )}
+                        {conv.last_message_at && (
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {formatTime(conv.last_message_at)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-sm text-muted-foreground">{conv.contact_phone ?? ""}</span>
+                        {conv.unread_count > 0 && (
+                          <span className="flex h-5 min-w-[20px] items-center justify-center bg-[#25D366] px-1.5 text-xs font-medium text-white">
+                            {conv.unread_count > 99 ? "99+" : conv.unread_count}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm text-muted-foreground">{conv.contact_phone ?? ""}</span>
-                      {conv.unread_count > 0 && (
-                        <span className="flex h-5 min-w-[20px] items-center justify-center bg-[#25D366] px-1.5 text-xs font-medium text-white">
-                          {conv.unread_count > 99 ? "99+" : conv.unread_count}
-                        </span>
+                  </button>
+                  {/* Per-row action menu */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="mr-1 h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {conv.is_archived ? (
+                        <DropdownMenuItem onClick={() => handleArchive(conv, false)}>
+                          <ArchiveRestore className="mr-2 h-4 w-4" />
+                          Unarchive
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem onClick={() => handleArchive(conv, true)}>
+                          <Archive className="mr-2 h-4 w-4" />
+                          Archive
+                        </DropdownMenuItem>
                       )}
-                    </div>
-                  </div>
-                </button>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => handleDelete(conv)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               ))
             )}
           </div>
@@ -514,15 +718,63 @@ export function WhatsAppChatLayout({
                   <span className="block truncate font-medium">
                     {contactInfo?.name || contactInfo?.phone || "Unknown"}
                   </span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {contactInfo?.within_24h_window ? "Available" : "Template only"}
+                  <span
+                    className={`flex items-center gap-1 text-xs truncate ${
+                      windowStatus.within
+                        ? windowStatus.urgent
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-green-600 dark:text-green-400"
+                        : "text-red-500 dark:text-red-400"
+                    }`}
+                  >
+                    <Clock className="h-3 w-3 shrink-0" />
+                    {windowStatus.label}
                   </span>
                 </div>
-                {contactInfo && !contactInfo.within_24h_window && (
-                  <Badge variant="secondary" className="shrink-0 text-xs">
+                {contactInfo && !windowStatus.within && (
+                  <Badge variant="destructive" className="shrink-0 text-xs">
                     Template only
                   </Badge>
                 )}
+                {contactInfo && windowStatus.within && windowStatus.urgent && (
+                  <Badge variant="secondary" className="shrink-0 text-xs text-amber-600 border-amber-300">
+                    Closing soon
+                  </Badge>
+                )}
+                {/* Chat-level archive / delete menu */}
+                {contactInfo && (() => {
+                  const conv = conversations.find((c) => c.contact_id === selectedContactId);
+                  if (!conv) return null;
+                  return (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {conv.is_archived ? (
+                          <DropdownMenuItem onClick={() => handleArchive(conv, false)}>
+                            <ArchiveRestore className="mr-2 h-4 w-4" />
+                            Unarchive
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={() => handleArchive(conv, true)}>
+                            <Archive className="mr-2 h-4 w-4" />
+                            Archive
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => handleDelete(conv)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  );
+                })()}
               </div>
 
               <div className="flex-1 overflow-y-auto bg-[#efeae2] p-2 dark:bg-gray-900 sm:p-4">
@@ -530,94 +782,166 @@ export function WhatsAppChatLayout({
                   <LoadingState message="Loading messages…" className="py-8 max-w-none" />
                 ) : (
                   <div className="space-y-1">
-                    {messages.map((msg) => (
-                      <div
-                        key={msg.id}
-                        className={`flex ${msg.direction === "out" ? "justify-end" : "justify-start"}`}
-                      >
+                    {messages.map((msg) => {
+                      const isTemplate = msg.body?.startsWith("Template: ");
+                      const templateName = isTemplate ? msg.body!.slice("Template: ".length) : null;
+                      const isOptimistic = msg.id.startsWith("temp-");
+                      return (
                         <div
-                          className={`relative max-w-[85%] min-w-[100px] rounded-lg px-3 py-2 text-sm ${
-                            msg.direction === "out"
-                              ? "bg-[#dcf8c6] text-gray-900 dark:bg-[#005c4b] dark:text-white"
-                              : "bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100"
-                          }`}
+                          key={msg.id}
+                          className={`flex ${msg.direction === "out" ? "justify-end" : "justify-start"} ${isOptimistic ? "opacity-70" : ""}`}
                         >
-                          {msg.body && <p className="whitespace-pre-wrap break-words">{msg.body}</p>}
-                          <div className="flex items-center justify-end gap-1 mt-0.5">
-                            <span className="text-[10px] text-muted-foreground opacity-90">
-                              {formatTime(msg.created_at)}
-                            </span>
-                            {msg.direction === "out" && (
-                              <span className="inline-flex text-muted-foreground">
-                                {msg.status === "read" ? (
-                                  <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
-                                ) : msg.status === "delivered" ? (
-                                  <CheckCheck className="h-3.5 w-3.5" />
-                                ) : (
-                                  <Check className="h-3.5 w-3.5" />
-                                )}
+                          <div
+                            className={`relative max-w-[85%] min-w-[100px] rounded-lg px-3 py-2 text-sm ${
+                              msg.direction === "out"
+                                ? "bg-[#dcf8c6] text-gray-900 dark:bg-[#005c4b] dark:text-white"
+                                : "bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+                            }`}
+                          >
+                            {isTemplate ? (
+                              <div className="flex items-center gap-1.5">
+                                <LayoutTemplate className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                                <span className="italic opacity-80">{templateName}</span>
+                              </div>
+                            ) : msg.body ? (
+                              <p className="whitespace-pre-wrap break-words">{msg.body}</p>
+                            ) : null}
+                            <div className="flex items-center justify-end gap-1 mt-0.5">
+                              <span className="text-[10px] text-muted-foreground opacity-90">
+                                {formatTime(msg.created_at)}
                               </span>
-                            )}
+                              {msg.direction === "out" && (
+                                <span className="inline-flex text-muted-foreground">
+                                  {msg.status === "sending" ? (
+                                    <Loader2 className="h-3 w-3 animate-spin opacity-50" />
+                                  ) : msg.status === "read" ? (
+                                    <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
+                                  ) : msg.status === "delivered" ? (
+                                    <CheckCheck className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <Check className="h-3.5 w-3.5" />
+                                  )}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                 <div ref={messagesEndRef} />
               </div>
 
               <div className="border-t border-gray-200 bg-[#f0f2f5] p-2 dark:border-gray-800 dark:bg-gray-900/80 sm:p-3">
-                {contactInfo && !contactInfo.within_24h_window ? (
-                  <div className="space-y-2">
-                    <p className="text-xs text-amber-600 dark:text-amber-500">
-                      Outside 24h window. You can only send approved templates.
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {templates.map((t) => (
-                        <Button
-                          key={t.id}
-                          variant="outline"
-                          size="sm"
-                          disabled={sending}
-                          onClick={() => handleSendTemplate(t.name, t.language)}
-                        >
-                          {t.name}
-                        </Button>
-                      ))}
-                      {templates.length === 0 && (
-                        <p className="text-xs text-muted-foreground">No approved templates.</p>
-                      )}
+                {contactInfo && !windowStatus.within ? (
+                  /* ── Blocked: 24h window closed ── */
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 dark:border-red-900/40 dark:bg-red-950/30">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                      <div className="text-xs text-red-700 dark:text-red-400">
+                        <p className="font-medium">Chat window closed</p>
+                        <p className="mt-0.5 opacity-80">
+                          Free-form messages are blocked. Send an approved template to re-open the
+                          conversation — the window resets as soon as the contact replies.
+                        </p>
+                      </div>
                     </div>
+                    {templates.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {templates.map((t) => (
+                          <Button
+                            key={t.id}
+                            variant="outline"
+                            size="sm"
+                            disabled={sending}
+                            onClick={() => handleSendTemplate(t.name, t.language)}
+                            className="gap-1.5 text-xs"
+                          >
+                            <LayoutTemplate className="h-3.5 w-3.5" />
+                            {t.name}
+                          </Button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        No approved templates. Create one in{" "}
+                        <span className="font-medium">Settings → Templates</span>.
+                      </p>
+                    )}
                   </div>
                 ) : (
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleSend();
-                    }}
-                    className="flex items-center gap-2"
-                  >
-                    <Input
-                      value={text}
-                      onChange={(e) => setText(e.target.value)}
-                      placeholder="Type a message"
-                      disabled={sending}
-                      className="min-h-12 flex-1 border-gray-300 bg-white px-4 dark:border-gray-700 dark:bg-gray-800"
-                    />
-                    <Button
-                      type="submit"
-                      size="icon"
-                      disabled={sending || !text.trim()}
-                      className="h-10 w-10 shrink-0 bg-[#25D366] text-white hover:bg-[#20bd5a] dark:bg-[#25D366] dark:hover:bg-[#20bd5a]"
+                  /* ── Open: normal text input + template picker ── */
+                  <div className="space-y-2">
+                    {windowStatus.urgent && (
+                      <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                        <Clock className="h-3.5 w-3.5 shrink-0" />
+                        <span>{windowStatus.label} — reply soon or send a template</span>
+                      </div>
+                    )}
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        handleSend();
+                      }}
+                      className="flex items-center gap-2"
                     >
-                      {sending ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                      ) : (
-                        <Send className="h-5 w-5" />
+                      <Input
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                        placeholder="Type a message"
+                        disabled={sending}
+                        className="min-h-12 flex-1 border-gray-300 bg-white px-4 dark:border-gray-700 dark:bg-gray-800"
+                      />
+                      {/* Template picker — available even within the window */}
+                      {templates.length > 0 && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              disabled={sending}
+                              className="h-10 w-10 shrink-0"
+                              title="Send a template"
+                            >
+                              <LayoutTemplate className="h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-56 p-2" align="end" side="top">
+                            <p className="mb-1.5 px-1 text-xs font-medium text-muted-foreground">
+                              Send template
+                            </p>
+                            <div className="flex flex-col gap-0.5">
+                              {templates.map((t) => (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  disabled={sending}
+                                  onClick={() => handleSendTemplate(t.name, t.language)}
+                                  className="rounded px-2 py-1.5 text-left text-sm hover:bg-muted disabled:opacity-50"
+                                >
+                                  {t.name}
+                                </button>
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       )}
-                    </Button>
-                  </form>
+                      <Button
+                        type="submit"
+                        size="icon"
+                        disabled={sending || !text.trim()}
+                        className="h-10 w-10 shrink-0 bg-[#25D366] text-white hover:bg-[#20bd5a] dark:bg-[#25D366] dark:hover:bg-[#20bd5a]"
+                      >
+                        {sending ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <Send className="h-5 w-5" />
+                        )}
+                      </Button>
+                    </form>
+                  </div>
                 )}
               </div>
             </>

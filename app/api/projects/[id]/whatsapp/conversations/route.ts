@@ -31,15 +31,22 @@ export async function GET(
 
   let query = supabase
     .from("whatsapp_conversations")
-    .select("id, project_id, contact_id, assigned_to, last_message_at, unread_count, created_at")
+    .select("id, project_id, contact_id, assigned_to, last_message_at, unread_count, is_archived, is_deleted, created_at")
     .eq("project_id", projectId)
+    .eq("is_deleted", false)
     .order("last_message_at", { ascending: false, nullsFirst: false });
 
-  if (filter === "unread") {
-    query = query.gt("unread_count", 0);
-  }
-  if (filter === "assigned" && user.id) {
-    query = query.eq("assigned_to", user.id);
+  if (filter === "archived") {
+    query = query.eq("is_archived", true);
+  } else {
+    // "all" and "unread" exclude archived
+    query = query.eq("is_archived", false);
+    if (filter === "unread") {
+      query = query.gt("unread_count", 0);
+    }
+    if (filter === "assigned" && user.id) {
+      query = query.eq("assigned_to", user.id);
+    }
   }
 
   const { data: conversations, error } = await query.limit(100);
@@ -70,6 +77,8 @@ export async function GET(
     contact_phone: contactsMap[c.contact_id]?.phone ?? null,
     contact_name: contactsMap[c.contact_id]?.name ?? null,
     contact_profile_picture_url: contactsMap[c.contact_id]?.profile_picture_url ?? null,
+    is_archived: (c as { is_archived?: boolean }).is_archived ?? false,
+    is_deleted: (c as { is_deleted?: boolean }).is_deleted ?? false,
   }));
 
   return NextResponse.json({ conversations: enriched });

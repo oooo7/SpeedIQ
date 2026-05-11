@@ -3,6 +3,7 @@ import {
   Mail,
   MessageSquare,
   Settings,
+  Smartphone,
   Users,
   UsersRound,
 } from "lucide-react";
@@ -12,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 const mainLinks = [
   { title: "WhatsApp", href: "/dashboard/whatsapp", icon: MessageSquare },
   { title: "Email", href: "/dashboard/email", icon: Mail },
+  { title: "SMS", href: "/dashboard/sms", icon: Smartphone },
   { title: "Contacts", href: "/dashboard/contacts", icon: Users },
   { title: "Team", href: "/dashboard/team", icon: UsersRound },
   { title: "Settings", href: "/dashboard/settings", icon: Settings },

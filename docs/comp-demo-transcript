@@ -1,0 +1,436 @@
+Thank you so much, guys.
+So guys, we are just waiting one or two odd minutes more to let everyone also join this session, and then we'll begin with our…
+Neeraj Sharma
+16:00:41
+Yeah, sure, fine.
+TeleCRM Host
+16:00:44
+And meanwhile, I'm sharing a link in your Zoom chat box. So I request people who are present in this webinar to please fill out this form.
+Which will be utilized to showcase you how does the lead capturing and lead nurturing process works here in Tilly CRM, and you'll have a better understanding.
+Neeraj Sharma
+16:01:00
+Okay.
+TeleCRM Host
+16:01:02
+So I've shared the link in the Zoom chat box of yours.
+Ajay
+16:01:15
+Big, big Google alert.
+It's not a winner. It's been a waiver.
+The word is true. It's still true. From all that, we are all related.
+TeleCRM Host
+16:01:28
+I'm so sorry to hear you.
+Ajay
+16:01:28
+Okay, so let me go ahead and do it.
+The recording also seems to be there, though.
+November 23rd.
+TeleCRM Host
+16:01:54
+Okay, I hope you guys are filling out the form I've shared in the Zoom chat box. I'm sharing it once again.
+Neeraj Sharma
+16:02:00
+Yes, sir.
+TeleCRM Host
+16:02:00
+People who are left to fill, please fill out this form. I'll also showcase you how does the bulk broadcasting with the help of WhatsApp API works.
+Okay, so I guess we are settled down here, so we'll start with our webinar. Hi guys, welcome again to TeliCRM demo. My name is Mohammad Danish, and today I'll be your host for demonstrating the features and functionalities what TeliCRM has to offer to you guys.
+So let's start with the session. And before I start, let me introduce to my company CEO and founder, Mr. Rahul Mohan Gupta, who has been Bits Pilani graduate and ex-Oracle engineer, who has also been rocket scientist behind mission critical avionics for Rafael projects.
+Our vision is to build cutting-edge SaaS for developing markets like India and Middle East to help businesses grow and stay customer-first.
+Talking about the current scenario, we have more than 3000 companies who have put their trust on us actively using TeleCRM, more than 40,000 active licenses in action, 1 billion plus activities and records handled seamlessly, and 400 million plus leads processed till date.
+Telly CRM has not just been focused on the single kind of industry to provide, but multiple. As you can see from this image provided here, we have more than 300 plus edtech related companies, 500 plus real estate related companies, 200 plus automobile related companies.
+100 plus healthcare-related companies, 200 plus travel-related companies, and 100 plus finance-related companies as well.
+So, it means, whatever kind of business, whatever kind of process that you follow, TeleCRM is fully capable to adapt that, and also give you the right kind of functionalities that you're looking for.
+So, let's begin with the session. I hope everyone has filled out the form, which I've shared the link for. So, to see that, let me go to the sales workspace of my own daily CRM. I'll go to the campaign, where I have stored all of your responses.
+himanshusakhare
+16:04:17
+Thank you.
+TeleCRM Host
+16:04:19
+So, I'll go to the today's 4pm demo attendees, and I see that there are 4 people have already filled out the form. People who are left to fill out, I'm sharing the link once again. If not done yet, you can fill out.
+Okay, so once I open my campaign, I will have the visibility of all the people who have filled out my form. So, meanwhile, it is being reloaded.
+So, you saw that, how seamless my integration is.
+As soon as you filled out the form, the same response gets captured here seamlessly, and this is the real-time lead tracking.
+So, once we receive any kind of response, as you can see, we have got the new response available here from the FZ Fitness.
+ajay
+16:05:23
+Yep.
+Hello, how are you doing?
+TeleCRM Host
+16:05:28
+Uh, guys, one more request. I request everyone to please keep yourself muted. We'll have a dedicated Q&A session once this, uh, feature demonstration is over, where I'll be answering all of your queries. So if you have any kind of doubts.
+or queries between the session regarding the features, or anything, you can just keep it jot down, or drop down in the Zoom chat box of yours. I'll be answering to them in detail.
+Thank you so much for understanding. So now that you see that as soon as people fill out my form, I do see the responses. Now, what if I want to do the bulk broadcasting on, with the help of WhatsApp, on all of these responses I've received? So what I'll do is, I'll go to the filter section.
+go to the inspect button, and I see all of the people who have filled out the form. I'll just go to the bulk vaka message, select the account from which I want to send the broadcast, select all the 6 leads falling into my condition, select the template which I want to send, that is demo chatbot intro.
+Send broadcast, and finally proceed.
+Get the one for your enterprise as well.
+Moving on, what we'll be covering in this session is how do we handle data imports? How does the integrations happen? How does the calling flow works? How does reporting and lead management works? Last but not the least, we will also focus on how does the WhatsApp chatbot automation functions here.
+files. So if I open that, you see this upload file button here. So if I click on this upload file, I'll have to locate the Excel file which I need to upload in my CRM. So if I open that.
+Now, I have the visibility of two kinds of column in front of my screen. On left-hand side column, it contains all of the column names.
+which contain… which are there in your Excel files. On the right-hand side column, there is a TeliCRM lead field column, which we need to map along with our Excel column, so that respective data gets transported into the corresponding lead fields.
+It's a matter of fact. It will give you a prompt right here that you can quickly change it and or get your data management sorted right from the very first step.
+If I see that there are no errors in my Excel file, so I'll continue to proceed with 37 leads. Now comes the option to create the campaigns. So campaigns are not anything, just a targeted calling list that you can create here, segment your leads based on the uploads.
+or any kind of condition that you want to give. I've given random name to create the campaign. I'll go to next. Now comes my most important part. That is my lead distribution through my Vexel Appro.
+Now, once I come into this part, all of the salesperson added in my workspace will have the visibility.
+I want to send more leads to some other caller or less number of leads to some other caller. So in that case, what I'll do is I'll click on the change percentage button.
+Let's suppose Mirza from my team should receive 35 percent of the leads and Rahul from my team should only receive 15 percent of the leads. I can do so. So entirely changeable, entirely customizable proportion of the leads you can do. I've done that. Click on the distribute leads and finally upload.
+That's how simple, quick steps are there to just transform you from your boring or Excel sheets or Google files to Telly CRM's intelligent system.
+Now, if I refresh my Delhi CRM, you'll be able to see all of the leads data available. So, what does this mean is, if I come into the filters, all leads, I will have all of the lead data uploaded here. So, if I open any lead that is for Tarakesh here.
+For example, I can see their name, the lead stage that they are currently on, and along with their phone numbers. And these are all the operations that we can do. Now, entire lead stages and lead fields can be customized according to your requirement.
+TeleCRM Host
+16:10:42
+Whatever funnel you follow, whatever lead fields or data you want to, uh, like, store for your clients, everything is customizable.
+The entire lead flow will be done in automation in real time, and also automatically assigned to the concerned teleperson.
+So, lead distribution through these sources are given by default as a round-robin basis, but we also have the support of conditional base lead assignment as well. So, if you have a product-wise bifurcation, or segmenting on the demograph, or whatsoever reason you might follow.
+you will have those. So, currently, Teli CRM has direct integration from Facebook, website, 99 Acres, ScholarDesk, Google Meet, Google Sheet, Housing, India Mart, Just Right, Nolarity, Magic Breaks, MaxSum, MCube, Razorpay, Shiksha, Shopify, Sulekha, Tata Delhi, Teli CMI, Trade India, Whats.
+Xiaomi 24115RA8EI
+16:11:57
+I don't know.
+TeleCRM Host
+16:12:14
+WhatsApp, Cloud API, WooCommerce, and WordP.
+So you see that more than 25 first-class integrations are available. Now, if you don't see your own portal right here from where you are importing the leads or want to automate the lead flow, don't worry. We got you there as well. So TeleCRM supports open APIs.
+Which basically means you can connect any kind of portal here with TeliCRM, as far as those portal supports APIs.
+And we will be able to do so to automate your lead flow.
+That's how we bring your entire lead sources clumped under one house of Telly CRM. You don't have to juggle around every other portal to fetch the leads and even see the data and then start calling them. You don't have to do that. Just one case for everything.
+Now that we have imported the leads, how do we call on those leads?
+Now, in order to show you this kind of functionality, let me do one thing. Let me join through the mobile phone itself.
+Xiaomi 24115RA8EI
+16:13:09
+You guys are gonna open that up.
+TeleCRM Host
+16:13:13
+So that you have the visibility, how does the calling functionality works here? So I'm stop sharing my PC screen, and just quickly sharing my Copilot screen. Just hold on for a moment, guys.
+Som
+16:13:39
+Hi, guys. Siddharth, are you there?
+TeleCRM Host
+16:13:47
+Okay, guys, uh, can you please, uh, confirm that if you can see my mobile device's screen or not?
+JAMES KERKETTA
+16:13:54
+Yes, we can see your mobile number.
+Som
+16:13:55
+Yeah, I can see.
+TeleCRM Host
+16:14:19
+Stored all of your information, the people who have filled out my form.
+Som
+16:14:24
+Thank you.
+Thank you.
+TeleCRM Host
+16:14:30
+Let me open that very quickly.
+Yes, there is some network connectivity issue. Let me join through the Wi-Fi device of my phone.
+Okay, so over here, now you will have the visibility of all the 6 people who have filled out my form.
+Now, you can understand that how seamless my integration is with my mobile app. Every data that gets flown in DailyCRM, you will be able to access that through the mobile device itself.
+You don't need to open the web app and also see the data, but it can be done through the mobile app itself.
+Now, there is another use case for this. So, let's suppose your telecaller only wants to work with the mobile phone, and does not have the access to the PC. So, they can stand alone work with these devices, right? Because all of the data can be seen here.
+Now, to also confirm this, uh, let's have a little activity. So, anyone from these 6 responses who is available to take my call?
+Just a demo call which I'll be performing.
+Anyone?
+Vedanti Academy
+16:16:07
+Yes, yes, you can go ahead.
+TeleCRM Host
+16:16:09
+Uh, can you please let me know your name from which you have filled out the form?
+Vedanti Academy
+16:16:12
+What's that poem?
+TeleCRM Host
+16:16:15
+Thank you, Mr. Prasad. So, if I open your lead over here in my phone, I can see your name, the lead estate that you're currently on, and all of the lead details that you have come for.
+Vedanti Academy
+16:16:17
+Fine.
+TeleCRM Host
+16:16:26
+Right, as soon as your lead was filled. Now, if I come under, uh… below, you see this certain kind of action buttons available. So, I'll be clicking on this call button, select my own SIM card to initiate the call, and automatically, the call will land on your number through my SIM card.
+And one more interesting aspect, you see that this is dialing with my SIM card, but I have not saved your number. So, which saves me a lot of time in order to connect with my client. You might have received my call, can you please pick up that?
+Vedanti Academy
+16:16:51
+Yeah, I don't know.
+Yes, I received it.
+Hello.
+TeleCRM Host
+16:17:00
+Hello. Hi, Mr. Prasad, can you hear me through the phone?
+Vedanti Academy
+16:17:01
+Hello. Yes, I can hear you.
+TeleCRM Host
+16:17:04
+Thank you so much for the, uh, volunteering for this activity. If it was a demo call, we can keep the phone.
+Vedanti Academy
+16:17:05
+We stopped playing considerable time without yet a whole month.
+All right, thank you.
+Why, I'm not muted, buddy.
+TeleCRM Host
+16:17:12
+So, guys, you saw that how seamlessly I placed the call. It was an outbound call, which I placed on Mr. Prasad's lead. Now, if I scroll down a bit under my activity history, now you can see that this call was automatically tracked, and even entire duration came for 13 seconds.
+Vedanti Academy
+16:17:14
+No.
+Yeah.
+Uh, no, they don't reject anything.
+For 9 grand.
+No.
+Be good.
+Do we now have a new rule?
+Hey, I'm Marlene.
+TeleCRM Host
+16:17:30
+Initiated at 4.16 PM, Thursday, 16th of April, 2026. Call feedback has also been selected as a connected call automatically. I just need to put the calling feedback note if I want to add for the individual calls that I'll be having. For example, let's…
+Vedanti Academy
+16:17:30
+Pause me.
+Thank you.
+I don't know. I don't know.
+Okay, thank you very much.
+TeleCRM Host
+16:17:46
+Right, as a demo call.
+Vedanti Academy
+16:17:47
+Depending on the movie.
+TeleCRM Host
+16:17:49
+And I put that. Now, this will work as a reference if I'll go on, uh, having another, uh, lead or the calls.
+Vedanti Academy
+16:17:50
+You can have a moment here.
+Mm-hmm.
+Padmapriya
+16:17:54
+Please organize.
+Vedanti Academy
+16:17:54
+Limpu, Argyle area, Berkeley.
+TeleCRM Host
+16:17:58
+That I'll be having.
+For the reference.
+Also.
+Like, if you could see that, there is a speaker icon available there. So if I click on that, this means that my entire telephonic conversation was recorded.
+And doesn't matter if it is outbound call, inbound call, missed calls, everything is being tracked here. And for the outbound and inbound connected calls, TeleCRM will be able to give you the call recordings automatically from your device itself.
+But this is a conditional feature, which means your entire devices that you use for the calling should support automatic call recording. If yes, then certainly you will be receiving every kind of call recording which is being there in Tilly CRM, and it will also be stored forever.
+You don't need to worry about for how long it will be stored or whatsoever. Forever unlimited everything.
+Moving on, let's consider a situation that…
+I called Mr. Pawar, but he says that, uh, he's not available to take my call, can you please call him after 5 minutes? So, in order to create the reminder for me, I have the task option here, go to the call follow-up, create custom date and time.
+And I can select any particular date or time to call Mr. Pawar, and also…
+I will get the reminder from TeleCRM itself in order to make the call.
+So, let's just put that for next 5 minutes. I can put the reminder note as well, like a…
+demo reminder, and I can create it. Now, once this task has been created, TeleCRM will give me a reminder pop-up on my mobile app, on my web app, as well as through push notifications as well.
+that I have put there as a demo reminder. I can click on this take button, and automatically the call will start dialing. So that's how your follow-up management is being taken place in DailyCRM.
+Now, after that, after having the telephonic conversation, if I wish to send the WhatsApp to Mr. Prasad.
+Directly from daily CRM, how would I do that?
+So, I can just quickly come here under the WhatsApp button. Either I can write any kind of custom message, like…
+Hello? Or I can create multiple one-click templates right here in Teli CRM, and for easy access, copy my content, like an intro message, and I can just press the send button to send it.
+Now, once I do this, Teli CRM will automatically redirect me to the WhatsApp chat of Mr. Prasad.
+automatically type the content for me, and I just need to press the send button.
+Now, Mr. Prasad, you might have received my WhatsApp message as well. Can you please reply to it by anything?
+Just to confirm.
+Vedanti Academy
+16:21:13
+I'm checking your message.
+TeleCRM Host
+16:21:17
+Sure, please do.
+Vedanti Academy
+16:21:18
+Would you do that in your office?
+Thank you so much.
+Thank you, bye.
+We'll do anything.
+Darren, also, how can I help you on that?
+Why you're the only woman?
+Okay.
+One, two.
+One. Yeah.
+TeleCRM Host
+16:21:40
+Okay, so we have received the reply of Mr. Prasad, saying, great.
+Vedanti Academy
+16:21:45
+Is it on?
+TeleCRM Host
+16:21:46
+Now, you can realize that I got that under my activity history.
+Vedanti Academy
+16:21:47
+One, two, three, four, five.
+Thank you. What's your name?
+TeleCRM Host
+16:21:51
+Basically, what this means is TeleCRM will give you the tracking of your individual WhatsApps of your callers as well. So whatever telephonic or WhatsApp conversation is being done through your TeleGorilla, you'll be able to see and monitor that. And matter of fact, only TeleCRM in the entire industry of SaaS-based technologies can give you this functionality under one roof.
+Vedanti Academy
+16:21:52
+I'm home. I'm home.
+All right.
+All around the world.
+TeleCRM Host
+16:22:12
+And even, like, tracking of the individual WhatsApp is not provided by any platform. That too, this much seamless. Like, you can see that as soon as Mr. Prasad has replied with any kind of message, I have got that response recorded here.
+That seamless experience or that beautiful experience make you use tiny CRM for your process to make your entire process efficient.
+That's what the motive is for to Delhi CRM, that is, selling to serve.
+Now, I hope that every functionality or the basic functionalities of the mobile app has been understood, so I'll just stop sharing my mobile phone's screen, and let me jump back to my…
+PC screen once again, let me just stop sharing.
+you'll be working with your leads, right? How do I see those reports? If my telecallers are working or not? What kind of calls have they made? And what is… if you want to track them live, right from wherever you are, how does that seem? So.
+Let me show you the reporting that is provided with Delhi CRM. So, this is my sales workspace of Delhi CRM. Over here, I can go to the automation, uh, reports, and go to the leaderboard.
+As far as leaderboards are concerned, you can see that this is the stats of my entire sales team. So my entire sales team since morning has done 503 calls cumulatively. Total number of duration for my entire team has been 6 hours, 11 minutes, and total sales brought is of 2 lakh rupees.
+Reports that you can fetch for any particular day, week, month, or even year. Even if you want to find the hourly calling report, you can just switch to the chart view and you'll be able to see the numbers, like what number of calls were made.
+at what particular hour. And this data can be seen for the entire team, or individual callers as well.
+Now the reporting is not just limited to this live call tracking. We give you lead analytics as well. Basically the business intelligence kind of reporting right from the data of your CRM. So how does that happen? I'll go to the filters, all leads.
+And now, from all leads, I will give a filter condition of all the leads that are created this month.
+So I'll go to the leads created on filter, and select the this filter, not week, but month.
+Now, it has filtered out my data out of all the leads, like 943 leads is what we have generated for this one.
+What I'll do is I'll switch to the smart view over here. And for the basis of lead status, I will have the visibility in the form of charts. So basically I will have the tally, like what number of leads are on fresh or an RNR or whatsoever stages that you have created.
+And along with their percentages of the proportion as well. I can even group this data with second condition like assignee wise, for example, if I want to figure out what number of leads are on what stages for what people.
+along with their percentages, so that you have the entire data available for the reporting. And this will help you to take better business decisions. And it is not just limited for the statuses. You can even figure out the lost reasons.
+The assignee details, like what number of leads got assigned to whom, the call status, like what number of leads are untouched, how many are attempted, connected, number of calls, or even giving your custom conditions like a lead source.
+to figure out what number of leads got created from which type of source.
+So that's how seamless experience you'll be getting. And if you don't want to see in the form of bar chart, you can switch to the tabular view, where you see the details in the form of numbers. Even you can view the data in the form of pie charts as well. And this entire chart can be exported in the form of.
+Excel files for your internal team reporting, or export this entire chart as an image as well.
+TeleCRM Host
+16:27:15
+Right. So that's how seamless reporting works in Delhi CRM. And again, just to mention, so far we have sorted your lead procurement, your lead engagement, be it calls, be it WhatsApp, and now I'll be talking about the WhatsApp API as well.
+So, WhatsApp API. Now, guys, remember the activity which I did in the initial part of the session? Like, dropping the bulk broadcasting on all of the leads received through the form. How was I able to do that?
+That functionality was done with the help of WhatsApp API. So with Delhi CRM, you get official WhatsApp API. And by official, what do I mean is, your entire WhatsApp API is being set up on your own business portfolio, not on Delhi CRM. And what advantages does it have is.
+You don't have to pay anything to TeleCRM in order to use WhatsApp API.
+Your entire conversational charges or the number of messages or bulk broadcasting that you'll be doing, you'll have to pay directly to the Meta's platform through your own business portfolio with full transparency, which also means Telly CRM does not have any kind of markup.
+or credit buying system here in Delhi CRM, you can just go up and save a lot of cost, create beautiful chatbots.
+sequence your messages, automate your replies, and create unlimited automations right here in TVCRM.
+How does that WhatsApp API looks in CRM? Let me give you a small tour of that as well. So, I go to this WhatsApp chat button. Over here, I see all of the chats that has been done with the one centralized number of my WhatsApp API.
+I can segregate on the basis of people who are pending to be replied, people who have intervened between my messages, I can filter out based on any condition, even I can see the bulk broadcasting reports as well.
+So if I come here under the broadcast that I have done, I will have the visibility of bulk broadcast, which I initiated in the initial part of the session.
+Over here, I see that this broadcast was run on 6 leads.
+And if I click on the delivery report, I can already see that two people have already read my messages. If I click on the replies report, I can see that I have got the response on all of the three buttons that I have. If I want to figure out who is the person who has clicked on the C pricing.
+button, I'll be clicking on this drop-down, and I can say this, uh, lead, uh, the person from FZ Fitness Factory clicked on our pricing, even back to menu, see more, and all of the details, and you can see the response.
+Som
+16:29:56
+Please, uh, distill the pie.
+TeleCRM Host
+16:30:02
+So yeah, every kind of activity that we are performing on any kind of lead is visible for you under the same lead history.
+With regard to reporting as well, all under one roof, managed by a single place.
+Now, talking about the pricing plans…
+TeleCRM just have one single product, that is my core CRM, which covers all of the features and functionalities in my CRM that I've demonstrated, like the Excel upload, one-click dialer, call recording, follow-ups, reports, automation, schedules, everything.
+And the pricing billing structure goes in two ways, quarterly or annually. In quarterly, the users are charged at 1099 rupees per user per month. On annual basis, the users are charged at 799 rupees per user per month.
+And on top of that, 18% GST will be applicable, which is standard across all of the plans. Now, we do certainly have two add-ons as well. First add-on is the WhatsApp chat synchronization, which basically means, like, the activity which I did with Mr. Prasad.
+of one triple nine rupees to tell ACR and post that your entire conversational charges goes to Meta directly.
+15 days of your onboarding session. If you don't found TeleCRM to be useful for your business, or anything that is not working as intended, you can get your 100% amount refunded.
+Back to your source, with just one audit call.
+Expert in your domain.
+be it lead fields, stages, or any kind of automation is what you require. Your account manager will get it done so.
+And the same support group which we provide you for the communication will not just be limited till your onboarding session, but till your entire usage of TeleCRM. So in TeleCRM, we don't have charges like anything in the name of implementation charges.
+or additional support charges. The same WhatsApp support group remains active from 10am till 7pm all across the week, except Sundays.
+So, you can just drop your queries there, your account manager and my support team will be there to answer you, and those guys respond within 30 minutes, because that is what the TAT is for. The TAT is for 30 minutes, within 30 minutes your queries gets responded, and also resolved.
+once we are in the work. So that's how we utilize the entire functionality of TeleCRM and also get most amount of ROI that is return on your investment that you will be making with your TeleCRM.
+And with this efficient sales system or post sales system, you'll be able to grow your business eventually at a very faster rate. And to also assure you, we also received the testimonial from some of our bigger giants.
+In the industry, like, okay, we have the testimonial from Extreme Normal from Byju's, who was their CRM head, Sachin Tyagi from Domino's, Tushar Kale from Xbox, Esteban from The Art of Living, and even Sael Cheda from the Gibi Education, and Amit Jha from the StageOTG platform as well.
+And we do have received several other testimonials as well from a lot of clients how TeleCRM was helpful for them.
+TeleCRM Host
+16:35:03
+So with that said, we are at the end of our demonstration. Now I'll be opening this panel for the Q&A discussion. So any kind of doubts or queries that you guys have in your mind, you can just unmute yourself, ask me right now, and I'll be happy to answer all of your queries.
+Sahil Gupta
+16:35:22
+Are there Excel exports or something like that, or, like, a report kind of thing?
+Som
+16:35:22
+Yeah, so…
+TeleCRM Host
+16:35:27
+Exactly! I've already said that you can even export your entire calling data, your leads data, or even the activity reports in the form of Excel files.
+Sahil Gupta
+16:35:37
+Can you show how it will look?
+TeleCRM Host
+16:35:39
+Definitely.
+So, if I come to the demo workspace…
+Yep.
+Let me open the demo workspace, matter of fact, I come to all leads. Now, it is where I want to download the activity report. Let's suppose I want to download the calling report. So what I'll do is, I'll go to the more option, export activity report.
+And over here, I need to create a configuration first. Like, for a one-time thing, for which I want to configure my reporting. Now, you have to select what kind of report you want to fetch. Is it the call action? Is it the WhatsApp action? Field change? Status change? Lead reassignment? User note? Payment action? System note? Or whatsoever.
+If calling action is what I want to fetch, I'll go next. What all are the details that I want to include in my report? That is called on, that is receiver's number, call start time, what was the call type, like whether it was inbound or outbound, the duration, what was the call feedback, if there is any calling feedback.
+note, and who was the caller. Along with that, I can even select when was the first attempted mate, like, I attempted the call, but not call was connected, and then when was the first successful contact.
+I can go next.
+Now I want to select more of the details in my report of the leads, like I want to fetch on what stage that lead was on, who is the assignee, what is the lead name, what is their phone number, in what product they are interested in, and then you get the idea.
+Now I'll go to next.
+Next again. And now it will ask me to put the configuration name. So let me write it here as a demo. Demo.
+And I just save it. Now, once I save, I can click on the download report button. It will already generate my report. I'll go to the report section.
+go to the report download. Over here, it is pending to be done, it is generating the report. Now, once done, you'll be able to download that. So, I have downloaded.
+Another report that I could show you right now.
+That previously I downloaded. So, it is how your reporting will be looking.
+In the form of Excel files. So this is the WhatsApp report that I fetched. Like, you can see what kind of WhatsApp, what was the message text, and what is their campaign name, who is the action taker, and all of those sort of details.
+I hope this answers your question.
+himanshusakhare
+16:38:16
+Yeah, uh, just wanted to know whether you can, like, connect with Meta's conversion API?
+TeleCRM Host
+16:38:24
+Definitely. That's a very good question. So conversion APIs is what TeleCRM supports natively.
+himanshusakhare
+16:38:26
+Oh.
+TeleCRM Host
+16:38:32
+So you don't have to rely on any kind of third-party platform like Pabbly's or Zapier's of the world to get the conversion APIs done. And it can be done through on the Facebook, that is Meta's, or even Google's as well.
+himanshusakhare
+16:38:47
+Got it.
+Harshal Rathi
+16:38:51
+So, I own a hospital, and I get multiple calls, and many times the patients, like, the reception is stuck easy on other calls, then they're on waiting. So, is there any solution? I missed the few first minutes of your demo.
+TeleCRM Host
+16:38:56
+Mm-hmm.
+Harshal Rathi
+16:39:07
+So, is there any solution for that? Like, will the waiting patients be rerouted to the other phone number, or to the other receptionist, or the… like, something like that?
+TeleCRM Host
+16:39:08
+Mmhm.
+So yeah, definitely that can be done. But for that to happen, you require a cloud telephony platform, right? We also give you that solution as well, but it will be charged add on on top of the CRM. So definitely it can work.
+Harshal Rathi
+16:39:31
+So, can I know the details? Like, can you share the details later, or right now?
+TeleCRM Host
+16:39:34
+Definitely. So, what I'll do, Hermes Archer, I'll ask your dedicated sales manager to get in touch with you post this session. Please pick up their calls, and you can ask them the details about it.
+Harshal Rathi
+16:39:45
+Okay, sure. Thank you.
+ajay
+16:39:46
+Yeah.
+TeleCRM Host
+16:39:46
+Yeah, anytime.
+Vedanti Academy
+16:39:48
+OK, so can I have — can you have my question, please? Not available. OK, so Evan.
+TeleCRM Host
+16:39:51
+Sure, sure, please go ahead.
+Vedanti Academy
+16:39:55
+an institute of cooperative examination, and I've seen that you did it so for by choose, and.
+TeleCRM Host
+16:39:58
+Uh-huh.
+Correct. Correct.
+Vedanti Academy
+16:40:02
+Okay, so I want some kind of customization.
+for my institute to work, because what he has shown over here was the the general approach. I need someone from your team to connect with me and help me understand the benefits.
+TeleCRM Host
+16:40:12
+Mmhm.
+Correct.
+Correct, correct.
+

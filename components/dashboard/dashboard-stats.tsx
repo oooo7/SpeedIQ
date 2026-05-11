@@ -17,7 +17,41 @@ interface WhatsAppOverview {
   delivery_rate: number;
 }
 
-const defaultOverview: WhatsAppOverview = {
+interface EmailOverview {
+  total_subscribers: number;
+  total_campaigns: number;
+  campaigns_completed: number;
+  emails_sent: number;
+  emails_delivered: number;
+  emails_failed: number;
+  delivery_rate: number;
+}
+
+interface SmsTotals {
+  contacts: number;
+  campaigns: number;
+  outbound_messages: number;
+  delivered_messages: number;
+  failed_messages: number;
+  delivery_rate: number;
+}
+
+interface Aggregated {
+  total_contacts: number;
+  total_campaigns: number;
+  campaigns_completed: number;
+  messages_sent: number;
+  messages_delivered: number;
+  messages_failed: number;
+  delivery_rate: number;
+  breakdown: {
+    whatsapp: { contacts: number; messages: number };
+    email: { contacts: number; messages: number };
+    sms: { contacts: number; messages: number };
+  };
+}
+
+const defaultAggregated: Aggregated = {
   total_contacts: 0,
   total_campaigns: 0,
   campaigns_completed: 0,
@@ -25,55 +59,116 @@ const defaultOverview: WhatsAppOverview = {
   messages_delivered: 0,
   messages_failed: 0,
   delivery_rate: 0,
+  breakdown: {
+    whatsapp: { contacts: 0, messages: 0 },
+    email: { contacts: 0, messages: 0 },
+    sms: { contacts: 0, messages: 0 },
+  },
 };
 
 const statCards = [
   {
     key: "contacts",
     label: "Total contacts",
-    sublabel: (o: WhatsAppOverview) => "In your audience",
-    value: (o: WhatsAppOverview) => o.total_contacts,
+    sublabel: (o: Aggregated) =>
+      `WA ${o.breakdown.whatsapp.contacts} · Email ${o.breakdown.email.contacts} · SMS ${o.breakdown.sms.contacts}`,
+    value: (o: Aggregated) => o.total_contacts.toLocaleString(),
     icon: Users,
   },
   {
     key: "campaigns",
     label: "Campaigns",
-    sublabel: (o: WhatsAppOverview) => `${o.campaigns_completed} completed`,
-    value: (o: WhatsAppOverview) => o.total_campaigns,
+    sublabel: (o: Aggregated) => `${o.campaigns_completed} completed`,
+    value: (o: Aggregated) => o.total_campaigns.toLocaleString(),
     icon: Megaphone,
   },
   {
     key: "messages",
     label: "Messages sent",
-    sublabel: (o: WhatsAppOverview) =>
+    sublabel: (o: Aggregated) =>
       o.messages_sent > 0
-        ? `${o.messages_delivered} delivered${o.messages_failed > 0 ? ` · ${o.messages_failed} failed` : ""}`
+        ? `${o.messages_delivered.toLocaleString()} delivered${o.messages_failed > 0 ? ` · ${o.messages_failed.toLocaleString()} failed` : ""}`
         : "No messages yet",
-    value: (o: WhatsAppOverview) => o.messages_sent,
+    value: (o: Aggregated) => o.messages_sent.toLocaleString(),
     icon: MessageSquare,
   },
   {
     key: "delivery",
     label: "Delivery rate",
-    sublabel: () => "Of sent messages",
-    value: (o: WhatsAppOverview) => `${o.delivery_rate}%`,
+    sublabel: () => "Across all channels",
+    value: (o: Aggregated) => `${o.delivery_rate}%`,
     icon: Percent,
   },
 ];
 
+async function fetchJsonSafe<T>(url: string): Promise<T | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
 export function DashboardStats() {
   const { activeProject } = useProjectContext();
-  const [overview, setOverview] = useState<WhatsAppOverview | null>(null);
+  const [overview, setOverview] = useState<Aggregated | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchOverview = useCallback(async () => {
     if (!activeProject?.id) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/analytics`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to load");
-      setOverview(data.overview ?? null);
+      const [waRes, emailRes, smsRes] = await Promise.all([
+        fetchJsonSafe<{ overview: WhatsAppOverview }>(
+          `/api/projects/${activeProject.id}/whatsapp/analytics`
+        ),
+        fetchJsonSafe<{ overview: EmailOverview }>(
+          `/api/projects/${activeProject.id}/email/analytics`
+        ),
+        fetchJsonSafe<{ totals: SmsTotals }>(
+          `/api/projects/${activeProject.id}/sms/analytics`
+        ),
+      ]);
+
+      const wa = waRes?.overview;
+      const em = emailRes?.overview;
+      const sm = smsRes?.totals;
+
+      const waSent = wa?.messages_sent ?? 0;
+      const emSent = em?.emails_sent ?? 0;
+      const smSent = sm?.outbound_messages ?? 0;
+      const totalSent = waSent + emSent + smSent;
+
+      const waDelivered = wa?.messages_delivered ?? 0;
+      const emDelivered = em?.emails_delivered ?? 0;
+      const smDelivered = sm?.delivered_messages ?? 0;
+      const totalDelivered = waDelivered + emDelivered + smDelivered;
+
+      const totalFailed =
+        (wa?.messages_failed ?? 0) + (em?.emails_failed ?? 0) + (sm?.failed_messages ?? 0);
+
+      const waContacts = wa?.total_contacts ?? 0;
+      const emContacts = em?.total_subscribers ?? 0;
+      const smContacts = sm?.contacts ?? 0;
+
+      setOverview({
+        total_contacts: waContacts + emContacts + smContacts,
+        total_campaigns:
+          (wa?.total_campaigns ?? 0) + (em?.total_campaigns ?? 0) + (sm?.campaigns ?? 0),
+        campaigns_completed:
+          (wa?.campaigns_completed ?? 0) + (em?.campaigns_completed ?? 0),
+        messages_sent: totalSent,
+        messages_delivered: totalDelivered,
+        messages_failed: totalFailed,
+        delivery_rate: totalSent > 0 ? Math.round((totalDelivered / totalSent) * 100) : 0,
+        breakdown: {
+          whatsapp: { contacts: waContacts, messages: waSent },
+          email: { contacts: emContacts, messages: emSent },
+          sms: { contacts: smContacts, messages: smSent },
+        },
+      });
     } catch {
       setOverview(null);
     } finally {
@@ -108,7 +203,7 @@ export function DashboardStats() {
     );
   }
 
-  const o = overview ?? defaultOverview;
+  const o = overview ?? defaultAggregated;
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -128,7 +223,7 @@ export function DashboardStats() {
                   <p className="text-2xl font-medium tabular-nums mt-2 text-foreground">
                     {stat.value(o)}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-xs text-muted-foreground mt-1 truncate">
                     {stat.sublabel(o)}
                   </p>
                 </div>

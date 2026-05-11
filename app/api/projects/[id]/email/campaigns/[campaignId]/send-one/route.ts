@@ -86,7 +86,7 @@ export async function POST(
 
   const { data: subscriber } = await supabase
     .from("email_subscribers")
-    .select("email, name")
+    .select("email, name, status")
     .eq("id", subscriber_id)
     .single();
 
@@ -96,6 +96,15 @@ export async function POST(
       .update({ status: "failed", error_message: "no_email" })
       .eq("id", recipient.id);
     return NextResponse.json({ success: false, error: "Subscriber has no email" }, { status: 400 });
+  }
+
+  if (subscriber.status === "unsubscribed" || subscriber.status === "bounced") {
+    await supabase
+      .from("email_campaign_recipients")
+      .update({ status: "failed", error_message: subscriber.status })
+      .eq("id", recipient.id);
+    await markCampaignDoneIfNoPending(supabase, campaignId);
+    return NextResponse.json({ success: false, error: `Subscriber has ${subscriber.status}` }, { status: 400 });
   }
 
   const unsubscribeUrl = getUnsubscribeUrl(campaign.project_id, subscriber_id);
@@ -139,12 +148,14 @@ async function markCampaignDoneIfNoPending(
     .eq("campaign_id", campaignId)
     .eq("status", "pending");
   if ((pendingCount ?? 0) > 0) return;
-  const { count: failedCount } = await supabase
-    .from("email_campaign_recipients")
-    .select("id", { count: "exact", head: true })
-    .eq("campaign_id", campaignId)
-    .eq("status", "failed");
-  const finalStatus = (failedCount ?? 0) > 0 ? "failed" : "completed";
+  const [{ count: sentCount }, { count: failedCount }] = await Promise.all([
+    supabase.from("email_campaign_recipients").select("id", { count: "exact", head: true })
+      .eq("campaign_id", campaignId).eq("status", "sent"),
+    supabase.from("email_campaign_recipients").select("id", { count: "exact", head: true })
+      .eq("campaign_id", campaignId).eq("status", "failed"),
+  ]);
+  // "failed" only when every recipient failed — otherwise "completed" (some may have failed)
+  const finalStatus = (sentCount ?? 0) === 0 && (failedCount ?? 0) > 0 ? "failed" : "completed";
   const now = new Date().toISOString();
   await supabase
     .from("email_campaigns")

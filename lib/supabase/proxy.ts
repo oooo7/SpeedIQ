@@ -4,8 +4,18 @@ import { hasEnvVars } from "../utils";
 import { ACTIVE_PROJECT_COOKIE } from "@/lib/projects/constants";
 
 export async function updateSession(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  const withPathnameHeaders = () => {
+    const h = new Headers(request.headers);
+    h.set("x-pathname", pathname);
+    return h;
+  };
+
   let supabaseResponse = NextResponse.next({
-    request,
+    request: {
+      headers: withPathnameHeaders(),
+    },
   });
 
   // If the env vars are not set, skip proxy check. You can remove this
@@ -29,7 +39,9 @@ export async function updateSession(request: NextRequest) {
             request.cookies.set(name, value),
           );
           supabaseResponse = NextResponse.next({
-            request,
+            request: {
+              headers: withPathnameHeaders(),
+            },
           });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
@@ -48,8 +60,6 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims;
 
-  const pathname = request.nextUrl.pathname;
-
   // Webhooks (e.g. WhatsApp) are called by external services without a user session
   if (pathname.startsWith("/api/webhooks")) {
     return supabaseResponse;
@@ -60,12 +70,26 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
-  if (
-    pathname !== "/" &&
-    !user &&
-    !pathname.startsWith("/login") &&
-    !pathname.startsWith("/auth")
-  ) {
+  const PUBLIC_PREFIXES = [
+    "/auth",
+    "/login",
+    "/features",
+    "/pricing",
+    "/compare",
+    "/use-cases",
+    "/legal",
+    "/invite",
+    "/unsubscribe",
+    "/api/unsubscribe",
+    "/sitemap.xml",
+    "/robots.txt",
+  ];
+
+  const isPublicPath =
+    pathname === "/" ||
+    PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+
+  if (!user && !isPublicPath) {
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";

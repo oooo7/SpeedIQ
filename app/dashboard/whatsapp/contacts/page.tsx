@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, MoreVertical, Plus, Trash2, Upload, Users, X } from "lucide-react";
+import { AlertTriangle, Loader2, MoreVertical, Plus, Trash2, Upload, Users, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { useProjectContext } from "@/lib/projects/project-context";
+import { isValidPhone } from "@/lib/whatsapp/phone";
 
 interface ContactTag {
   id: string;
@@ -362,7 +363,16 @@ export default function WhatsAppContactsPage() {
                     key={c.id}
                     className="border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-900/30"
                   >
-                    <td className="p-3">{c.phone}</td>
+                    <td className="p-3">
+                      <div className="flex items-center gap-1.5">
+                        <span>{c.phone}</span>
+                        {!isValidPhone(c.phone) && (
+                          <span title="Invalid phone number — missing country code or wrong format">
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="p-3">{c.name ?? "—"}</td>
                     <td className="p-3">{c.email ?? "—"}</td>
                     <td className="p-3">

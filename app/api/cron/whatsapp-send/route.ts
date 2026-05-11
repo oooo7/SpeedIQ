@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
+import { whatsappCost } from "@/lib/billing/cost";
+import { deductCredits, grantCredits, recordUsageEvent } from "@/lib/billing/credits";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getVariableValuesForContact, getWhatsAppAccountToken, sendTemplateMessage } from "@/lib/whatsapp/api";
+import { isValidPhone } from "@/lib/whatsapp/phone";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const THROTTLE_MS = 15;
@@ -76,6 +79,7 @@ export async function GET(request: Request) {
 
     let templateName: string;
     let templateLanguage: string;
+    let templateCategory: string | null = null;
     let fallbackVariables: string[] = [];
     let mapping: string[] | null = null;
     let hasVariables = false;
@@ -83,10 +87,11 @@ export async function GET(request: Request) {
     if (useHelloWorld) {
       templateName = "hello_world";
       templateLanguage = "en";
+      templateCategory = "utility";
     } else {
       const { data: template } = await supabase
         .from("whatsapp_templates")
-        .select("name, language, status, variables, variable_field_mapping")
+        .select("name, language, status, variables, variable_field_mapping, category")
         .eq("id", campaign.template_id)
         .single();
 
@@ -99,6 +104,7 @@ export async function GET(request: Request) {
       }
       templateName = template.name;
       templateLanguage = template.language ?? "en";
+      templateCategory = (template as { category?: string | null }).category ?? null;
       fallbackVariables =
         Array.isArray(template.variables) && template.variables.length > 0
           ? (template.variables as string[]).map(String)
@@ -108,6 +114,11 @@ export async function GET(request: Request) {
         : null;
       hasVariables = fallbackVariables.length > 0 || !!(mapping && mapping.length > 0);
     }
+
+    const { credits: waCredits, type: waMessageType } = whatsappCost({
+      category: templateCategory,
+      useHelloWorld,
+    });
 
     const { data: recipients } = await supabase
       .from("whatsapp_campaign_recipients")
@@ -134,6 +145,14 @@ export async function GET(request: Request) {
         totalFailed++;
         continue;
       }
+      if (!isValidPhone(phone)) {
+        await supabase
+          .from("whatsapp_campaign_recipients")
+          .update({ status: "failed", error_code: "invalid_phone", retry_count: nextRetryCount })
+          .eq("id", rec.id);
+        totalFailed++;
+        continue;
+      }
       if (contact?.opt_out) {
         await supabase
           .from("whatsapp_campaign_recipients")
@@ -150,6 +169,28 @@ export async function GET(request: Request) {
             fallbackVariables
           )
         : undefined;
+
+      const balanceAfter = await deductCredits({
+        client: supabase,
+        projectId: campaign.project_id,
+        amount: waCredits,
+        reason: "whatsapp_send",
+        refType: "whatsapp_campaign_recipient",
+        refId: rec.id,
+        metadata: { campaign_id: campaign.id, message_type: waMessageType },
+      });
+      if (balanceAfter === null) {
+        await supabase
+          .from("whatsapp_campaign_recipients")
+          .update({
+            status: "failed",
+            error_code: "insufficient_credits",
+            retry_count: nextRetryCount,
+          })
+          .eq("id", rec.id);
+        totalFailed++;
+        continue;
+      }
 
       const result = await sendTemplateMessage(
         creds.access_token,
@@ -172,17 +213,62 @@ export async function GET(request: Request) {
             retry_count: nextRetryCount,
           })
           .eq("id", rec.id);
+        // Refund credits — user shouldn't pay for a provider-side failure.
+        await grantCredits({
+          client: supabase,
+          projectId: campaign.project_id,
+          amount: waCredits,
+          reason: "refund",
+          refType: "whatsapp_campaign_recipient",
+          refId: rec.id,
+          metadata: { reason: "send_failed" },
+        });
         totalFailed++;
       } else {
-        await supabase
-          .from("whatsapp_campaign_recipients")
-          .update({
-            status: "sent",
-            sent_at: new Date().toISOString(),
+        const nowIso = new Date().toISOString();
+        await Promise.all([
+          supabase
+            .from("whatsapp_campaign_recipients")
+            .update({
+              status: "sent",
+              sent_at: nowIso,
+              meta_message_id: result.message_id,
+              retry_count: nextRetryCount,
+            })
+            .eq("id", rec.id),
+          // Record in chat history so the message appears in the live chat
+          supabase.from("whatsapp_messages").insert({
+            project_id: campaign.project_id,
+            contact_id: rec.contact_id,
+            direction: "out",
+            type: "text",
+            body: `Template: ${templateName}`,
             meta_message_id: result.message_id,
-            retry_count: nextRetryCount,
-          })
-          .eq("id", rec.id);
+            status: "sent",
+          }),
+          // Ensure conversation record exists / update last_message_at
+          supabase.from("whatsapp_conversations").upsert(
+            {
+              project_id: campaign.project_id,
+              contact_id: rec.contact_id,
+              last_message_at: nowIso,
+              updated_at: nowIso,
+              unread_count: 0,
+            },
+            { onConflict: "project_id,contact_id", ignoreDuplicates: false }
+          ),
+          recordUsageEvent({
+            client: supabase,
+            projectId: campaign.project_id,
+            channel: "whatsapp",
+            messageType: waMessageType,
+            recipientId: rec.contact_id,
+            campaignId: campaign.id,
+            creditsCharged: waCredits,
+            providerMessageId: result.message_id,
+            status: "sent",
+          }),
+        ]);
         totalSent++;
       }
 

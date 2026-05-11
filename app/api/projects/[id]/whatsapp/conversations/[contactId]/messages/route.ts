@@ -136,8 +136,11 @@ export async function POST(
       { wabaId: creds.waba_id }
     );
     if ("error" in result) {
+      const code = result.error.code;
+      // 131047 = re-engagement message / 24h window expired even for some templates
+      const windowExpired = code === 131047 || String(code).includes("131047");
       return NextResponse.json(
-        { error: result.error.message },
+        { error: result.error.message, ...(windowExpired ? { within_24h: false } : {}) },
         { status: 400 }
       );
     }
@@ -148,7 +151,7 @@ export async function POST(
         contact_id: contactId,
         direction: "out",
         type: "text",
-        body: null,
+        body: `Template: ${template_name}`,
         meta_message_id: result.message_id,
         status: "sent",
       })
@@ -176,8 +179,11 @@ export async function POST(
       text
     );
     if ("error" in result) {
+      const code = result.error.code;
+      // 131047 = 24h window expired; surface this so the UI can flip to template-only mode
+      const windowExpired = code === 131047 || String(code).includes("131047");
       return NextResponse.json(
-        { error: result.error.message },
+        { error: result.error.message, ...(windowExpired ? { within_24h: false } : {}) },
         { status: 400 }
       );
     }

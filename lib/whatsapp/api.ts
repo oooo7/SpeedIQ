@@ -120,13 +120,20 @@ export function getFriendlyErrorMessage(message: string, code?: number): string 
   if (code === 131047 || (message && String(message).includes("131047"))) {
     return "This template isn't approved or doesn't exist for your account. Check WhatsApp Manager and use an approved template, or try \"hello_world\" for testing.";
   }
+  if (code === 132000 || (message && String(message).includes("132000"))) {
+    return "The number of variables sent doesn't match what the template expects. Re-sync your templates in Settings → Templates, then try again.";
+  }
   if (message && (message.includes("does not exist") || message.includes("missing permissions") || message.toLowerCase().includes("cannot be loaded"))) {
     return "We couldn't complete this. Check that your WhatsApp account is connected and that you're using the correct number and templates in Settings.";
   }
   if (message && message.toLowerCase().includes("rate limit")) {
     return "You're sending too many messages too quickly. Please wait a few minutes and try again.";
   }
-  return message && message.length > 0 && !message.includes("(#") ? message : "Something went wrong. Please try again.";
+  // Strip Meta's "(#XXXXX) " prefix if present so we show just the human-readable part
+  if (message && message.length > 0) {
+    return message.replace(/^\(#\d+\)\s*/, "").trim() || "Something went wrong. Please try again.";
+  }
+  return "Something went wrong. Please try again.";
 }
 
 /** Use friendly messages for send errors (template, text, media). */
@@ -434,7 +441,7 @@ export function getVariableValuesForContact(
     return "";
   }
 
-  const len = Math.max(keys.length, fallback.length, 1);
+  const len = Math.max(keys.length, fallback.length);
   const out: string[] = [];
   for (let i = 0; i < len; i++) {
     const key = keys[i];

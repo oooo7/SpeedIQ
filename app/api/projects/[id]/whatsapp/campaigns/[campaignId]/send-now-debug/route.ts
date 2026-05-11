@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getProjectRole } from "@/lib/team";
 import { getVariableValuesForContact, getWhatsAppAccountToken, sendTemplateMessage } from "@/lib/whatsapp/api";
+import { isValidPhone } from "@/lib/whatsapp/phone";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -136,7 +137,7 @@ export async function POST(
   for (const rec of list) {
     const { data: contact } = await admin
       .from("whatsapp_contacts")
-      .select("phone, name, email, custom_fields")
+      .select("phone, name, email, custom_fields, opt_out")
       .eq("id", rec.contact_id)
       .single();
 
@@ -149,6 +150,24 @@ export async function POST(
         .eq("id", rec.id);
       failed++;
       errors.push({ phone, error: "Contact has no phone number" });
+      continue;
+    }
+    if (contact.opt_out) {
+      await admin
+        .from("whatsapp_campaign_recipients")
+        .update({ status: "failed", error_code: "opt_out", retry_count: nextRetryCount })
+        .eq("id", rec.id);
+      failed++;
+      errors.push({ phone: contact.phone, error: "Contact has opted out" });
+      continue;
+    }
+    if (!isValidPhone(contact.phone)) {
+      await admin
+        .from("whatsapp_campaign_recipients")
+        .update({ status: "failed", error_code: "invalid_phone", retry_count: nextRetryCount })
+        .eq("id", rec.id);
+      failed++;
+      errors.push({ phone: contact.phone, error: "Invalid phone number — missing country code or wrong format" });
       continue;
     }
 
@@ -185,15 +204,39 @@ export async function POST(
       failed++;
       errors.push({ phone: contact.phone, error: errMsg });
     } else {
-      await admin
-        .from("whatsapp_campaign_recipients")
-        .update({
-          status: "sent",
-          sent_at: new Date().toISOString(),
+      const nowIso = new Date().toISOString();
+      await Promise.all([
+        admin
+          .from("whatsapp_campaign_recipients")
+          .update({
+            status: "sent",
+            sent_at: nowIso,
+            meta_message_id: result.message_id,
+            retry_count: nextRetryCount,
+          })
+          .eq("id", rec.id),
+        // Record in chat history so the message appears in the live chat
+        admin.from("whatsapp_messages").insert({
+          project_id: projectId,
+          contact_id: rec.contact_id,
+          direction: "out",
+          type: "text",
+          body: `Template: ${templateName}`,
           meta_message_id: result.message_id,
-          retry_count: nextRetryCount,
-        })
-        .eq("id", rec.id);
+          status: "sent",
+        }),
+        // Ensure conversation record exists / update last_message_at
+        admin.from("whatsapp_conversations").upsert(
+          {
+            project_id: projectId,
+            contact_id: rec.contact_id,
+            last_message_at: nowIso,
+            updated_at: nowIso,
+            unread_count: 0,
+          },
+          { onConflict: "project_id,contact_id", ignoreDuplicates: false }
+        ),
+      ]);
       sent++;
     }
   }

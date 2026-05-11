@@ -268,9 +268,11 @@ export default function EmailCampaignDetailPage() {
           <CardContent className="pt-0">
             <p className="text-sm font-medium">Subject: {template.subject}</p>
             {template.body_html && (
-              <div
-                className="mt-3 p-4 border border-gray-200 dark:border-gray-800 text-sm prose prose-sm dark:prose-invert max-w-none"
-                dangerouslySetInnerHTML={{ __html: template.body_html.slice(0, 500) + (template.body_html.length > 500 ? "…" : "") }}
+              <iframe
+                srcDoc={`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;font-family:sans-serif;font-size:14px}</style></head><body>${template.body_html}</body></html>`}
+                sandbox=""
+                className="mt-3 w-full h-48 border border-gray-200 dark:border-gray-800 rounded bg-white"
+                title="Template preview"
               />
             )}
           </CardContent>
