@@ -1,3 +1,4 @@
+import { BILLING_ENABLED } from "@/lib/features";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 import { getActivePlanForProject, isSendingAllowed } from "./subscription";
@@ -33,6 +34,7 @@ export async function checkPlanGate(params: {
   requireCredits?: number;
   intent?: "send" | "import_contact" | "create_campaign" | "invite_member";
 }): Promise<GateResult> {
+  if (!BILLING_ENABLED) return { allowed: true };
   const supabase: SupabaseClient = createAdminClient();
   const { subscription, plan } = await getActivePlanForProject(supabase, params.projectId);
 

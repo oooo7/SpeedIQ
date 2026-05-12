@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { CREDIT_PACKS, PLANS } from "@/lib/billing/config";
 import { getActivePlanForProject } from "@/lib/billing/subscription";
+import { BILLING_ENABLED } from "@/lib/features";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
 
@@ -9,6 +10,10 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  if (!BILLING_ENABLED) {
+    return NextResponse.json({ error: "Billing is disabled" }, { status: 404 });
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

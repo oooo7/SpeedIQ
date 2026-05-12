@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, Mail } from "lucide-react";
 
+import { LockedChannelCard } from "@/components/dashboard/locked-channel-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EMAIL_ENABLED } from "@/lib/features";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 interface EmailSettings {
@@ -24,9 +26,10 @@ interface EmailSettingsResponse {
 export function DashboardEmailCard() {
   const { activeProject } = useProjectContext();
   const [data, setData] = useState<EmailSettingsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(EMAIL_ENABLED);
 
   useEffect(() => {
+    if (!EMAIL_ENABLED) return;
     if (!activeProject?.id) {
       setLoading(false);
       return;
@@ -51,6 +54,7 @@ export function DashboardEmailCard() {
   }, [activeProject?.id]);
 
   if (!activeProject) return null;
+  if (!EMAIL_ENABLED) return <LockedChannelCard variant="email" />;
 
   if (loading) {
     return (

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { EMAIL_ENABLED } from "@/lib/features";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { processCampaignBatch } from "@/lib/email/process-campaign-batch";
 
@@ -13,6 +14,9 @@ export async function GET(request: Request) {
   const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (!CRON_SECRET || bearer !== CRON_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!EMAIL_ENABLED) {
+    return NextResponse.json({ skipped: true, reason: "email_disabled" });
   }
 
   const supabase = createAdminClient();

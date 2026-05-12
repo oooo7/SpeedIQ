@@ -3,43 +3,17 @@
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import React from "react";
+import { Command } from "lucide-react";
+
+import { APP_CONFIG } from "@/config/app-config";
 
 // ─── Logo ──────────────────────────────────────────────────────────────────
 export function SpeedIQLogo({ size = 22 }: { size?: number }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-      <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden>
-        <g stroke="var(--fg)" strokeWidth="2" strokeLinecap="round" fill="none">
-          <path d="M5 10 Q 11 4, 16 10 T 27 10">
-            <animate
-              attributeName="d"
-              values="M5 10 Q 11 4, 16 10 T 27 10;M5 10 Q 11 16, 16 10 T 27 10;M5 10 Q 11 4, 16 10 T 27 10"
-              dur="4s"
-              repeatCount="indefinite"
-            />
-          </path>
-          <path d="M5 16 Q 11 10, 16 16 T 27 16">
-            <animate
-              attributeName="d"
-              values="M5 16 Q 11 10, 16 16 T 27 16;M5 16 Q 11 22, 16 16 T 27 16;M5 16 Q 11 10, 16 16 T 27 16"
-              dur="4s"
-              repeatCount="indefinite"
-              begin="-1.3s"
-            />
-          </path>
-          <path d="M5 22 Q 11 16, 16 22 T 27 22">
-            <animate
-              attributeName="d"
-              values="M5 22 Q 11 16, 16 22 T 27 22;M5 22 Q 11 28, 16 22 T 27 22;M5 22 Q 11 16, 16 22 T 27 22"
-              dur="4s"
-              repeatCount="indefinite"
-              begin="-2.6s"
-            />
-          </path>
-        </g>
-      </svg>
+      <Command size={size} aria-hidden style={{ flex: "0 0 auto" }} />
       <span style={{ fontWeight: 600, letterSpacing: "-0.01em", fontSize: 17 }}>
-        SpeedIQ
+        {APP_CONFIG.name}
       </span>
     </span>
   );

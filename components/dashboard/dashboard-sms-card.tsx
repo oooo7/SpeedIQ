@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, Smartphone } from "lucide-react";
 
+import { LockedChannelCard } from "@/components/dashboard/locked-channel-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SMS_ENABLED } from "@/lib/features";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 interface SmsAccount {
@@ -20,10 +22,11 @@ interface SmsAccount {
 export function DashboardSmsCard() {
   const { activeProject } = useProjectContext();
   const [account, setAccount] = useState<SmsAccount | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(SMS_ENABLED);
   const [forbidden, setForbidden] = useState(false);
 
   useEffect(() => {
+    if (!SMS_ENABLED) return;
     if (!activeProject?.id) {
       setLoading(false);
       return;
@@ -53,6 +56,7 @@ export function DashboardSmsCard() {
   }, [activeProject?.id]);
 
   if (!activeProject) return null;
+  if (!SMS_ENABLED) return <LockedChannelCard variant="sms" />;
 
   if (loading) {
     return (

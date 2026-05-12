@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useState } from "react";
 
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Lock } from "lucide-react";
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -63,6 +63,10 @@ const IsComingSoon = () => (
   <span className="ml-auto bg-gray-200 dark:bg-gray-800 px-2 py-1 text-xs">Soon</span>
 );
 
+const IsLocked = () => (
+  <Lock className="ml-auto h-3.5 w-3.5 text-muted-foreground" aria-label="Locked" />
+);
+
 const NavItemExpanded = ({
   item,
   isActive,
@@ -93,7 +97,10 @@ const NavItemExpanded = ({
               {item.icon && <item.icon />}
               <span>{item.title}</span>
               {item.comingSoon && <IsComingSoon />}
-              <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+              {item.locked && <IsLocked />}
+              {!item.locked && (
+                <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+              )}
             </SidebarMenuButton>
           ) : (
             <SidebarMenuButton
@@ -106,6 +113,7 @@ const NavItemExpanded = ({
                 {item.icon && <item.icon />}
                 <span>{item.title}</span>
                 {item.comingSoon && <IsComingSoon />}
+                {item.locked && <IsLocked />}
               </Link>
             </SidebarMenuButton>
           )}
@@ -120,6 +128,7 @@ const NavItemExpanded = ({
                       {subItem.icon && <subItem.icon />}
                       <span>{subItem.title}</span>
                       {subItem.comingSoon && <IsComingSoon />}
+                      {subItem.locked && <IsLocked />}
                     </Link>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>

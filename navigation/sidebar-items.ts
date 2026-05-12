@@ -10,6 +10,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { BILLING_ENABLED, EMAIL_ENABLED, SMS_ENABLED } from "@/lib/features";
+
 export interface NavSubItem {
   title: string;
   url: string;
@@ -17,6 +19,7 @@ export interface NavSubItem {
   comingSoon?: boolean;
   newTab?: boolean;
   isNew?: boolean;
+  locked?: boolean;
 }
 
 export interface NavMainItem {
@@ -28,6 +31,7 @@ export interface NavMainItem {
   newTab?: boolean;
   isNew?: boolean;
   requiresProject?: boolean;
+  locked?: boolean;
 }
 
 export interface NavGroup {
@@ -76,48 +80,30 @@ export const sidebarItems: NavGroup[] = [
         url: "/dashboard/email",
         icon: Mail,
         requiresProject: true,
-        subItems: [
-          {
-            title: "Campaigns",
-            url: "/dashboard/email/campaigns",
-          },
-          {
-            title: "Subscribers",
-            url: "/dashboard/email/subscribers",
-          },
-          {
-            title: "Templates",
-            url: "/dashboard/email/templates",
-          },
-        ],
+        locked: !EMAIL_ENABLED,
+        subItems: EMAIL_ENABLED
+          ? [
+              { title: "Campaigns", url: "/dashboard/email/campaigns" },
+              { title: "Subscribers", url: "/dashboard/email/subscribers" },
+              { title: "Templates", url: "/dashboard/email/templates" },
+            ]
+          : undefined,
       },
       {
         title: "SMS Marketing",
         url: "/dashboard/sms",
         icon: MessageSquareText,
         requiresProject: true,
-        subItems: [
-          {
-            title: "Campaigns",
-            url: "/dashboard/sms/campaigns",
-          },
-          {
-            title: "Contacts",
-            url: "/dashboard/sms/contacts",
-          },
-          {
-            title: "Templates",
-            url: "/dashboard/sms/templates",
-          },
-          {
-            title: "Chats",
-            url: "/dashboard/sms/live-chat",
-          },
-          {
-            title: "Analytics",
-            url: "/dashboard/sms/analytics",
-          },
-        ],
+        locked: !SMS_ENABLED,
+        subItems: SMS_ENABLED
+          ? [
+              { title: "Campaigns", url: "/dashboard/sms/campaigns" },
+              { title: "Contacts", url: "/dashboard/sms/contacts" },
+              { title: "Templates", url: "/dashboard/sms/templates" },
+              { title: "Chats", url: "/dashboard/sms/live-chat" },
+              { title: "Analytics", url: "/dashboard/sms/analytics" },
+            ]
+          : undefined,
       },
       {
         title: "Contacts",
@@ -147,26 +133,11 @@ export const sidebarItems: NavGroup[] = [
         icon: Settings,
         requiresProject: true,
         subItems: [
-          {
-            title: "WhatsApp",
-            url: "/dashboard/settings/whatsapp-account",
-          },
-          {
-            title: "Email",
-            url: "/dashboard/settings/email",
-          },
-          {
-            title: "SMS",
-            url: "/dashboard/settings/sms",
-          },
-          {
-            title: "Tags",
-            url: "/dashboard/settings/tags",
-          },
-          {
-            title: "Canned Messages",
-            url: "/dashboard/settings/canned-message",
-          },
+          { title: "WhatsApp", url: "/dashboard/settings/whatsapp-account" },
+          { title: "Email", url: "/dashboard/settings/email", locked: !EMAIL_ENABLED },
+          { title: "SMS", url: "/dashboard/settings/sms", locked: !SMS_ENABLED },
+          { title: "Tags", url: "/dashboard/settings/tags" },
+          { title: "Canned Messages", url: "/dashboard/settings/canned-message" },
         ],
       },
       {
@@ -174,6 +145,7 @@ export const sidebarItems: NavGroup[] = [
         url: "/dashboard/billing",
         icon: CreditCard,
         requiresProject: true,
+        locked: !BILLING_ENABLED,
       },
     ],
   },

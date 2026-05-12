@@ -1,6 +1,14 @@
+import { BILLING_ENABLED } from "@/lib/features";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+/**
+ * Sentinel returned by deductCredits when billing is disabled. Large enough
+ * to never collide with a real balance, so callers see "you have plenty" and
+ * proceed with the send.
+ */
+const UNLIMITED_BALANCE = Number.MAX_SAFE_INTEGER;
 
 /**
  * Reasons used in credit_ledger.reason. Keep stable — used for analytics.
@@ -31,6 +39,7 @@ export async function deductCredits(params: {
   refId?: string;
   metadata?: Record<string, unknown>;
 }): Promise<number | null> {
+  if (!BILLING_ENABLED) return UNLIMITED_BALANCE;
   if (params.amount <= 0) return null;
 
   const supabase = params.client ?? createAdminClient();
@@ -66,6 +75,7 @@ export async function grantCredits(params: {
   refId?: string;
   metadata?: Record<string, unknown>;
 }): Promise<number | null> {
+  if (!BILLING_ENABLED) return UNLIMITED_BALANCE;
   if (params.amount <= 0) return null;
 
   const supabase = params.client ?? createAdminClient();
@@ -117,6 +127,7 @@ export async function recordUsageEvent(params: {
   status?: string;
   metadata?: Record<string, unknown>;
 }): Promise<void> {
+  if (!BILLING_ENABLED) return;
   const supabase = params.client ?? createAdminClient();
   const { error } = await supabase.from("usage_events").insert({
     project_id: params.projectId,

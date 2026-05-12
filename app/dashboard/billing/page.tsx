@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { FeatureLocked } from "@/components/dashboard/feature-locked";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Separator } from "@/components/ui/separator";
+import { BILLING_ENABLED } from "@/lib/features";
 import { useProjectContext } from "@/lib/projects/project-context";
 
 type Currency = "inr" | "usd";
@@ -138,7 +140,7 @@ export default function BillingPage() {
   const { activeProject } = useProjectContext();
   const projectId = activeProject?.id ?? null;
   const [data, setData] = useState<BillingData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(BILLING_ENABLED);
   const [currency, setCurrency] = useState<Currency>("inr");
   const [cycle, setCycle] = useState<Cycle>("monthly");
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
@@ -146,6 +148,7 @@ export default function BillingPage() {
   const [portalLoading, setPortalLoading] = useState(false);
 
   const fetchBilling = useCallback(async () => {
+    if (!BILLING_ENABLED) return;
     if (!projectId) return;
     setLoading(true);
     try {
@@ -233,6 +236,16 @@ export default function BillingPage() {
     if (!includedCredits) return 0;
     return Math.min(100, Math.round((balance / includedCredits) * 100));
   }, [balance, includedCredits]);
+
+  if (!BILLING_ENABLED) {
+    return (
+      <FeatureLocked
+        title="Billing"
+        description="Manage your subscription, credits, and invoices."
+        reason="Billing is currently disabled. The app is running in free mode — there are no plan limits or credit charges."
+      />
+    );
+  }
 
   if (loading) {
     return (

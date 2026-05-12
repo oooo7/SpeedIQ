@@ -9,12 +9,16 @@ import {
 import { grantCredits } from "@/lib/billing/credits";
 import { getStripe, STRIPE_WEBHOOK_SECRET } from "@/lib/billing/stripe";
 import { upsertProjectSubscription } from "@/lib/billing/subscription";
+import { BILLING_ENABLED } from "@/lib/features";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  if (!BILLING_ENABLED) {
+    return NextResponse.json({ error: "Billing is disabled" }, { status: 404 });
+  }
   if (!STRIPE_WEBHOOK_SECRET) {
     return NextResponse.json({ error: "STRIPE_WEBHOOK_SECRET not configured" }, { status: 500 });
   }
