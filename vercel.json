@@ -1,16 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/whatsapp-send",
-      "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/email-send",
-      "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/sms-send",
-      "schedule": "* * * * *"
-    }
-  ]
-}
+{}
