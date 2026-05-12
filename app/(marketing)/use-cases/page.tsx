@@ -24,53 +24,53 @@ const PLAYBOOKS = [
   {
     industry: "E-commerce",
     accent: "#25D366",
-    body: "Order confirmations on WhatsApp, abandoned-cart SMS, monthly newsletters by email — every customer touchpoint in one workspace.",
+    body: "Order confirmations on WhatsApp. Abandoned-cart SMS. Monthly newsletters by email. Every customer touchpoint in one place.",
     items: [
-      "Order confirmation WhatsApp utility template",
-      "Abandoned cart SMS with discount code",
+      "Order confirmation on WhatsApp",
+      "Abandoned cart SMS with discount",
       "New collection email broadcast",
-      "Replies routed to the unified inbox",
+      "Replies go to the inbox",
     ],
   },
   {
     industry: "Real estate",
     accent: "#f59e0b",
-    body: "Capture inbound enquiries on WhatsApp, segment by property type, pass hot conversations to the right agent via assignment.",
+    body: "Capture leads on WhatsApp. Group by property type. Pass hot chats to the right agent via assignment.",
     items: [
       "Lead capture WhatsApp template",
       "Drip campaign by property type",
       "SMS appointment reminders",
-      "Agent-assigned inbox for live chat",
+      "Agent-assigned inbox",
     ],
   },
   {
     industry: "Education",
     accent: "#3b82f6",
-    body: "Admission confirmations, fee reminders, exam alerts on WhatsApp. Parent broadcasts via email. Student replies in the inbox.",
+    body: "Admission confirmations, fee reminders and exam alerts on WhatsApp. Parent broadcasts by email. Student chats in the inbox.",
     items: [
-      "Admission confirmation WhatsApp message",
+      "Admission confirmation on WhatsApp",
       "Fee due SMS reminders",
-      "Class schedule email broadcast",
+      "Class schedule by email",
       "Parent–teacher chat in the inbox",
     ],
   },
   {
     industry: "Fintech",
     accent: "#a855f7",
-    body: "Transactional OTPs and balance alerts via WhatsApp Auth templates or DLT-compliant SMS. Product launch email campaigns.",
+    body: "OTPs and balance alerts via WhatsApp or DLT-compliant SMS. Product launch emails. Audit logs to keep regulators happy.",
     items: [
       "OTP via WhatsApp Auth template",
       "Balance alert SMS (DLT)",
-      "Product update email campaign",
+      "Product launch email",
       "Audit log + custom roles",
     ],
   },
   {
     industry: "Healthcare",
     accent: "#06b6d4",
-    body: "Appointment confirmations on WhatsApp, 24h SMS reminders, follow-up surveys via email. Cancellations route into one inbox.",
+    body: "Appointment confirmations on WhatsApp. 24-hour SMS reminders. Follow-up surveys by email. Cancellations land in one inbox.",
     items: [
-      "Appointment WhatsApp utility template",
+      "Appointment WhatsApp template",
       "24h SMS reminder with reschedule",
       "Post-visit email survey",
       "Patient replies in the inbox",
@@ -79,12 +79,12 @@ const PLAYBOOKS = [
   {
     industry: "Agencies & services",
     accent: "#ec4899",
-    body: "Run inbound enquiries, project updates, and renewals from one place. Team assignment routes each client to their AM.",
+    body: "Run enquiries, project updates and renewals in one place. Team assignment routes each client to their account manager.",
     items: [
       "Client onboarding WhatsApp flow",
-      "Project update email broadcasts",
+      "Project updates by email",
       "Renewal SMS reminders",
-      "Account-manager assignment in inbox",
+      "Account-manager assignment",
     ],
   },
 ];
@@ -97,8 +97,8 @@ export default function UseCasesPage() {
         <Container>
           <SectionHead
             eyebrow="USE CASES"
-            title="Built for teams that *actually talk to customers.*"
-            lede="SpeedIQ powers messaging for businesses across e-commerce, real estate, education, fintech, healthcare and services — anywhere a team needs to broadcast, follow up, and reply at scale."
+            title="Built for teams that *talk to customers.*"
+            lede="We power messaging for businesses in e-commerce, real estate, education, fintech, healthcare and services. Anywhere you need to send messages and reply at scale."
             align="center"
           />
         </Container>
@@ -110,7 +110,7 @@ export default function UseCasesPage() {
       {/* PLAYBOOKS */}
       <section style={{ paddingTop: "var(--section-y)", paddingBottom: "var(--section-y)" }}>
         <Container>
-          <SectionHead eyebrow="PLAYBOOKS" title="What teams *actually send.*" />
+          <SectionHead eyebrow="PLAYBOOKS" title="What teams *actually send.*" lede="Real campaigns and flows that teams in each industry run on SpeedIQ." />
           <div
             style={{
               marginTop: 56,
@@ -189,10 +189,10 @@ export default function UseCasesPage() {
                 textWrap: "balance",
               }}
             >
-              If your team sends customer messages, SpeedIQ probably fits.
+              If your team sends customer messages, SpeedIQ fits.
             </h2>
             <p style={{ margin: 0, fontSize: 16, color: "var(--fg-3)", maxWidth: 560 }}>
-              Start a trial and you'll know in 10 minutes whether it's a fit.
+              Start a trial. It only takes a few minutes to see if it fits.
             </p>
             <div style={{ marginTop: 12 }}>
               <Btn href="/auth/sign-up" variant="primary" size="lg" icon={<ArrowIcon />}>

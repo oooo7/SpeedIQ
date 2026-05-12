@@ -209,14 +209,15 @@ export default function TermsPage() {
 
       <LegalSection title="13. Governing law & disputes">
         <p>
-          These Terms are governed by the laws of India, without regard to
-          conflict-of-law principles. Any dispute arising from these Terms shall
-          be subject to the exclusive jurisdiction of the courts of Bengaluru,
-          Karnataka, India.
+          These Terms are governed by the laws of the jurisdiction in which
+          SpeedIQ is registered, without regard to conflict-of-law principles.
+          Any dispute arising from these Terms shall be subject to the
+          exclusive jurisdiction of the competent courts of that jurisdiction.
         </p>
         <p>
-          For customers in other jurisdictions, mandatory consumer protection
-          laws of your local jurisdiction may apply.
+          Replace this paragraph with your registered city and state before
+          publishing this policy. For customers in other jurisdictions,
+          mandatory local consumer-protection laws may still apply.
         </p>
       </LegalSection>
 

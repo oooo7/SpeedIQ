@@ -25,8 +25,8 @@ const CHANNELS = [
   {
     href: "/features/whatsapp",
     title: "WhatsApp",
-    tag: "Cloud API · Broadcasts · Templates",
-    body: "Embedded Signup, approved templates with media + buttons, broadcasts, live chat, working hours, and quality monitoring.",
+    tag: "Broadcasts · Templates · Live chat",
+    body: "Connect your WhatsApp Business account. Send approved templates. Run broadcasts. Chat live with customers.",
     accent: "#25D366",
     grad: "linear-gradient(135deg, #0d9d4f 0%, #25D366 55%, #b6f1c2 100%)",
     icon: <WaIcon color="#fff" size={20} />,
@@ -34,8 +34,8 @@ const CHANNELS = [
   {
     href: "/features/email",
     title: "Email",
-    tag: "Resend · Custom domains",
-    body: "Custom domain via DNS verification, HTML or drag editor, segments, bounce handling, one-click unsubscribe.",
+    tag: "Your domain · Builder · Tracking",
+    body: "Send from your own domain. Build emails in HTML or drag-and-drop. Track every open, click and bounce.",
     accent: "#3b82f6",
     grad: "linear-gradient(135deg, #1d3a8a 0%, #3b82f6 55%, #c7dcff 100%)",
     icon: <MailIcon color="#fff" size={20} />,
@@ -43,8 +43,8 @@ const CHANNELS = [
   {
     href: "/features/sms",
     title: "SMS",
-    tag: "Twilio · DLT-compliant",
-    body: "DLT-compliant SMS for India and international, pause / resume / retry mid-broadcast, two-way inbox.",
+    tag: "India + global · DLT-compliant",
+    body: "Send SMS in India or worldwide. Pause and resume mid-campaign. Reply to incoming messages.",
     accent: "#a855f7",
     grad: "linear-gradient(135deg, #4c1d95 0%, #a855f7 55%, #e7d3ff 100%)",
     icon: <SmsIcon color="#fff" size={20} />,
@@ -52,8 +52,8 @@ const CHANNELS = [
   {
     href: "/features/inbox",
     title: "Unified inbox",
-    tag: "Cross-channel · Team-ready",
-    body: "Every WhatsApp and SMS reply in one stream — assignment, tags, quick replies, canned messages with media.",
+    tag: "All channels · Team-ready",
+    body: "All your WhatsApp and SMS replies in one inbox. Assign chats to teammates. Use quick replies and saved messages.",
     accent: "#0a0a0a",
     grad: "linear-gradient(135deg, #18181b 0%, #3f3f46 55%, #a1a1aa 100%)",
     icon: (
@@ -65,15 +65,15 @@ const CHANNELS = [
 ];
 
 const PLATFORM = [
-  { title: "Campaigns & scheduling", body: "Schedule, send-now, pause / resume / retry. Live lifecycle from draft to completed." },
-  { title: "Templates", body: "Variables, header media, footer, buttons. Submit to Meta and sync approval back automatically." },
-  { title: "Segments & tags", body: "Filter-based segments saved as reusable audiences. Live audience-size preview before launch." },
-  { title: "Analytics", body: "Per-channel dashboards: sent, delivered, read, clicked, bounced. 30 days to 1 year retention." },
-  { title: "Team & roles", body: "Owner, admin, editor, viewer roles. Token-based invitations with 7-day expiry." },
-  { title: "Compliance", body: "DLT for SMS, one-click unsubscribe, STOP / HELP keyword handling — across every channel." },
-  { title: "API + webhooks", body: "REST API for sends and contact sync. Webhooks deliver replies, delivery, opens, clicks." },
-  { title: "AI assist", body: "Draft replies, rewrite campaign copy, summarize threads. Business plan only." },
-  { title: "Canned messages", body: "Project-wide library of pre-written responses with media attachments." },
+  { title: "Campaigns & scheduling", body: "Schedule sends or fire instantly. Pause, resume and retry anytime." },
+  { title: "Templates", body: "Build with text, images and buttons. Submit to Meta — we sync the approval status back." },
+  { title: "Segments & tags", body: "Save filtered groups of contacts. See exactly how many people you'll reach." },
+  { title: "Analytics", body: "Dashboards for every channel. Sent, delivered, read, clicked, bounced. Up to a year of history." },
+  { title: "Team & roles", body: "Four roles. Invite teammates with a link that expires in 7 days." },
+  { title: "Compliance", body: "DLT for SMS. One-click unsubscribe for email. STOP and HELP keywords handled for you." },
+  { title: "API + webhooks", body: "Send messages from your code. Get webhooks for every reply, delivery and click." },
+  { title: "AI assist", body: "Draft replies, rewrite copy, summarize chats. Business plan only." },
+  { title: "Saved messages", body: "A shared library of ready-to-send replies, with images and files." },
 ];
 
 export default function FeaturesPage() {
@@ -85,7 +85,7 @@ export default function FeaturesPage() {
           <SectionHead
             eyebrow="FEATURES"
             title="The whole platform, *at a glance.*"
-            lede="SpeedIQ replaces your WhatsApp BSP, email sender, SMS gateway and shared inbox with one workspace. Here's exactly what's in the box."
+            lede="One workspace that replaces your WhatsApp tool, email sender, SMS gateway and shared inbox. Here's what you get."
             align="center"
           />
         </Container>
@@ -201,8 +201,8 @@ export default function FeaturesPage() {
         <Container>
           <SectionHead
             eyebrow="PLATFORM CAPABILITIES"
-            title="Beyond the channels, *a complete workflow.*"
-            lede="Templates, segments, automations, analytics, team, billing — everything that turns three channels into one product."
+            title="*Everything* you need, in one place."
+            lede="Templates, segments, automations, analytics, team management, billing — all built in."
           />
           <div
             style={{
@@ -280,7 +280,7 @@ export default function FeaturesPage() {
                 textWrap: "balance",
               }}
             >
-              Start a free trial. Connect WhatsApp in 5 minutes.
+              Start a free trial. Connect WhatsApp, Email and SMS in one workspace.
             </h2>
             <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
               <Btn href="/auth/sign-up" variant="primary" size="lg" icon={<ArrowIcon />}>

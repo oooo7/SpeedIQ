@@ -8,7 +8,6 @@ import {
   ChannelDot,
   CheckIcon,
   Container,
-  FloatingChip,
   ItalicEmph,
   MailIcon,
   PhoneIcon,
@@ -96,33 +95,6 @@ function HeroCopy({ align = "left" }: { align?: "left" | "center" }) {
         textAlign: center ? "center" : "left",
       }}
     >
-      <div
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "5px 5px 5px 12px",
-          background: "var(--bg-elev)",
-          border: "1px solid var(--line)",
-          borderRadius: 99,
-          fontSize: 12,
-        }}
-      >
-        <span style={{ width: 6, height: 6, borderRadius: 99, background: "var(--accent)" }} />
-        Now with <strong style={{ fontWeight: 600 }}>Unified Inbox v2</strong>
-        <span
-          style={{
-            padding: "3px 9px",
-            borderRadius: 99,
-            background: "var(--bg-sunken)",
-            fontSize: 11,
-            fontFamily: "var(--font-mono)",
-            color: "var(--fg-3)",
-          }}
-        >
-          changelog →
-        </span>
-      </div>
       <h1
         style={{
           fontFamily: "var(--font-display)",
@@ -131,7 +103,6 @@ function HeroCopy({ align = "left" }: { align?: "left" | "center" }) {
           letterSpacing: "-0.032em",
           fontWeight: 500,
           margin: 0,
-          maxWidth: 880,
         }}
       >
         Campaigns, conversations &amp;
@@ -148,8 +119,7 @@ function HeroCopy({ align = "left" }: { align?: "left" | "center" }) {
           textWrap: "pretty",
         }}
       >
-        SpeedIQ unifies broadcasts, templates, segments, live inbox and analytics across WhatsApp, Email, SMS &amp; Calls — built INR-first for Indian SMBs, from{" "}
-        <span style={{ fontFamily: "var(--font-mono)", color: "var(--fg)" }}>₹999/mo</span>.
+        SpeedIQ brings broadcasts, templates, segments, the live inbox and analytics across WhatsApp, Email, SMS and Calls into one workspace with one bill.
       </p>
       <ChannelStrip center={center} />
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: center ? "center" : "flex-start" }}>
@@ -448,90 +418,6 @@ function HeroDashboard() {
   );
 }
 
-function HeroChips() {
-  return (
-    <>
-      <div style={{ position: "absolute", top: -24, right: -32, zIndex: 3, transform: "rotate(2.5deg)" }}>
-        <FloatingChip style={{ width: 220, padding: "11px 13px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
-            <span
-              style={{
-                width: 14,
-                height: 14,
-                borderRadius: 99,
-                background: "#25D366",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <CheckIcon size={9} color="#fff" />
-            </span>
-            <span style={{ fontSize: 10.5, fontFamily: "var(--font-mono)", color: "var(--fg-3)", letterSpacing: ".04em" }}>
-              META · APPROVED
-            </span>
-          </div>
-          <div style={{ fontSize: 12, fontWeight: 500, fontFamily: "var(--font-mono)" }}>order_confirmation_v2</div>
-          <div style={{ fontSize: 10.5, color: "var(--fg-3)", marginTop: 3 }}>utility · 4 variables · EN</div>
-        </FloatingChip>
-      </div>
-      <div style={{ position: "absolute", top: "52%", right: -56, zIndex: 3, transform: "rotate(2deg)" }}>
-        <FloatingChip style={{ width: 210 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 9.5,
-                padding: "2px 6px",
-                background: "rgba(168,85,247,.12)",
-                color: "#7c3aed",
-                borderRadius: 4,
-                letterSpacing: ".04em",
-              }}
-            >
-              SEGMENT
-            </span>
-          </div>
-          <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 2 }}>VIP repeat buyers · 30d</div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 500, letterSpacing: "-0.02em", lineHeight: 1 }}>3,418</div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)" }}>matching contacts</div>
-        </FloatingChip>
-      </div>
-      <div style={{ position: "absolute", bottom: -22, left: -34, zIndex: 3, transform: "rotate(-1.5deg)" }}>
-        <FloatingChip style={{ width: 230 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 9.5,
-                padding: "2px 6px",
-                background: "rgba(168,85,247,.12)",
-                color: "#7c3aed",
-                borderRadius: 4,
-                letterSpacing: ".04em",
-              }}
-            >
-              AUTOMATION · LIVE
-            </span>
-          </div>
-          <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>welcome_flow_v3</div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 10,
-              fontFamily: "var(--font-mono)",
-              color: "var(--fg-3)",
-            }}
-          >
-            new lead → wait 5m → <span style={{ color: "#25D366" }}>send WA</span>
-          </div>
-        </FloatingChip>
-      </div>
-    </>
-  );
-}
 
 export function Hero() {
   return (

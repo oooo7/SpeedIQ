@@ -6,7 +6,7 @@ import { FeaturePageLayout } from "@/components/marketing/feature-page-layout";
 export const metadata: Metadata = {
   title: "WhatsApp marketing & live chat — SpeedIQ",
   description:
-    "Connect your WhatsApp Business Account in 5 minutes. Send approved templates, run broadcasts, and chat live from one unified inbox.",
+    "Connect your WhatsApp Business account through Meta's official flow. Send approved templates, run broadcasts and chat live from one inbox.",
   alternates: { canonical: "/features/whatsapp" },
 };
 
@@ -14,100 +14,100 @@ export default function WhatsAppFeaturePage() {
   return (
     <FeaturePageLayout
       eyebrow="WhatsApp"
-      title="WhatsApp marketing, the way Meta intended"
-      subtitle="One-click Embedded Signup with Meta. Templates, broadcasts, live chat, and analytics — all from your own WhatsApp Business Account."
+      title="WhatsApp that *just works.*"
+      subtitle="Connect your WhatsApp Business account in one click. Send templates, run broadcasts, chat live — all from one place."
       accent="#25D366"
       grad="linear-gradient(135deg, #0d9d4f 0%, #25D366 55%, #b6f1c2 100%)"
       icon={<WaIcon size={26} color="#fff" />}
       capabilities={[
         {
-          title: "Embedded Signup",
-          body: "Connect your WABA and phone number via Meta's official OAuth flow — no manual API setup, no waiting weeks.",
+          title: "Connect in one click",
+          body: "Set up your WhatsApp Business account through Meta's official flow. No paperwork. No waiting weeks.",
         },
         {
           title: "Template builder",
-          body: "Build templates with body, header (text or media), footer, and call-to-action buttons. Submit to Meta and sync status back automatically.",
+          body: "Build templates with text, photos, videos and buttons. Send to Meta and we sync the approval status back for you.",
         },
         {
-          title: "Marketing & utility templates",
-          body: "Send broadcasts using Marketing, Utility, and Authentication template categories — fully compliant with Meta's rules.",
+          title: "Marketing & utility",
+          body: "Run promotional broadcasts. Send order confirmations and OTPs. Fully compliant with Meta's rules.",
         },
         {
           title: "Live chat inbox",
-          body: "Reply to inbound messages in real time. Send text and media replies. Mark threads read. Use quick replies and canned messages.",
+          body: "Reply to customers in real time. Send text and media. Use quick replies and saved messages.",
         },
         {
-          title: "Segments & filters",
-          body: "Build audiences from tags, custom fields, source, and engagement signals. Preview audience size before launch.",
+          title: "Smart audiences",
+          body: "Filter contacts by tag, custom field or activity. See exactly how many people you'll reach before sending.",
         },
         {
           title: "Working hours",
-          body: "Set business hours and timezone. Outbound messages queue automatically outside working hours.",
+          body: "Set your business hours and timezone. Outbound messages wait until you're back online.",
         },
         {
-          title: "Quality monitoring",
-          body: "Track your account's quality rating (Green / Yellow / Red), tier limits, and template approval rate.",
+          title: "Quality alerts",
+          body: "Track your account's WhatsApp quality rating. Get warned before you hit a limit.",
         },
         {
-          title: "Multi-language templates",
-          body: "Build the same template in English, Hindi, Spanish, French and more. Auto-select language per contact.",
+          title: "20+ languages",
+          body: "Build the same template in English, Hindi, Spanish, French and more. We pick the right language per contact.",
         },
         {
-          title: "Variable interpolation",
-          body: "Pull first name, order number, or any custom field into template variables at send time.",
+          title: "Personalize at scale",
+          body: "Drop first names, order numbers or any custom field into your messages — automatically.",
         },
       ]}
       highlights={[
         {
-          heading: "Connect in 5 minutes, not 5 weeks",
-          body: "We use Meta's official Embedded Signup — the same flow giant BSPs use. Click connect, choose your WABA and phone number, and you're sending messages. No PDF forms, no manual reviews.",
+          heading: "Connect through Meta's official flow",
+          body: "We use Meta's Embedded Signup — the same OAuth-based flow approved BSPs use. Click connect, choose your account and phone number, and start sending. No PDF forms or copy-pasted access tokens.",
           bullets: [
-            "Official Meta OAuth — no copy-pasting tokens",
-            "Auto-provision webhook subscriptions",
-            "Auto-discover all phone numbers on your WABA",
-            "Refresh tokens handled automatically",
+            "Official Meta setup — no token copying",
+            "Webhooks set up automatically",
+            "All your numbers found for you",
+            "Tokens refreshed in the background",
           ],
         },
         {
-          heading: "Send broadcasts that actually deliver",
-          body: "WhatsApp is strict about templates and quality. SpeedIQ keeps you compliant: pre-flight checks before submit, real-time status sync from Meta, and quality rating alerts before you get throttled.",
+          heading: "Broadcasts that actually deliver",
+          body: "WhatsApp is strict about templates and quality. We keep you compliant — pre-flight checks before submit, real-time status from Meta, and alerts before you hit a limit.",
           bullets: [
-            "Templates submit to Meta in one click",
-            "Sync existing templates from any connected WABA",
-            "Live audience size preview before send",
-            "Pause / resume / retry mid-campaign",
-            "Per-recipient status: sent / delivered / read / failed",
+            "Submit templates to Meta in one click",
+            "Sync existing templates from your account",
+            "See audience size before sending",
+            "Pause, resume and retry mid-campaign",
+            "Track sent, delivered, read and failed",
           ],
         },
         {
-          heading: "Live chat that doesn't lose threads",
-          body: "When customers reply, SpeedIQ pulls every message into a real inbox. Assign threads, drop in canned messages, send media, and mark read — all without touching WhatsApp Web.",
+          heading: "Live chat that never loses threads",
+          body: "When customers reply, every message lands in one inbox. Assign chats, send saved replies and media, mark as read — without touching WhatsApp Web.",
           bullets: [
-            "Unified thread view with full history",
-            "Send media (images, docs, audio) from the inbox",
-            "Quick replies categorized by intent",
-            "Canned message library with attachments",
-            "Working-hours queue for outbound replies",
-            "Assignment to teammates with role-based access",
+            "Full chat history per customer",
+            "Send photos, videos and files",
+            "Quick replies sorted by category",
+            "Saved message library with attachments",
+            "Hold sends outside business hours",
+            "Assign chats to teammates",
           ],
         },
       ]}
       faqs={[
         {
-          q: "Do I need an existing WhatsApp Business Account?",
-          a: "No. Embedded Signup walks you through creating a new WABA inside Meta's flow — or you can connect an existing one.",
+          q: "Do I need an existing WhatsApp Business account?",
+          a: "No. We help you create one inside Meta's flow. Already have one? Just connect it.",
         },
         {
           q: "Whose number is used to send?",
-          a: "Your own. You bring (or create) the WABA and phone number; SpeedIQ never relies on shared numbers, so your branding and quality rating are yours.",
+          a: "Yours. You bring or create the account and phone number. We never use shared numbers, so your branding and quality rating stay yours.",
         },
         {
           q: "How do I get marketing templates approved?",
-          a: "Build templates inside SpeedIQ with full preview, then submit to Meta in one click. Most marketing and utility templates are approved within minutes. We sync the status back automatically.",
+          a: "Build templates in SpeedIQ with full preview. Submit to Meta in one click. Most get approved in minutes. We sync the status back automatically.",
         },
         {
-          q: "What about WhatsApp's 24-hour rule?",
-          a: "Session messages (within 24h of a customer reply) cost 2 credits. After 24h, you must use an approved template (3 credits for utility, 5 for marketing). SpeedIQ enforces this automatically so you don't get throttled.",
+          q: "What about the 24-hour rule?",
+          a: "After a customer replies, you have 24 hours for free-form chat (2 credits). After that, use an approved template (3 credits for utility, 5 for marketing). We enforce this automatically.",
         },
       ]}
     />

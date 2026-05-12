@@ -666,12 +666,12 @@ export function CreditLedgerPanel() {
   return (
     <div style={{ background: "var(--bg-elev)", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)", overflow: "hidden", fontFamily: "var(--font-sans)", boxShadow: "0 1px 0 rgba(255,255,255,.6) inset" }}>
       <div style={{ padding: "20px 22px", borderBottom: "1px solid var(--line)", background: "var(--fg)", color: "var(--bg)" }}>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "rgba(255,255,255,.55)", letterSpacing: ".08em", textTransform: "uppercase" }}>CREDIT BALANCE</div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--on-fg-muted)", letterSpacing: ".08em", textTransform: "uppercase" }}>CREDIT BALANCE</div>
         <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 6 }}>
           <span style={{ fontFamily: "var(--font-display)", fontSize: 36, fontWeight: 500, letterSpacing: "-0.03em", lineHeight: 1 }}>11,959</span>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "rgba(255,255,255,.6)" }}>of 15,000 monthly</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--on-fg-muted)" }}>of 15,000 monthly</span>
         </div>
-        <div style={{ height: 4, background: "rgba(255,255,255,.12)", borderRadius: 99, marginTop: 10 }}>
+        <div style={{ height: 4, background: "var(--on-fg-faint-line)", borderRadius: 99, marginTop: 10 }}>
           <div style={{ width: "79%", height: "100%", background: "#25D366", borderRadius: 99 }} />
         </div>
       </div>

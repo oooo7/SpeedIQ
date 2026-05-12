@@ -11,20 +11,20 @@ import {
   LiveDemo,
   LogoBar,
   Pricing,
-  Testimonials,
   UseCasesGrid,
+  WhyChooseUs,
 } from "@/components/marketing/landing-sections";
 import { detectCurrency } from "@/lib/marketing/currency";
 
 export const metadata: Metadata = {
   title: "SpeedIQ — One inbox for WhatsApp, Email & SMS",
   description:
-    "Campaigns, conversations and everything between. SpeedIQ unifies broadcasts, templates, segments, live inbox and analytics across WhatsApp, Email, SMS and Calls.",
+    "Campaigns, conversations and everything between. SpeedIQ brings WhatsApp, Email, SMS and Calls into one workspace with one bill.",
   alternates: { canonical: "/" },
   openGraph: {
     title: "SpeedIQ — One inbox for WhatsApp, Email & SMS",
     description:
-      "Campaigns, conversations and everything between — built INR-first for Indian SMBs from ₹999/mo.",
+      "Campaigns, conversations and everything between. One workspace. One bill. WhatsApp, Email and SMS.",
     type: "website",
     url: "/",
     siteName: "SpeedIQ",
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "SpeedIQ — One inbox for WhatsApp, Email & SMS",
     description:
-      "Campaigns, conversations and everything between — built INR-first for Indian SMBs from ₹999/mo.",
+      "Campaigns, conversations and everything between. One workspace. One bill.",
   },
 };
 
@@ -51,7 +51,7 @@ export default async function LandingPage() {
       <LiveDemo />
       <Pricing defaultCurrency={defaultCurrency} />
       <CreditCalc />
-      <Testimonials />
+      <WhyChooseUs />
       <UseCasesGrid />
       <FAQ />
       <FinalCTA />

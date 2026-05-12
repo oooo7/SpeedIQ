@@ -11,63 +11,63 @@ import {
 import { FinalCTA } from "@/components/marketing/landing-sections";
 
 export const metadata: Metadata = {
-  title: "How SpeedIQ compares — SpeedIQ",
+  title: "Why SpeedIQ — SpeedIQ",
   description:
-    "SpeedIQ vs Wati, AiSensy, Interakt and TeleCRM. Three channels in one bill, no per-seat upcharges, INR-first pricing.",
+    "What makes SpeedIQ different: every channel in one bill, predictable credit pricing, team-first workflows, and no per-seat charges.",
   alternates: { canonical: "/compare" },
 };
 
-interface CompareRow {
-  label: string;
-  speediq: string | boolean;
-  wati: string | boolean;
-  aisensy: string | boolean;
-  interakt: string | boolean;
-  telecrm: string | boolean;
-}
-
-const ROWS: CompareRow[] = [
-  { label: "WhatsApp Business API", speediq: true, wati: true, aisensy: true, interakt: true, telecrm: false },
-  { label: "Email broadcasts", speediq: true, wati: false, aisensy: false, interakt: false, telecrm: false },
-  { label: "SMS (DLT compliant)", speediq: true, wati: false, aisensy: false, interakt: false, telecrm: true },
-  { label: "Unified WhatsApp + SMS inbox", speediq: true, wati: false, aisensy: false, interakt: false, telecrm: "Partial" },
-  { label: "Custom email domain", speediq: true, wati: false, aisensy: false, interakt: false, telecrm: false },
-  { label: "Embedded Signup (Meta)", speediq: true, wati: true, aisensy: true, interakt: true, telecrm: false },
-  { label: "Template approval sync", speediq: true, wati: true, aisensy: true, interakt: true, telecrm: false },
-  { label: "Pause / resume / retry", speediq: true, wati: "Partial", aisensy: "Partial", interakt: false, telecrm: false },
-  { label: "Branching automations", speediq: "Business plan", wati: "Add-on", aisensy: "Add-on", interakt: "Add-on", telecrm: true },
-  { label: "Open API + webhooks", speediq: "Pro+", wati: "Enterprise", aisensy: "Pro+", interakt: "Pro+", telecrm: true },
-  { label: "Audit log", speediq: "Business plan", wati: "Enterprise", aisensy: "Enterprise", interakt: "Enterprise", telecrm: true },
-  { label: "INR-first pricing", speediq: true, wati: "USD-first", aisensy: true, interakt: true, telecrm: true },
-  { label: "Per-seat upcharges", speediq: false, wati: true, aisensy: true, interakt: true, telecrm: true },
-  { label: "Starting price / month", speediq: "₹999 / $12", wati: "$39+", aisensy: "₹999+", interakt: "₹1,799+", telecrm: "₹1,500/user" },
-  { label: "Free trial", speediq: "7 days", wati: "7 days", aisensy: "14 days", interakt: "14 days", telecrm: "On request" },
+const PILLARS = [
+  {
+    n: "01",
+    title: "Three channels, one subscription",
+    body: "Most messaging tools focus on a single channel. SpeedIQ ships WhatsApp, Email and SMS in every plan. You manage one contact list and pay one invoice.",
+    points: [
+      "WhatsApp Cloud API via Meta",
+      "Email via Resend, with your own domain",
+      "SMS via Twilio, DLT-ready for India",
+    ],
+  },
+  {
+    n: "02",
+    title: "Credit pricing you can predict",
+    body: "Each plan includes a monthly credit allowance. Heavy messages cost more credits, lighter ones less. You see the cost before you send, and you can top up any time.",
+    points: [
+      "Email = 1 credit",
+      "WhatsApp marketing template = 5 credits",
+      "Domestic SMS = 5 credits · International = 15",
+    ],
+  },
+  {
+    n: "03",
+    title: "Built for teams, not solo senders",
+    body: "Every workspace supports multiple seats, role-based access and a shared inbox with assignment. The credit ledger logs every charge for audit-friendly billing.",
+    points: [
+      "Four roles: owner, admin, editor, viewer",
+      "Shared inbox with assignment and tags",
+      "Immutable credit ledger",
+    ],
+  },
 ];
 
-function Cell({ value, highlight }: { value: string | boolean; highlight?: boolean }) {
-  if (value === true) {
-    return (
-      <span style={{ display: "inline-flex", justifyContent: "center" }}>
-        <CheckIcon color="var(--accent)" />
-      </span>
-    );
-  }
-  if (value === false) {
-    return <span style={{ color: "var(--fg-4)" }}>—</span>;
-  }
-  return (
-    <span
-      style={{
-        fontSize: 12,
-        fontFamily: "var(--font-mono)",
-        color: highlight ? "var(--fg)" : "var(--fg-2)",
-        fontWeight: highlight ? 600 : 400,
-      }}
-    >
-      {value}
-    </span>
-  );
-}
+const CONTRAST = [
+  {
+    title: "Pay per channel, not per seat",
+    body: "Adding a teammate doesn't change your bill. Starter includes 3 seats, Pro includes 10, Business is unlimited.",
+  },
+  {
+    title: "Compliance where it matters",
+    body: "WhatsApp templates submit through Meta's official flow. SMS surfaces DLT principal entity, content template and sender ID configuration for India sends. Email supports one-click unsubscribe with token-verified links.",
+  },
+  {
+    title: "Your data, your channels",
+    body: "Your WhatsApp Business account, your sending domain and your Twilio account stay yours. SpeedIQ is the workspace on top — not a shared sender.",
+  },
+  {
+    title: "Stripe billing, INR or USD",
+    body: "Subscriptions and top-ups run on Stripe with multi-currency pricing. Yearly plans save about 20%.",
+  },
+];
 
 export default function ComparePage() {
   return (
@@ -75,98 +75,96 @@ export default function ComparePage() {
       <section style={{ paddingTop: 88, paddingBottom: 48 }}>
         <Container>
           <SectionHead
-            eyebrow="COMPARISON"
-            title="How SpeedIQ *compares.*"
-            lede="We focus on three things competitors split across multiple SKUs: every channel in one bill, real team-first workflows, and pricing that doesn't charge you per seat."
+            eyebrow="WHY SPEEDIQ"
+            title="What makes SpeedIQ *different.*"
+            lede="We focus on three things: every channel in one bill, predictable credit pricing, and team-first workflows that don't tax you per seat."
             align="center"
           />
         </Container>
       </section>
 
+      {/* THREE PILLARS */}
       <section style={{ paddingTop: 48, paddingBottom: "var(--section-y)" }}>
         <Container>
           <div
             style={{
-              border: "1px solid var(--line)",
-              borderRadius: "var(--radius-lg)",
-              overflow: "hidden",
-              background: "var(--bg-elev)",
+              display: "grid",
+              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+              gap: 24,
             }}
           >
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", minWidth: 820, borderCollapse: "collapse", fontFamily: "var(--font-sans)" }}>
-                <thead>
-                  <tr style={{ background: "var(--bg-sunken)", borderBottom: "1px solid var(--line)" }}>
-                    <th style={{ padding: "14px 20px", textAlign: "left" }}></th>
-                    <th
-                      style={{
-                        padding: "14px 20px",
-                        textAlign: "center",
-                        fontFamily: "var(--font-display)",
-                        fontSize: 16,
-                        fontWeight: 600,
-                        letterSpacing: "-0.01em",
-                        position: "relative",
-                      }}
-                    >
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--accent)" }} />
-                        SpeedIQ
+            {PILLARS.map((p) => (
+              <div
+                key={p.n}
+                style={{
+                  background: "var(--bg-elev)",
+                  border: "1px solid var(--line)",
+                  borderRadius: "var(--radius-lg)",
+                  padding: "28px 26px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 14,
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    letterSpacing: ".08em",
+                    color: "var(--accent)",
+                    fontWeight: 600,
+                  }}
+                >
+                  {p.n}
+                </span>
+                <h3
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: 22,
+                    fontWeight: 500,
+                    letterSpacing: "-0.015em",
+                    margin: 0,
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {p.title}
+                </h3>
+                <p style={{ fontSize: 14.5, lineHeight: 1.55, color: "var(--fg-3)", margin: 0 }}>{p.body}</p>
+                <ul
+                  style={{
+                    listStyle: "none",
+                    padding: 0,
+                    margin: "8px 0 0",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                  }}
+                >
+                  {p.points.map((pt) => (
+                    <li key={pt} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13.5, color: "var(--fg-2)" }}>
+                      <span style={{ marginTop: 4, flex: "0 0 auto" }}>
+                        <CheckIcon color="var(--accent)" />
                       </span>
-                    </th>
-                    {["Wati", "AiSensy", "Interakt", "TeleCRM"].map((n) => (
-                      <th
-                        key={n}
-                        style={{
-                          padding: "14px 20px",
-                          textAlign: "center",
-                          fontFamily: "var(--font-display)",
-                          fontSize: 14,
-                          fontWeight: 500,
-                          color: "var(--fg-3)",
-                          letterSpacing: "-0.01em",
-                        }}
-                      >
-                        {n}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {ROWS.map((row, i) => (
-                    <tr key={row.label} style={{ borderBottom: i < ROWS.length - 1 ? "1px solid var(--line)" : "none" }}>
-                      <td style={{ padding: "14px 20px", fontSize: 14, color: "var(--fg-2)" }}>{row.label}</td>
-                      <td style={{ padding: "14px 20px", textAlign: "center", background: "rgba(37,211,102,.04)" }}>
-                        <Cell value={row.speediq} highlight />
-                      </td>
-                      <td style={{ padding: "14px 20px", textAlign: "center" }}>
-                        <Cell value={row.wati} />
-                      </td>
-                      <td style={{ padding: "14px 20px", textAlign: "center" }}>
-                        <Cell value={row.aisensy} />
-                      </td>
-                      <td style={{ padding: "14px 20px", textAlign: "center" }}>
-                        <Cell value={row.interakt} />
-                      </td>
-                      <td style={{ padding: "14px 20px", textAlign: "center" }}>
-                        <Cell value={row.telecrm} />
-                      </td>
-                    </tr>
+                      {pt}
+                    </li>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </ul>
+              </div>
+            ))}
           </div>
-          <p style={{ marginTop: 16, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-3)", letterSpacing: ".02em" }}>
-            Based on publicly available information at the time of writing. Drop us a note if anything is inaccurate.
-          </p>
         </Container>
       </section>
 
-      {/* DIFFERENTIATORS */}
-      <section style={{ paddingTop: "var(--section-y)", paddingBottom: "var(--section-y)", background: "var(--bg-sunken)" }}>
+      {/* MORE CONTRAST */}
+      <section
+        style={{
+          paddingTop: "var(--section-y)",
+          paddingBottom: "var(--section-y)",
+          background: "var(--bg-sunken)",
+        }}
+      >
         <Container>
-          <Eyebrow style={{ marginBottom: 18 }}>WHAT MAKES US DIFFERENT</Eyebrow>
+          <Eyebrow style={{ marginBottom: 18 }}>HOW WE&apos;RE BUILT</Eyebrow>
           <h2
             style={{
               fontFamily: "var(--font-display)",
@@ -175,28 +173,127 @@ export default function ComparePage() {
               letterSpacing: "-0.025em",
               fontWeight: 500,
               margin: "0 0 56px",
-              maxWidth: 700,
+              maxWidth: 720,
               textWrap: "balance",
             }}
           >
-            Three things competitors charge separately for, in one workspace.
+            Decisions baked into the product — not just on the pricing page.
           </h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 }}>
-            <Differentiator
-              n="01"
-              title="Three channels, one bill"
-              body="Most competitors do WhatsApp only. We bundle WhatsApp + Email + SMS — so you don't pay three SaaS providers to talk to one customer."
-            />
-            <Differentiator
-              n="02"
-              title="No per-seat upcharges"
-              body="Starter includes 3 seats. Pro includes 10. Business is unlimited. Add teammates without rebooting your finance team's budget."
-            />
-            <Differentiator
-              n="03"
-              title="Pay for sends, not shelves"
-              body="Credits scale with what you actually send. Heavier message types cost more credits, lighter ones cost less — no flat overage tax."
-            />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+              gap: 16,
+            }}
+          >
+            {CONTRAST.map((c) => (
+              <div
+                key={c.title}
+                style={{
+                  background: "var(--bg-elev)",
+                  border: "1px solid var(--line)",
+                  borderRadius: "var(--radius-lg)",
+                  padding: "26px 26px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
+                <h3
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: 18,
+                    fontWeight: 500,
+                    letterSpacing: "-0.015em",
+                    margin: 0,
+                  }}
+                >
+                  {c.title}
+                </h3>
+                <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.55, color: "var(--fg-3)" }}>{c.body}</p>
+              </div>
+            ))}
+          </div>
+        </Container>
+      </section>
+
+      {/* WHAT WE DON'T DO */}
+      <section style={{ paddingTop: "var(--section-y)", paddingBottom: "var(--section-y)" }}>
+        <Container>
+          <Eyebrow style={{ marginBottom: 18 }}>WHAT WE DON&apos;T DO</Eyebrow>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "clamp(28px, 3.4vw, 40px)",
+              lineHeight: 1.04,
+              letterSpacing: "-0.025em",
+              fontWeight: 500,
+              margin: "0 0 32px",
+              maxWidth: 720,
+              textWrap: "balance",
+            }}
+          >
+            We&apos;re upfront about the limits.
+          </h2>
+          <ul
+            style={{
+              listStyle: "none",
+              padding: 0,
+              margin: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              maxWidth: 720,
+            }}
+          >
+            {[
+              "We do not provide shared WhatsApp numbers — you bring your own Meta Business account and phone number.",
+              "We are not a calls platform yet. Calls are on the roadmap; today the channels are WhatsApp, Email and SMS.",
+              "We do not host email inboxes. Email replies go to the address you configure; the unified inbox covers WhatsApp and SMS replies.",
+              "We are not a CRM. SpeedIQ stores contacts, tags, custom fields and conversation history, but it isn't a deal pipeline or service desk.",
+            ].map((item) => (
+              <li
+                key={item}
+                style={{
+                  background: "var(--bg-elev)",
+                  border: "1px solid var(--line)",
+                  borderRadius: "var(--radius)",
+                  padding: "16px 20px",
+                  fontSize: 14.5,
+                  lineHeight: 1.5,
+                  color: "var(--fg-2)",
+                  display: "flex",
+                  gap: 12,
+                  alignItems: "flex-start",
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 99,
+                    background: "var(--fg-4)",
+                    flex: "0 0 auto",
+                    marginTop: 8,
+                  }}
+                />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </Container>
+      </section>
+
+      {/* CTA */}
+      <section style={{ paddingBottom: "var(--section-y)" }}>
+        <Container>
+          <div style={{ display: "flex", justifyContent: "center", gap: 10 }}>
+            <Btn href="/auth/sign-up" variant="primary" size="lg" icon={<ArrowIcon />}>
+              Start free trial
+            </Btn>
+            <Btn href="/pricing" variant="ghost" size="lg">
+              See pricing
+            </Btn>
           </div>
         </Container>
       </section>
@@ -205,39 +302,3 @@ export default function ComparePage() {
     </>
   );
 }
-
-function Differentiator({ n, title, body }: { n: string; title: string; body: string }) {
-  return (
-    <div
-      style={{
-        background: "var(--bg-elev)",
-        border: "1px solid var(--line)",
-        borderRadius: "var(--radius-lg)",
-        padding: "28px 26px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-      }}
-    >
-      <span
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          letterSpacing: ".08em",
-          color: "var(--accent)",
-          fontWeight: 600,
-        }}
-      >
-        {n}
-      </span>
-      <h3 style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 500, letterSpacing: "-0.015em", margin: 0 }}>
-        {title}
-      </h3>
-      <p style={{ fontSize: 14.5, lineHeight: 1.55, color: "var(--fg-3)", margin: 0 }}>{body}</p>
-    </div>
-  );
-}
-
-// Suppress unused warning — ArrowIcon/Btn intentionally available for future variants
-void ArrowIcon;
-void Btn;

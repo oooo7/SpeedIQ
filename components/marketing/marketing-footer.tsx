@@ -26,12 +26,12 @@ const COLS = [
     ],
   },
   {
-    title: "Compare",
+    title: "Learn",
     links: [
-      { label: "vs Wati", href: "/compare" },
-      { label: "vs AiSensy", href: "/compare" },
-      { label: "vs Interakt", href: "/compare" },
-      { label: "vs TeleCRM", href: "/compare" },
+      { label: "Why SpeedIQ", href: "/compare" },
+      { label: "Use cases", href: "/use-cases" },
+      { label: "Features", href: "/features" },
+      { label: "Pricing", href: "/pricing" },
     ],
   },
   {
@@ -64,38 +64,9 @@ export function MarketingFooter() {
               <SpeedIQLogo size={22} />
             </Link>
             <p style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--fg-3)", margin: 0, maxWidth: 280 }}>
-              Multi-channel marketing &amp; messaging for Indian SMBs. WhatsApp, Email &amp; SMS — under one bill.
+              One place to send WhatsApp, Email and SMS — and reply to every customer in one inbox.
             </p>
-            <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-              <span
-                style={{
-                  padding: "4px 10px",
-                  background: "var(--bg-sunken)",
-                  border: "1px solid var(--line)",
-                  borderRadius: 99,
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 10.5,
-                  color: "var(--fg-3)",
-                  letterSpacing: ".04em",
-                }}
-              >
-                SOC 2 · IN PROGRESS
-              </span>
-              <span
-                style={{
-                  padding: "4px 10px",
-                  background: "var(--bg-sunken)",
-                  border: "1px solid var(--line)",
-                  borderRadius: 99,
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 10.5,
-                  color: "var(--fg-3)",
-                  letterSpacing: ".04em",
-                }}
-              >
-                DPDPA READY
-              </span>
-            </div>
+            
           </div>
           {COLS.map((c) => (
             <div key={c.title}>
@@ -138,9 +109,11 @@ export function MarketingFooter() {
             gap: 16,
           }}
         >
-          <span>© {new Date().getFullYear()} SpeedIQ Technologies Pvt. Ltd. · Made in Bengaluru.</span>
+          <span>© {new Date().getFullYear()} SpeedIQ.</span>
           <span>
-            status: <span style={{ color: "var(--accent)" }}>● all systems normal</span>
+            <Link href="/legal/privacy" style={{ color: "var(--fg-3)" }}>Privacy</Link>
+            <span style={{ margin: "0 10px", color: "var(--fg-4)" }}>·</span>
+            <Link href="/legal/terms" style={{ color: "var(--fg-3)" }}>Terms</Link>
           </span>
         </div>
       </Container>

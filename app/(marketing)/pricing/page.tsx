@@ -48,7 +48,7 @@ export default async function PricingPage() {
           <SectionHead
             eyebrow="PRICING"
             title="One bill. *Every channel.*"
-            lede="All plans include WhatsApp, Email and SMS — no add-ons, no per-seat tax. Credits cover your outbound volume and roll forward 30 days."
+            lede="Every plan gets WhatsApp, Email and SMS. Credits cover your sends. Unused credits roll over 30 days."
             align="center"
           />
           <p
@@ -62,7 +62,7 @@ export default async function PricingPage() {
             }}
           >
             Showing prices in {c === "inr" ? "₹ INR" : "$ USD"}
-            {ctx.country ? ` · detected from ${ctx.country}` : ""} — toggle below to switch.
+            {ctx.country ? ` — based on your location (${ctx.country})` : ""}. Toggle below to switch.
           </p>
         </Container>
       </section>
@@ -81,8 +81,8 @@ export default async function PricingPage() {
         <Container>
           <SectionHead
             eyebrow="CREDIT WEIGHTS"
-            title="Different messages, *different costs.*"
-            lede="Every send deducts credits from your monthly allowance. Heavier channels (international SMS, marketing templates) cost more — so you only pay for what you actually send."
+            title="*Fair pricing* for every message."
+            lede="Every message uses credits. Heavy ones cost more. Light ones cost less. You only pay for what you actually send."
           />
           <div
             style={{
@@ -152,7 +152,7 @@ export default async function PricingPage() {
           <SectionHead
             eyebrow="TOP-UP PACKS"
             title="Need more credits? *Top up any time.*"
-            lede="One-time packs that stack on your subscription. Buy bigger, save more — credits never expire while your subscription is active."
+            lede="One-time packs that add to your monthly credits. Buy bigger, save more. They never expire while your plan is active."
           />
           <div
             style={{

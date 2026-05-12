@@ -19,16 +19,22 @@ import {
   type ProductPanelVariant,
 } from "@/components/marketing/product-panels";
 
-// ─── Logo / Social proof bar ──────────────────────────────────────────────
+// ─── Trust strip: real platforms we build on ──────────────────────────────
 export function LogoBar() {
-  const logos = ["Kettlewala", "Saanvi Studio", "Northbeam", "Rivermint", "Octopay", "Glasshouse", "Mango Labs"];
+  const platforms = [
+    { name: "WhatsApp Cloud API", sub: "Meta" },
+    { name: "Resend", sub: "Email delivery" },
+    { name: "Twilio", sub: "SMS carrier" },
+    { name: "Stripe", sub: "Billing" },
+    { name: "Supabase", sub: "Data & auth" },
+  ];
   return (
     <section style={{ paddingBottom: 88 }}>
       <Container>
         <div
           style={{
             textAlign: "center",
-            marginBottom: 24,
+            marginBottom: 28,
             fontFamily: "var(--font-mono)",
             fontSize: 11,
             letterSpacing: ".08em",
@@ -36,31 +42,34 @@ export function LogoBar() {
             color: "var(--fg-3)",
           }}
         >
-          Trusted by 2,400+ Indian SMBs
+          Built on infrastructure you already trust
         </div>
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: `repeat(${logos.length}, 1fr)`,
+            gridTemplateColumns: `repeat(${platforms.length}, minmax(0, 1fr))`,
             alignItems: "center",
             gap: 28,
-            opacity: 0.55,
           }}
         >
-          {logos.map((l, i) => (
+          {platforms.map((p, i) => (
             <div
               key={i}
               style={{
-                fontFamily: "var(--font-display)",
-                fontSize: 17,
-                fontWeight: 500,
-                letterSpacing: "-0.01em",
-                textAlign: "center",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 4,
                 color: "var(--fg-2)",
-                opacity: 0.7,
+                opacity: 0.85,
               }}
             >
-              {l}
+              <span style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 500, letterSpacing: "-0.01em" }}>
+                {p.name}
+              </span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--fg-3)", letterSpacing: ".04em" }}>
+                {p.sub}
+              </span>
             </div>
           ))}
         </div>
@@ -123,37 +132,37 @@ export function Channels() {
     {
       ch: "wa",
       title: "WhatsApp",
-      tag: "Cloud API · Broadcasts · Templates",
+      tag: "Broadcasts · Templates · Live chat",
       grad: "linear-gradient(135deg, #0d9d4f 0%, #25D366 55%, #b6f1c2 100%)",
       bullets: [
-        "Approved template library",
-        "Session messages with media",
-        "Delivery, read & reply analytics",
-        "Live two-way inbox",
+        "Send approved templates",
+        "Share photos, videos and files",
+        "See who got it, read it, replied",
+        "Reply live from one inbox",
       ],
     },
     {
       ch: "em",
       title: "Email",
-      tag: "Resend-backed · Custom domains",
+      tag: "Your domain · Broadcasts · Tracking",
       grad: "linear-gradient(135deg, #1d3a8a 0%, #3b82f6 55%, #c7dcff 100%)",
       bullets: [
-        "Bring your own domain (SPF/DKIM)",
-        "Open & click tracking",
-        "Segment by tag, behavior, list",
+        "Send from your own domain",
+        "See opens and clicks",
+        "Build groups from tags",
         "Drag-and-drop builder",
       ],
     },
     {
       ch: "sm",
       title: "SMS",
-      tag: "Twilio · DLT-compliant · India-ready",
+      tag: "India + global · DLT-compliant",
       grad: "linear-gradient(135deg, #4c1d95 0%, #a855f7 55%, #e7d3ff 100%)",
       bullets: [
-        "Pre-approved DLT templates",
-        "Domestic & international routes",
-        "OTP & transactional flows",
-        "Fallback from WhatsApp",
+        "Approved DLT templates ready",
+        "Send in India or worldwide",
+        "OTPs and transactional alerts",
+        "Auto-fallback from WhatsApp",
       ],
     },
   ];
@@ -162,9 +171,9 @@ export function Channels() {
     <section style={{ paddingTop: "var(--section-y)", paddingBottom: "var(--section-y)" }}>
       <Container>
         <SectionHead
-          eyebrow="THREE CHANNELS · ONE WORKSPACE"
-          title="Reach customers *wherever* they actually reply."
-          lede="Stop bouncing between Wati, Mailchimp and your SMS gateway. SpeedIQ ships all three behind a single contact list, single inbox, single bill."
+          eyebrow="ALL YOUR CHANNELS"
+          title="Talk to customers on *the apps they use.*"
+          lede="WhatsApp, Email and SMS — all from one place. One contact list. One inbox. One bill."
         />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 24, marginTop: 80 }}>
           {items.map((it) => (
@@ -335,95 +344,95 @@ export function Features() {
     >
       <Container>
         <SectionHead
-          eyebrow="FEATURE DEEP-DIVES"
-          title="The working software, *not* a marketing wireframe."
-          lede="Seven surfaces your team will actually live in — built to be picked up in an afternoon, not a quarter."
+          eyebrow="FEATURES"
+          title="Real working software, *built for real teams.*"
+          lede="Seven tools your team uses every day — campaigns, templates, segments, the inbox, automations, analytics, and team & billing."
         />
         <div style={{ display: "flex", flexDirection: "column", gap: 160, marginTop: 96 }}>
           <FeatureRow
             eyebrow="01 · CAMPAIGNS"
-            title="Send to thousands, without the spreadsheet."
-            body="Schedule WhatsApp template broadcasts, email blasts and SMS campaigns to filtered segments. Watch sends progress live — pause, resume, retry failures with one click."
+            title="Send to thousands. No spreadsheets."
+            body="Schedule broadcasts on WhatsApp, Email and SMS. Watch every send progress live. Pause, resume or retry with one click."
             points={[
-              "Schedule, send-now, send-to-list or single test message",
-              "Live lifecycle: draft → scheduled → sending → completed",
-              "Pause / resume / cancel / retry mid-broadcast",
-              "Quota gates prevent accidental overspend",
+              "Schedule for later or send now",
+              "Track every step — draft, sending, done",
+              "Pause, resume or cancel mid-send",
+              "Retry only the failed ones",
             ]}
             panelVariant="campaigns"
           />
           <FeatureRow
             reverse
             eyebrow="02 · TEMPLATES"
-            title="Meta-compliant templates, built and approved without leaving the app."
-            body="Compose WhatsApp templates with header, body, footer, buttons and variables. Submit to Meta, sync existing WABA templates, view rejection reasons inline."
+            title="Build WhatsApp templates. Get them approved fast."
+            body="Design templates with text, media and buttons. Submit to Meta in one click. We sync the approval status back automatically."
             points={[
-              "Marketing, Utility & Authentication categories",
-              "Multi-language (EN/ES/FR + 20 more)",
+              "Marketing, Utility and Auth templates",
+              "Pick from 20+ languages",
               "Live WhatsApp preview as you type",
-              "One-click submit to Meta + status sync",
+              "One click to submit. Auto status sync.",
             ]}
             panelVariant="template"
           />
           <FeatureRow
             eyebrow="03 · SEGMENTS"
             title="Audiences that update themselves."
-            body="Filter contacts by tag, source, custom field, last reply or lifetime value. Save segments and reuse them across channels. Live audience preview before you hit send."
+            body="Filter contacts by tag, source or any custom field. Save the filter and reuse it across every channel. See exactly how many people you'll reach before you send."
             points={[
-              "Visual filter builder · AND/OR logic",
-              "Live audience count + credit estimate",
-              "Save and reuse across WhatsApp, email & SMS",
-              "CSV import with custom-field mapping",
+              "Easy filter builder with AND / OR rules",
+              "See audience size and credit cost live",
+              "Reuse one segment across all channels",
+              "Import CSVs and map custom fields",
             ]}
             panelVariant="segment"
           />
           <FeatureRow
             reverse
             eyebrow="04 · INBOX"
-            title="Every conversation, every channel, one thread."
-            body="Assign threads to teammates, leave private notes, snooze and reopen. WhatsApp and SMS conversations from the same number merge automatically. Working-hours queue defers off-hours sends."
+            title="Every reply, in one inbox."
+            body="Reply to WhatsApp and SMS chats in the same place. Assign chats to teammates. Add internal notes. Same customer? We merge their chats automatically."
             points={[
-              "Round-robin assignment + working hours",
-              "Internal notes, mentions, resolution status",
-              "Canned replies with merge variables",
-              "Auto-merge contacts across channels",
+              "Assign chats round-robin or by hand",
+              "Add private notes and tag teammates",
+              "Use saved replies with variables",
+              "Auto-merge customers across channels",
             ]}
             panelVariant="inbox"
           />
           <FeatureRow
             eyebrow="05 · AUTOMATIONS"
-            title="If-this-then-that, for every channel."
-            body="From a single welcome message on Starter to branching multi-step journeys on Business — automate follow-ups without a Zapier subscription."
+            title="Set it up once. Let it run."
+            body="Send a welcome message when someone signs up. Follow up if they don't reply. Branch into different paths based on what they do. No Zapier needed."
             points={[
-              "Triggers: new contact, tag added, no reply in N hours",
+              "Triggers: new contact, tag added, no reply",
               "Actions: send, wait, tag, assign, webhook",
-              "Branching logic with yes/no conditions",
-              "Drag-and-drop builder, no code",
+              "If / then branches with yes / no logic",
+              "Drag-and-drop builder. No code.",
             ]}
             panelVariant="automation"
           />
           <FeatureRow
             reverse
             eyebrow="06 · ANALYTICS"
-            title="Know what's working across every channel."
-            body="Per-channel dashboards for delivery, opens, clicks, replies and credit burn. Roll up the whole workspace or drill into a single campaign. Export to CSV."
+            title="See what works. Drop what doesn't."
+            body="Track delivery, opens, clicks and replies for every channel. See your credit usage at a glance. Export anything to CSV."
             points={[
-              "Per-channel dashboards (WhatsApp / Email / SMS)",
-              "Delivery, open, click, reply & bounce rates",
-              "Credit usage by send type with weekly forecast",
-              "Campaign-level recipient breakdown with error codes",
+              "A dashboard for each channel",
+              "Delivery, open, click and reply rates",
+              "Track credit usage with weekly forecasts",
+              "Drill into any campaign or recipient",
             ]}
             panelVariant="analytics"
           />
           <FeatureRow
             eyebrow="07 · TEAM & BILLING"
-            title="Multi-seat, multi-project, no surprises on the invoice."
-            body="Invite teammates with Owner / Admin / Editor / Viewer roles. Track every credit charge in an immutable ledger. Top up with packs or auto-recharge."
+            title="Add your team. Track every credit."
+            body="Invite teammates with the right role. Every credit you spend is logged. Top up when you run low — or set up auto-recharge."
             points={[
-              "4 roles · 7-day expiring invite tokens",
-              "Atomic credit ledger — every charge logged",
-              "Top-up packs · auto-recharge thresholds",
-              "Stripe multi-currency (INR / USD) · self-serve portal",
+              "Four roles — Owner, Admin, Editor, Viewer",
+              "Every credit charge logged forever",
+              "Buy top-up packs or auto-recharge",
+              "Pay in INR or USD via Stripe",
             ]}
             panelVariant="team"
           />
@@ -436,14 +445,14 @@ export function Features() {
 // ─── How it works ─────────────────────────────────────────────────────────
 export function HowItWorks() {
   const steps = [
-    { n: "01", title: "Connect your channels", body: "Plug in WhatsApp Cloud API, your sending domain for email, and Twilio for SMS. Most teams are live in under 20 minutes." },
-    { n: "02", title: "Import & segment contacts", body: "Drop in a CSV or sync from your CRM. Tag by source, behavior, plan — build audiences with the filter builder." },
-    { n: "03", title: "Broadcast, reply, automate", body: "Send your first campaign, answer replies from the unified inbox, and graduate to automations when you're ready." },
+    { n: "01", title: "Connect your channels", body: "Connect WhatsApp via Meta's official flow, verify your email domain, and add your Twilio account for SMS." },
+    { n: "02", title: "Add your contacts", body: "Upload a CSV or add contacts via the API. Tag them and build groups with the filter builder." },
+    { n: "03", title: "Send. Reply. Automate.", body: "Send your first campaign. Reply to incoming messages in the inbox. Add automations when you're ready." },
   ];
   return (
     <section style={{ paddingTop: "var(--section-y)", paddingBottom: "var(--section-y)" }}>
       <Container>
-        <SectionHead eyebrow="GET STARTED IN AN AFTERNOON" title="From signup to first broadcast *in under an hour.*" />
+        <SectionHead eyebrow="GET STARTED" title="From signup to first send, *in three steps.*" />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 28, marginTop: 64 }}>
           {steps.map((s, i) => (
             <div
@@ -474,7 +483,7 @@ export function LiveDemo() {
   return (
     <section style={{ paddingTop: "var(--section-y)", paddingBottom: "var(--section-y)", background: "var(--bg-sunken)" }}>
       <Container>
-        <SectionHead eyebrow="A LOOK INSIDE" title="The product, *not* a hero illustration." align="center" />
+        <SectionHead eyebrow="PRODUCT TOUR" title="*See* the actual product." align="center" />
         <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 36, marginBottom: 28 }}>
           {tabs.map((t) => (
             <button
@@ -604,14 +613,14 @@ function PricingCard({ plan, currency, cycle }: { plan: (typeof PLANS)[number]; 
       )}
       <div>
         <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 500, letterSpacing: "-0.01em" }}>{plan.name}</div>
-        <div style={{ fontSize: 14, color: popular ? "rgba(255,255,255,.6)" : "var(--fg-3)", marginTop: 4 }}>{plan.pitch}</div>
+        <div style={{ fontSize: 14, color: popular ? "var(--on-fg-muted)" : "var(--fg-3)", marginTop: 4 }}>{plan.pitch}</div>
       </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
         <span style={{ fontFamily: "var(--font-display)", fontSize: 48, fontWeight: 500, letterSpacing: "-0.03em", lineHeight: 1 }}>
           {symbol}
           {price.toLocaleString("en-IN")}
         </span>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: popular ? "rgba(255,255,255,.6)" : "var(--fg-3)" }}>{period}</span>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: popular ? "var(--on-fg-muted)" : "var(--fg-3)" }}>{period}</span>
       </div>
       <div
         style={{
@@ -619,8 +628,8 @@ function PricingCard({ plan, currency, cycle }: { plan: (typeof PLANS)[number]; 
           gridTemplateColumns: "repeat(3,1fr)",
           gap: 4,
           padding: "12px 0",
-          borderTop: "1px solid " + (popular ? "rgba(255,255,255,.15)" : "var(--line)"),
-          borderBottom: "1px solid " + (popular ? "rgba(255,255,255,.15)" : "var(--line)"),
+          borderTop: "1px solid " + (popular ? "var(--on-fg-line)" : "var(--line)"),
+          borderBottom: "1px solid " + (popular ? "var(--on-fg-line)" : "var(--line)"),
         }}
       >
         {([
@@ -629,7 +638,7 @@ function PricingCard({ plan, currency, cycle }: { plan: (typeof PLANS)[number]; 
           ["Seats", plan.seats],
         ] as const).map(([k, v]) => (
           <div key={k}>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: popular ? "rgba(255,255,255,.55)" : "var(--fg-3)", textTransform: "uppercase", letterSpacing: ".06em" }}>{k}</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: popular ? "var(--on-fg-muted)" : "var(--fg-3)", textTransform: "uppercase", letterSpacing: ".06em" }}>{k}</div>
             <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 500, letterSpacing: "-0.01em", marginTop: 2 }}>{v}</div>
           </div>
         ))}
@@ -640,7 +649,7 @@ function PricingCard({ plan, currency, cycle }: { plan: (typeof PLANS)[number]; 
             <span style={{ marginTop: 4, flex: "0 0 auto" }}>
               <CheckIcon color="var(--accent)" />
             </span>
-            <span style={{ color: popular ? "rgba(255,255,255,.85)" : "var(--fg-2)" }}>{f}</span>
+            <span style={{ color: popular ? "var(--on-fg-strong)" : "var(--fg-2)" }}>{f}</span>
           </li>
         ))}
       </ul>
@@ -659,8 +668,8 @@ export function Pricing({ defaultCurrency = "INR" }: { defaultCurrency?: "INR" |
       <Container>
         <SectionHead
           eyebrow="PRICING"
-          title="INR-first. *Built* for Indian SMB margins."
-          lede="No per-seat tax. Predictable subscription plus pay-as-you-grow credits. Cancel any time."
+          title="*Simple* pricing. Pay for what you send."
+          lede="Pick a plan, get monthly credits. Heavy messages cost more, light ones less. No per-seat charges. Cancel any time."
           align="center"
         />
         <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 36, marginBottom: 48, flexWrap: "wrap" }}>
@@ -717,7 +726,7 @@ export function Pricing({ defaultCurrency = "INR" }: { defaultCurrency?: "INR" |
           ))}
         </div>
         <div style={{ marginTop: 28, textAlign: "center", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--fg-3)" }}>
-          All plans include the unified inbox, contacts CRM, and Stripe billing in INR or USD.
+          Every plan includes the inbox, contacts and Stripe billing in INR or USD.
         </div>
       </Container>
     </section>
@@ -864,8 +873,8 @@ export function CreditCalc() {
       <Container>
         <SectionHead
           eyebrow="CREDIT CALCULATOR"
-          title="No surprise bills. *Estimate* your monthly usage."
-          lede="Credits weight each message type by real cost. Slide the dials below to see which plan fits."
+          title="*See* what you'll spend each month."
+          lede="Drag the sliders to match your monthly volume. We'll suggest the right plan."
         />
         <div style={{ marginTop: 56, display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 32, alignItems: "stretch" }}>
           <div
@@ -886,7 +895,7 @@ export function CreditCalc() {
           </div>
           <div style={{ background: "var(--fg)", color: "var(--bg)", borderRadius: "var(--radius-lg)", padding: 32, display: "flex", flexDirection: "column", gap: 22, justifyContent: "space-between" }}>
             <div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: ".08em", color: "rgba(255,255,255,.55)", textTransform: "uppercase" }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: ".08em", color: "var(--on-fg-muted)", textTransform: "uppercase" }}>
                 ESTIMATED CREDITS / MONTH
               </div>
               <div style={{ fontFamily: "var(--font-display)", fontSize: 80, fontWeight: 500, letterSpacing: "-0.04em", lineHeight: 1, marginTop: 10 }}>{total.toLocaleString()}</div>
@@ -897,15 +906,15 @@ export function CreditCalc() {
                   ["WA marketing", v.waMarketing * CREDIT_WEIGHTS.waMarketing],
                   ["SMS domestic", v.smsDomestic * CREDIT_WEIGHTS.smsDomestic],
                 ] as const).map(([k, n]) => (
-                  <div key={k} style={{ display: "flex", justifyContent: "space-between", fontFamily: "var(--font-mono)", fontSize: 12, color: "rgba(255,255,255,.7)" }}>
+                  <div key={k} style={{ display: "flex", justifyContent: "space-between", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--on-fg-mid)" }}>
                     <span>{k}</span>
                     <span>{n.toLocaleString()} cr</span>
                   </div>
                 ))}
               </div>
             </div>
-            <div style={{ borderTop: "1px solid rgba(255,255,255,.15)", paddingTop: 18, display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "rgba(255,255,255,.55)", letterSpacing: ".08em", textTransform: "uppercase" }}>
+            <div style={{ borderTop: "1px solid var(--on-fg-line)", paddingTop: 18, display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--on-fg-muted)", letterSpacing: ".08em", textTransform: "uppercase" }}>
                 RECOMMENDED PLAN
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -923,42 +932,53 @@ export function CreditCalc() {
   );
 }
 
-// ─── Testimonials ─────────────────────────────────────────────────────────
-export function Testimonials() {
-  const quotes = [
-    { q: "We replaced Wati and Mailchimp with one bill. Our reply time dropped from 4 hours to 11 minutes.", who: "Priya Sharma", role: "Founder, Saanvi Studio" },
-    { q: "Credit pricing makes sense for India. We finally know what a campaign will cost before we hit send.", who: "Rohit Iyer", role: "Growth, Northbeam" },
-    { q: "The unified inbox is the actual product. Three reps handle WhatsApp, email and SMS without switching tabs.", who: "Anjali Mehta", role: "Ops Lead, Octopay" },
+// ─── Why teams choose us (replaces fake testimonials) ─────────────────────
+export function WhyChooseUs() {
+  const reasons = [
+    {
+      title: "One bill, three channels",
+      body: "WhatsApp, Email and SMS are all included. No add-ons, no per-seat charges, no juggling vendors.",
+    },
+    {
+      title: "Predictable credit pricing",
+      body: "Each plan includes a monthly credit allowance. Heavy messages cost more credits, light ones less. You see costs before you send.",
+    },
+    {
+      title: "Built for teams from day one",
+      body: "Multi-seat workspaces, four roles, shared inbox with assignment and a credit ledger that logs every charge.",
+    },
   ];
   return (
     <section style={{ paddingTop: "var(--section-y)", paddingBottom: "var(--section-y)" }}>
       <Container>
-        <SectionHead eyebrow="WHAT CUSTOMERS SAY" title="Teams that ship faster *after switching.*" />
+        <SectionHead eyebrow="WHY SPEEDIQ" title="Three reasons teams *pick us.*" />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 20, marginTop: 56 }}>
-          {quotes.map((t, i) => (
-            <figure
-              key={i}
+          {reasons.map((r) => (
+            <div
+              key={r.title}
               style={{
                 background: "var(--bg-elev)",
                 border: "1px solid var(--line)",
                 borderRadius: "var(--radius-lg)",
                 padding: "28px 26px",
-                margin: 0,
                 display: "flex",
                 flexDirection: "column",
-                gap: 22,
+                gap: 12,
               }}
             >
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 32, color: "var(--accent)", lineHeight: 0, marginTop: 6 }}>“</div>
-              <blockquote style={{ margin: 0, fontSize: 17, lineHeight: 1.45, color: "var(--fg)", letterSpacing: "-0.01em" }}>{t.q}</blockquote>
-              <figcaption style={{ display: "flex", alignItems: "center", gap: 12, marginTop: "auto" }}>
-                <div style={{ width: 36, height: 36, borderRadius: 99, background: "var(--bg-sunken)", border: "1px solid var(--line)" }} />
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>{t.who}</div>
-                  <div style={{ fontSize: 12, color: "var(--fg-3)", fontFamily: "var(--font-mono)" }}>{t.role}</div>
-                </div>
-              </figcaption>
-            </figure>
+              <h3
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: 20,
+                  fontWeight: 500,
+                  letterSpacing: "-0.015em",
+                  margin: 0,
+                }}
+              >
+                {r.title}
+              </h3>
+              <p style={{ margin: 0, fontSize: 15, lineHeight: 1.55, color: "var(--fg-3)" }}>{r.body}</p>
+            </div>
           ))}
         </div>
       </Container>
@@ -968,18 +988,42 @@ export function Testimonials() {
 
 // ─── Use cases ────────────────────────────────────────────────────────────
 export function UseCasesGrid() {
-  const cases = [
-    { tag: "E-commerce", title: "Cart recovery, COD confirmations & post-purchase loops.", stat: "3.2×", stath: "Recovery uplift" },
-    { tag: "Real estate", title: "Lead nurture across WhatsApp & SMS with assignment.", stat: "< 5 min", stath: "Avg response" },
-    { tag: "Education", title: "Enrollment broadcasts, fee reminders, parent updates.", stat: "94%", stath: "Delivery rate" },
-    { tag: "Fintech", title: "OTPs, KYC reminders, payment nudges — DLT compliant.", stat: "99.99%", stath: "OTP uptime" },
-    { tag: "SAAS", title: "Trial nurture, onboarding sequences, churn save-flows.", stat: "−27%", stath: "Trial churn" },
-    { tag: "Agencies", title: "White-labelled client workspaces with unified billing.", stat: "5×", stath: "Client capacity" },
+  const cases: { tag: string; title: string; examples: string[] }[] = [
+    {
+      tag: "E-commerce",
+      title: "Cart recovery, order confirms and post-purchase messages.",
+      examples: ["Order WhatsApp template", "Cart recovery SMS", "Email newsletter"],
+    },
+    {
+      tag: "Real estate",
+      title: "Nurture leads on WhatsApp and SMS with team assignment.",
+      examples: ["Lead capture flow", "Property drip campaign", "Appointment SMS"],
+    },
+    {
+      tag: "Education",
+      title: "Admissions, fee reminders and parent updates.",
+      examples: ["Admission WhatsApp", "Fee SMS reminder", "Parent newsletter"],
+    },
+    {
+      tag: "Fintech",
+      title: "OTPs, KYC reminders and payment nudges. DLT compliant.",
+      examples: ["OTP via WhatsApp Auth", "Balance alert SMS", "Audit log"],
+    },
+    {
+      tag: "SAAS",
+      title: "Trial nurture, onboarding flows and win-back messages.",
+      examples: ["Welcome WhatsApp flow", "Trial expiry email", "Win-back SMS"],
+    },
+    {
+      tag: "Agencies",
+      title: "Run client workspaces with one bill and clean billing per project.",
+      examples: ["Per-client workspaces", "Project-scoped credits", "Stripe billing"],
+    },
   ];
   return (
     <section style={{ paddingTop: "var(--section-y)", paddingBottom: "var(--section-y)", background: "var(--bg-sunken)" }}>
       <Container>
-        <SectionHead eyebrow="USE CASES" title="Built for the way Indian businesses *actually* message." />
+        <SectionHead eyebrow="USE CASES" title="Built for the way *teams* really message." />
         <div
           style={{
             display: "grid",
@@ -993,13 +1037,58 @@ export function UseCasesGrid() {
           }}
         >
           {cases.map((c, i) => (
-            <div key={i} style={{ background: "var(--bg-elev)", padding: "28px 26px", display: "flex", flexDirection: "column", gap: 14, minHeight: 220 }}>
+            <div
+              key={i}
+              style={{
+                background: "var(--bg-elev)",
+                padding: "28px 26px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+                minHeight: 220,
+              }}
+            >
               <Eyebrow dot={false}>{c.tag}</Eyebrow>
-              <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 500, letterSpacing: "-0.015em", lineHeight: 1.2, textWrap: "balance" }}>{c.title}</div>
-              <div style={{ marginTop: "auto", display: "flex", alignItems: "baseline", gap: 10 }}>
-                <span style={{ fontFamily: "var(--font-display)", fontSize: 36, fontWeight: 500, letterSpacing: "-0.03em", lineHeight: 1 }}>{c.stat}</span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-3)", textTransform: "uppercase", letterSpacing: ".06em" }}>{c.stath}</span>
+              <div
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: 19,
+                  fontWeight: 500,
+                  letterSpacing: "-0.015em",
+                  lineHeight: 1.25,
+                  textWrap: "balance",
+                }}
+              >
+                {c.title}
               </div>
+              <ul
+                style={{
+                  marginTop: "auto",
+                  listStyle: "none",
+                  padding: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                }}
+              >
+                {c.examples.map((ex) => (
+                  <li
+                    key={ex}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 11.5,
+                      color: "var(--fg-3)",
+                      letterSpacing: ".02em",
+                    }}
+                  >
+                    <span style={{ width: 4, height: 4, borderRadius: 99, background: "var(--accent)" }} />
+                    {ex}
+                  </li>
+                ))}
+              </ul>
             </div>
           ))}
         </div>
@@ -1012,17 +1101,35 @@ export function UseCasesGrid() {
 export function FAQ() {
   const [open, setOpen] = useState<number>(0);
   const qs = [
-    { q: "Do I need my own WhatsApp Business API?", a: "No. SpeedIQ provisions the WhatsApp Cloud API for you in onboarding. We help with phone number verification and template approvals." },
-    { q: "How does credit pricing work?", a: "Each plan includes a monthly credit allotment. Messages consume credits by type: email = 1, WhatsApp session = 2, utility template = 3, marketing template = 5, SMS domestic = 5–6, SMS international = 15. Top-up packs available anytime." },
-    { q: "Is SpeedIQ DLT-compliant for Indian SMS?", a: "Yes. We handle DLT principal entity registration, header & template approvals, and route through compliant Indian carriers via Twilio." },
-    { q: "Can I migrate from Wati / Interakt / AiSensy?", a: "Yes. Import contacts via CSV, and we'll port your approved WhatsApp templates. Most teams migrate in a single afternoon — concierge migration available on Pro and Business." },
-    { q: "What happens if I exceed my credit allotment?", a: "You'll be alerted at 80% and 95%. After 100%, send queues pause until you top up — never a surprise bill. Top-up packs start at ₹499." },
-    { q: "Do you offer annual billing?", a: "Yes — yearly plans save 20% off monthly pricing. Available in INR and USD via Stripe." },
+    {
+      q: "Do I need my own WhatsApp Business account?",
+      a: "You connect (or create) your own WhatsApp Business account through Meta's official Embedded Signup flow inside SpeedIQ. The phone number, account and quality rating stay yours.",
+    },
+    {
+      q: "How does credit pricing work?",
+      a: "Each plan includes monthly credits. Each message deducts credits by type: email = 1, WhatsApp session = 2, WhatsApp utility template = 3, WhatsApp marketing template = 5, SMS domestic (India) = 5, SMS international = 15. Top-up packs are available any time.",
+    },
+    {
+      q: "Does SpeedIQ support DLT for SMS in India?",
+      a: "Yes. SMS uses Twilio. We surface principal entity, content template ID and sender ID configuration so India sends can be routed through DLT-compliant carriers.",
+    },
+    {
+      q: "Can I import contacts from another tool?",
+      a: "Yes. Contact import is via CSV with custom-field mapping for WhatsApp, email subscribers and SMS contacts.",
+    },
+    {
+      q: "What happens if I run out of credits?",
+      a: "Outbound sends pause when your balance hits zero — no surprise bills. You can top up any time, or enable auto-recharge on a chosen threshold.",
+    },
+    {
+      q: "Do you offer yearly billing?",
+      a: "Yes. Yearly plans are roughly 20% off the monthly rate. Billing runs on Stripe and supports INR and USD pricing.",
+    },
   ];
   return (
     <section style={{ paddingTop: "var(--section-y)", paddingBottom: "var(--section-y)" }}>
       <Container narrow>
-        <SectionHead eyebrow="FAQ" title="Questions we get *every week.*" align="center" />
+        <SectionHead eyebrow="FAQ" title="*Common* questions, answered." align="center" />
         <div style={{ marginTop: 48, borderTop: "1px solid var(--line)" }}>
           {qs.map((it, i) => (
             <div key={i} style={{ borderBottom: "1px solid var(--line)" }}>
@@ -1105,7 +1212,7 @@ export function FinalCTA() {
             }}
           />
           <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
-            <Eyebrow style={{ color: "rgba(255,255,255,.6)" }}>7-DAY PRO TRIAL · 200 CREDITS</Eyebrow>
+            <Eyebrow style={{ color: "var(--on-fg-muted)" }}>7-DAY FREE TRIAL</Eyebrow>
             <h2
               style={{
                 fontFamily: "var(--font-display)",
@@ -1122,8 +1229,8 @@ export function FinalCTA() {
               <br />
               Ship today.
             </h2>
-            <p style={{ fontSize: 18, lineHeight: 1.5, color: "rgba(255,255,255,.7)", margin: 0, maxWidth: 540 }}>
-              Spin up your workspace, connect WhatsApp, send your first broadcast — all before lunch.
+            <p style={{ fontSize: 18, lineHeight: 1.5, color: "var(--on-fg-mid)", margin: 0, maxWidth: 540 }}>
+              Set up your workspace, connect WhatsApp, send your first campaign. All before lunch.
             </p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", marginTop: 8 }}>
               <Btn href="/auth/sign-up" variant="accent" size="lg" icon={<ArrowIcon />}>
@@ -1139,7 +1246,7 @@ export function FinalCTA() {
                   padding: "0 22px",
                   background: "transparent",
                   color: "var(--bg)",
-                  border: "1px solid rgba(255,255,255,.2)",
+                  border: "1px solid var(--on-fg-line)",
                   borderRadius: "var(--radius-sm)",
                   fontSize: 15,
                   fontWeight: 500,
