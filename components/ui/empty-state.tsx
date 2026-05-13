@@ -20,7 +20,7 @@ export function EmptyState({ icon, title, description, actions, className }: Emp
         className
       )}
     >
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 mb-4">
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 mb-4 rounded-lg border border-gray-200 dark:border-gray-800">
         {icon}
       </div>
       <h3 className="text-base font-medium text-gray-800 dark:text-gray-100 mb-1">{title}</h3>

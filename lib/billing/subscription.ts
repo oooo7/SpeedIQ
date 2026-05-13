@@ -20,9 +20,14 @@ export interface ProjectSubscription {
   status: SubscriptionStatus;
   billing_cycle: "monthly" | "yearly" | null;
   currency: "inr" | "usd" | null;
+  provider: "stripe" | "razorpay" | null;
+  preferred_provider: "stripe" | "razorpay" | "auto" | null;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   stripe_price_id: string | null;
+  razorpay_customer_id: string | null;
+  razorpay_subscription_id: string | null;
+  razorpay_plan_id: string | null;
   current_period_start: string | null;
   current_period_end: string | null;
   cancel_at_period_end: boolean;

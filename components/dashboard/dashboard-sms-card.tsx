@@ -82,15 +82,15 @@ export function DashboardSmsCard() {
   const connected = !!account && account.onboarding_state === "connected";
 
   return (
-    <Card className="h-full flex flex-col bg-purple-50 dark:bg-purple-950/40">
+    <Card className="h-full flex flex-col bg-[var(--bg-elev)] border border-[var(--line)] rounded-lg">
       <CardContent className="p-5 flex flex-col flex-1 gap-5">
         <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-purple-600 text-white">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-purple-600 text-white rounded-sm">
             <Smartphone className="h-6 w-6" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="font-medium text-base text-foreground">SMS</h3>
-            <p className="text-sm text-purple-800/80 dark:text-purple-200/80 mt-0.5">
+            <h3 className="font-medium text-base text-[var(--fg)]">SMS</h3>
+            <p className="text-sm text-[var(--fg-3)] mt-0.5">
               {forbidden
                 ? "Available on Pro and Business plans"
                 : connected
@@ -102,34 +102,34 @@ export function DashboardSmsCard() {
 
         {connected ? (
           <>
-            <div className="space-y-3 text-sm bg-white/60 dark:bg-black/20 p-4">
+            <div className="space-y-3 text-sm bg-[var(--bg-sunken)] p-4 rounded-sm">
               {account?.default_from && (
                 <div>
-                  <p className="text-xs font-medium text-purple-800/70 dark:text-purple-200/70 uppercase tracking-wide">
+                  <p className="text-xs font-medium text-[var(--fg-3)] uppercase tracking-wide">
                     Sender
                   </p>
-                  <p className="font-mono mt-1 text-foreground truncate">{account.default_from}</p>
+                  <p className="font-mono mt-1 text-[var(--fg)] truncate">{account.default_from}</p>
                 </div>
               )}
               {account?.messaging_service_sid && (
                 <div>
-                  <p className="text-xs font-medium text-purple-800/70 dark:text-purple-200/70 uppercase tracking-wide">
+                  <p className="text-xs font-medium text-[var(--fg-3)] uppercase tracking-wide">
                     Messaging service
                   </p>
-                  <p className="font-mono mt-1 text-foreground truncate text-xs">
+                  <p className="font-mono mt-1 text-[var(--fg)] truncate text-xs">
                     {account.messaging_service_sid}
                   </p>
                 </div>
               )}
             </div>
             <div className="mt-auto flex flex-wrap items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 bg-purple-600/20 dark:bg-purple-500/30 px-3 py-1.5 text-xs font-medium text-purple-800 dark:text-purple-100">
-                <Check className="h-3.5 w-3.5" />
+              <span className="inline-flex items-center gap-1.5 border border-[var(--line-2)] px-3 py-1.5 text-xs font-medium text-[var(--fg)] rounded-full">
+                <span className="h-1.5 w-1.5 rounded-full bg-purple-600" />
                 Connected
               </span>
               <Link
                 href="/dashboard/settings/sms"
-                className="text-sm font-medium text-purple-800 dark:text-purple-100 hover:underline"
+                className="text-sm font-medium text-[var(--fg)] hover:underline"
               >
                 Manage →
               </Link>
@@ -137,26 +137,26 @@ export function DashboardSmsCard() {
           </>
         ) : (
           <>
-            <ul className="text-sm text-purple-800/90 dark:text-purple-200/90 space-y-2 flex-1 list-none">
+            <ul className="text-sm text-[var(--fg-2)] space-y-2 flex-1 list-none">
               <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 bg-purple-600 shrink-0" />
+                <span className="h-1.5 w-1.5 rounded-full bg-purple-600 shrink-0" />
                 Send DLT-compliant SMS in India
               </li>
               <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 bg-purple-600 shrink-0" />
+                <span className="h-1.5 w-1.5 rounded-full bg-purple-600 shrink-0" />
                 Two-way conversations in the live inbox
               </li>
               <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 bg-purple-600 shrink-0" />
+                <span className="h-1.5 w-1.5 rounded-full bg-purple-600 shrink-0" />
                 Auto opt-in / STOP / HELP handling
               </li>
             </ul>
             <Link
               href="/dashboard/settings/sms"
-              className={`mt-auto inline-flex items-center justify-center text-white text-sm font-medium px-4 py-2 w-full sm:w-auto ${
+              className={`mt-auto inline-flex items-center justify-center text-sm font-medium px-4 py-2 w-full sm:w-auto rounded-sm ${
                 forbidden
-                  ? "bg-purple-400 hover:bg-purple-500 pointer-events-none opacity-70"
-                  : "bg-purple-600 hover:bg-purple-700"
+                  ? "bg-[var(--fg-4)] text-[var(--bg)] pointer-events-none opacity-70"
+                  : "bg-[var(--fg)] hover:opacity-90 text-[var(--bg)]"
               }`}
             >
               {forbidden ? "Upgrade to enable" : "Set up SMS →"}

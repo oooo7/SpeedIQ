@@ -6,16 +6,21 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 
 function Separator() {
-  return <span className="text-gray-300 dark:text-gray-600" aria-hidden>/</span>;
+  return <span className="text-[var(--fg-4)]" aria-hidden>/</span>;
 }
 
 export function DashboardHeader() {
   return (
     <header
       className={cn(
-        "flex h-12 shrink-0 items-center gap-2 border-b border-gray-100 dark:border-gray-800/80 transition-[width,height] ease-linear",
-        "sticky top-0 z-50 bg-white/50 dark:bg-gray-900/50 backdrop-blur-md",
+        "flex h-12 shrink-0 items-center gap-2 border-b border-[var(--line)] transition-[width,height] ease-linear",
+        "sticky top-0 z-50",
       )}
+      style={{
+        background: "color-mix(in srgb, var(--bg) 82%, transparent)",
+        backdropFilter: "blur(12px) saturate(140%)",
+        WebkitBackdropFilter: "blur(12px) saturate(140%)",
+      }}
     >
       <div className="flex w-full items-center gap-2 px-4 lg:px-6">
         <SidebarTrigger className="-ml-1" />

@@ -7,7 +7,7 @@ import { APP_CONFIG } from "@/config/app-config";
 
 export default function Layout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <main>
+    <main className="speediq-marketing">
       <div className="grid h-dvh justify-center p-2 lg:grid-cols-2">
         <div className="bg-zinc-900 dark:bg-zinc-950 relative order-2 hidden h-full lg:flex overflow-hidden">
           <div className="relative z-10 flex flex-col w-full">

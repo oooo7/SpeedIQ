@@ -112,15 +112,15 @@ export function DashboardWhatsAppCard() {
   }
 
   return (
-    <Card className="h-full flex flex-col bg-green-50 dark:bg-green-950/40">
+    <Card className="h-full flex flex-col bg-[var(--bg-elev)] border border-[var(--line)] rounded-lg">
       <CardContent className="p-5 flex flex-col flex-1 gap-5">
         <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-[#25D366] text-white">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-[#25D366] text-white rounded-sm">
             <MessageSquare className="h-6 w-6" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="font-medium text-base text-foreground">WhatsApp</h3>
-            <p className="text-sm text-green-800/80 dark:text-green-200/80 mt-0.5">
+            <h3 className="font-medium text-base text-[var(--fg)]">WhatsApp</h3>
+            <p className="text-sm text-[var(--fg-3)] mt-0.5">
               {account?.connected
                 ? "Connected for campaigns and live chat"
                 : "Connect to send campaigns and messages"}
@@ -130,22 +130,22 @@ export function DashboardWhatsAppCard() {
 
         {account?.connected ? (
           <>
-            <div className="space-y-3 text-sm bg-white/60 dark:bg-black/20 p-4">
+            <div className="space-y-3 text-sm bg-[var(--bg-sunken)] p-4 rounded-sm">
               <div>
-                <p className="text-xs font-medium text-green-800/70 dark:text-green-200/70 uppercase tracking-wide">Phone</p>
-                <p className="font-mono tabular-nums mt-1 text-foreground">
+                <p className="text-xs font-medium text-[var(--fg-3)] uppercase tracking-wide">Phone</p>
+                <p className="font-mono tabular-nums mt-1 text-[var(--fg)]">
                   {formatDisplayPhone(account.phone_number)}
                 </p>
               </div>
               {account.display_name?.trim() && (
                 <div>
-                  <p className="text-xs font-medium text-green-800/70 dark:text-green-200/70 uppercase tracking-wide">Display name</p>
-                  <p className="mt-1 text-foreground">{account.display_name}</p>
+                  <p className="text-xs font-medium text-[var(--fg-3)] uppercase tracking-wide">Display name</p>
+                  <p className="mt-1 text-[var(--fg)]">{account.display_name}</p>
                 </div>
               )}
               {account.quality_rating && account.quality_rating !== "UNKNOWN" && account.quality_rating !== "NA" && (
                 <div>
-                  <p className="text-xs font-medium text-green-800/70 dark:text-green-200/70 uppercase tracking-wide">Quality</p>
+                  <p className="text-xs font-medium text-[var(--fg-3)] uppercase tracking-wide">Quality</p>
                   <p
                     className={`mt-1 font-medium ${
                       account.quality_rating === "GREEN"
@@ -161,13 +161,13 @@ export function DashboardWhatsAppCard() {
               )}
             </div>
             <div className="mt-auto flex flex-wrap items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 bg-[#25D366]/20 dark:bg-[#25D366]/30 px-3 py-1.5 text-xs font-medium text-green-800 dark:text-green-100">
-                <Check className="h-3.5 w-3.5" />
+              <span className="inline-flex items-center gap-1.5 border border-[var(--line-2)] px-3 py-1.5 text-xs font-medium text-[var(--fg)] rounded-full">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#25D366]" />
                 Connected
               </span>
               <Link
                 href="/dashboard/settings/whatsapp-account"
-                className="text-sm font-medium text-green-800 dark:text-green-100 hover:underline"
+                className="text-sm font-medium text-[var(--fg)] hover:underline"
               >
                 Manage →
               </Link>
@@ -175,17 +175,17 @@ export function DashboardWhatsAppCard() {
           </>
         ) : (
           <>
-            <ul className="text-sm text-green-800/90 dark:text-green-200/90 space-y-2 flex-1 list-none">
+            <ul className="text-sm text-[var(--fg-2)] space-y-2 flex-1 list-none">
               <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 bg-[#25D366] shrink-0" />
+                <span className="h-1.5 w-1.5 rounded-full bg-[#25D366] shrink-0" />
                 Send broadcast campaigns to your contacts
               </li>
               <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 bg-[#25D366] shrink-0" />
+                <span className="h-1.5 w-1.5 rounded-full bg-[#25D366] shrink-0" />
                 Live chat and reply from the inbox
               </li>
               <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 bg-[#25D366] shrink-0" />
+                <span className="h-1.5 w-1.5 rounded-full bg-[#25D366] shrink-0" />
                 Use approved templates for notifications
               </li>
             </ul>
@@ -213,7 +213,7 @@ export function DashboardWhatsAppCard() {
             ) : (
               <Link
                 href="/dashboard/settings/whatsapp-account"
-                className="mt-auto inline-flex items-center justify-center bg-[#25D366] hover:bg-[#128C7E] text-white text-sm font-medium px-4 py-2 w-full sm:w-auto"
+                className="mt-auto inline-flex items-center justify-center bg-[var(--fg)] hover:opacity-90 text-[var(--bg)] text-sm font-medium px-4 py-2 w-full sm:w-auto rounded-sm"
               >
                 Set up in Settings →
               </Link>

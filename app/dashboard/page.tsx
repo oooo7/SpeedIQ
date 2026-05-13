@@ -22,8 +22,8 @@ export default function DashboardPage() {
       {/* Second row: three channel cards */}
       <section className="flex flex-col gap-4">
         <div>
-          <h2 className="text-sm font-medium text-foreground">Channels</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <h2 className="text-sm font-medium text-[var(--fg)]">Channels</h2>
+          <p className="text-xs text-[var(--fg-3)] mt-0.5">
             Connection status for each messaging channel
           </p>
         </div>
@@ -37,8 +37,8 @@ export default function DashboardPage() {
       {/* Third row: quick links */}
       <section className="flex flex-col gap-4">
         <div>
-          <h2 className="text-sm font-medium text-foreground">Quick links</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Jump to a section</p>
+          <h2 className="text-sm font-medium text-[var(--fg)]">Quick links</h2>
+          <p className="text-xs text-[var(--fg-3)] mt-0.5">Jump to a section</p>
         </div>
         <DashboardQuickLinks />
       </section>

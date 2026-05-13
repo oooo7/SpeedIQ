@@ -1,3 +1,4 @@
+import { bootstrapPlatformAdminIfNeeded } from "@/lib/billing/platform-admin";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
@@ -38,6 +39,9 @@ export async function GET(request: Request) {
       new URL("/auth/login?error=session_missing", request.url),
     );
   }
+
+  // Auto-promote to platform_admin if the user's email is in the bootstrap list.
+  await bootstrapPlatformAdminIfNeeded(supabase, user);
 
   // Only allow relative paths to avoid open redirects
   const safeNext =

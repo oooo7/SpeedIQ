@@ -164,3 +164,100 @@
   color: hsl(var(--popover-foreground)) !important;
   border-radius: 0;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Dashboard theme — scoped under .speediq-dashboard
+   Mirrors the marketing site's editorial black-and-white aesthetic so the
+   app feels like the same brand world: Geist headings, tight tracking,
+   hairline borders, 14/20/28 radii, white surfaces, single black primary.
+   ───────────────────────────────────────────────────────────────────────── */
+.speediq-dashboard {
+  --bg: #f7f7f7;
+  --bg-elev: #ffffff;
+  --bg-sunken: #f6f6f6;
+  --fg: #0a0a0a;
+  --fg-2: #262626;
+  --fg-3: #666666;
+  --fg-4: #a3a3a3;
+  --line: rgba(10, 10, 10, 0.07);
+  --line-2: rgba(10, 10, 10, 0.13);
+  /* Dashboard radius scale — tighter than marketing's editorial 14/20/28
+     because dense app UI (sidebar items, dropdown rows, small buttons,
+     stat tiles) needs more functional rounding. */
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --font-display: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-geist), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.dark .speediq-dashboard {
+  --bg: #0a0a0a;
+  --bg-elev: #141414;
+  --bg-sunken: #181818;
+  --fg: #fafafa;
+  --fg-2: #d4d4d4;
+  --fg-3: #a3a3a3;
+  --fg-4: #525252;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-2: rgba(255, 255, 255, 0.14);
+}
+
+/* Default radius for surface-like white panels that don't carry an explicit
+   rounded-* class. This catches ad-hoc bg-white containers used across page
+   layouts (filter bars, table wrappers, settings sections). Sidebar inner
+   surface and primitives with their own rounded-* class override this via
+   source-order below. */
+.speediq-dashboard .bg-white,
+.speediq-dashboard .dark\:bg-gray-900 { border-radius: var(--radius-lg); }
+.speediq-dashboard [data-slot="sidebar-inner"],
+.speediq-dashboard [data-slot="sidebar-inner"] .bg-white,
+.dark .speediq-dashboard [data-slot="sidebar-inner"] .dark\:bg-gray-900 { border-radius: 0; }
+
+/* Re-enable rounded corners inside the dashboard scope (Tailwind's radius
+   is globally set to 0; marketing already re-enables them, dashboard now too).
+   These rules come after the auto-radius above so explicit rounded-* classes
+   on buttons, inputs, popovers, etc. take precedence. */
+.speediq-dashboard .rounded,
+.speediq-dashboard .rounded-md { border-radius: var(--radius); }
+.speediq-dashboard .rounded-sm { border-radius: var(--radius-sm); }
+.speediq-dashboard .rounded-lg { border-radius: var(--radius-lg); }
+.speediq-dashboard .rounded-xl { border-radius: var(--radius-xl); }
+.speediq-dashboard .rounded-2xl { border-radius: var(--radius-xl); }
+.speediq-dashboard .rounded-full { border-radius: 9999px; }
+
+/* Heading typography — Geist display with marketing-style tight tracking */
+.speediq-dashboard h1,
+.speediq-dashboard h2,
+.speediq-dashboard h3,
+.speediq-dashboard h4 {
+  font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.025em;
+}
+.speediq-dashboard h1 { letter-spacing: -0.035em; }
+
+/* Hairline borders to replace gray-200/gray-100 defaults inside the dashboard.
+   Cards, tiles, and any element with a border picks up the marketing's
+   near-invisible 7% black line for an editorial feel. */
+.speediq-dashboard [data-slot="card"],
+.speediq-dashboard .border,
+.speediq-dashboard .border-b,
+.speediq-dashboard .border-t,
+.speediq-dashboard .border-l,
+.speediq-dashboard .border-r {
+  border-color: var(--line);
+}
+
+/* Hairline divider between sidebar and main content area. The sidebar inner
+   surface picks up a right border so the white sidebar separates cleanly
+   from the white content background. */
+.speediq-dashboard [data-slot="sidebar-inner"] {
+  border-right: 1px solid var(--line);
+}
+.dark .speediq-dashboard [data-slot="sidebar-inner"] {
+  border-right-color: var(--line);
+}

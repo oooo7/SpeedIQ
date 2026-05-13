@@ -92,15 +92,15 @@ export function DashboardEmailCard() {
   const connected = verified || usingFallback;
 
   return (
-    <Card className="h-full flex flex-col bg-blue-50 dark:bg-blue-950/40">
+    <Card className="h-full flex flex-col bg-[var(--bg-elev)] border border-[var(--line)] rounded-lg">
       <CardContent className="p-5 flex flex-col flex-1 gap-5">
         <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-blue-600 text-white">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-blue-600 text-white rounded-sm">
             <Mail className="h-6 w-6" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="font-medium text-base text-foreground">Email</h3>
-            <p className="text-sm text-blue-800/80 dark:text-blue-200/80 mt-0.5">
+            <h3 className="font-medium text-base text-[var(--fg)]">Email</h3>
+            <p className="text-sm text-[var(--fg-3)] mt-0.5">
               {connected
                 ? verified
                   ? "Custom domain verified, ready to send"
@@ -112,17 +112,17 @@ export function DashboardEmailCard() {
 
         {connected ? (
           <>
-            <div className="space-y-3 text-sm bg-white/60 dark:bg-black/20 p-4">
+            <div className="space-y-3 text-sm bg-[var(--bg-sunken)] p-4 rounded-sm">
               <div>
-                <p className="text-xs font-medium text-blue-800/70 dark:text-blue-200/70 uppercase tracking-wide">
+                <p className="text-xs font-medium text-[var(--fg-3)] uppercase tracking-wide">
                   From address
                 </p>
-                <p className="font-mono mt-1 text-foreground truncate">
+                <p className="font-mono mt-1 text-[var(--fg)] truncate">
                   {activeFrom ?? "—"}
                 </p>
               </div>
               <div>
-                <p className="text-xs font-medium text-blue-800/70 dark:text-blue-200/70 uppercase tracking-wide">
+                <p className="text-xs font-medium text-[var(--fg-3)] uppercase tracking-wide">
                   Domain
                 </p>
                 <p
@@ -131,7 +131,7 @@ export function DashboardEmailCard() {
                       ? "text-green-700 dark:text-green-400"
                       : pending
                         ? "text-amber-600 dark:text-amber-400"
-                        : "text-muted-foreground"
+                        : "text-[var(--fg-3)]"
                   }`}
                 >
                   {verified ? "Verified" : pending ? "Pending verification" : "Shared domain"}
@@ -139,13 +139,13 @@ export function DashboardEmailCard() {
               </div>
             </div>
             <div className="mt-auto flex flex-wrap items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 bg-blue-600/20 dark:bg-blue-500/30 px-3 py-1.5 text-xs font-medium text-blue-800 dark:text-blue-100">
-                <Check className="h-3.5 w-3.5" />
+              <span className="inline-flex items-center gap-1.5 border border-[var(--line-2)] px-3 py-1.5 text-xs font-medium text-[var(--fg)] rounded-full">
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
                 {verified ? "Connected" : "Ready (shared)"}
               </span>
               <Link
                 href="/dashboard/settings/email"
-                className="text-sm font-medium text-blue-800 dark:text-blue-100 hover:underline"
+                className="text-sm font-medium text-[var(--fg)] hover:underline"
               >
                 Manage →
               </Link>
@@ -153,23 +153,23 @@ export function DashboardEmailCard() {
           </>
         ) : (
           <>
-            <ul className="text-sm text-blue-800/90 dark:text-blue-200/90 space-y-2 flex-1 list-none">
+            <ul className="text-sm text-[var(--fg-2)] space-y-2 flex-1 list-none">
               <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 bg-blue-600 shrink-0" />
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-600 shrink-0" />
                 Send branded broadcasts from your domain
               </li>
               <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 bg-blue-600 shrink-0" />
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-600 shrink-0" />
                 Track opens, clicks, and bounces
               </li>
               <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 bg-blue-600 shrink-0" />
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-600 shrink-0" />
                 Manage subscribers and segments
               </li>
             </ul>
             <Link
               href="/dashboard/settings/email"
-              className="mt-auto inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 w-full sm:w-auto"
+              className="mt-auto inline-flex items-center justify-center bg-[var(--fg)] hover:opacity-90 text-[var(--bg)] text-sm font-medium px-4 py-2 w-full sm:w-auto rounded-sm"
             >
               Set up email →
             </Link>

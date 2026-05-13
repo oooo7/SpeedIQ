@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { createTopUpCheckout } from "@/lib/billing/checkout";
 import { CREDIT_PACKS, type BillingCurrency } from "@/lib/billing/config";
+import { getProviderFor } from "@/lib/billing/providers/router";
 import { BILLING_ENABLED } from "@/lib/features";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
@@ -59,14 +59,24 @@ export async function POST(
   }
 
   try {
-    const session = await createTopUpCheckout({
+    const provider = await getProviderFor(currency, projectId);
+    const result = await provider.createTopUpCheckout({
       projectId,
       ownerEmail: user.email ?? "",
       projectName: project.name ?? "SpeedIQ Project",
       packId,
       currency,
     });
-    return NextResponse.json({ url: session.url });
+    if (result.kind === "redirect") {
+      return NextResponse.json({ url: result.url, provider: provider.id });
+    }
+    return NextResponse.json({
+      kind: "client_handler",
+      provider: provider.id,
+      sessionId: result.sessionId,
+      publishableKey: result.publishableKey,
+      clientPayload: result.clientPayload,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Top-up failed";
     console.error("[billing/topup]", err);

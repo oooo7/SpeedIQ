@@ -109,16 +109,17 @@ export function smsCreditCost(type: SmsMessageType): number {
 
 export interface CreditPack {
   id: string;
+  name: string;
   credits: number;
   price_inr: number;
   price_usd: number;
 }
 
 export const CREDIT_PACKS: CreditPack[] = [
-  { id: "credits_5k", credits: 5000, price_inr: 499, price_usd: 6 },
-  { id: "credits_25k", credits: 25000, price_inr: 1999, price_usd: 24 },
-  { id: "credits_100k", credits: 100000, price_inr: 6999, price_usd: 84 },
-  { id: "credits_500k", credits: 500000, price_inr: 29999, price_usd: 359 },
+  { id: "credits_5k", name: "Starter pack", credits: 5000, price_inr: 499, price_usd: 6 },
+  { id: "credits_25k", name: "Growth pack", credits: 25000, price_inr: 1999, price_usd: 24 },
+  { id: "credits_100k", name: "Scale pack", credits: 100000, price_inr: 6999, price_usd: 84 },
+  { id: "credits_500k", name: "Enterprise pack", credits: 500000, price_inr: 29999, price_usd: 359 },
 ];
 
 export function getCreditPackPriceId(

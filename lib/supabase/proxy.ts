@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
+import { bootstrapPlatformAdminIfNeeded } from "@/lib/billing/platform-admin";
 import { ACTIVE_PROJECT_COOKIE } from "@/lib/projects/constants";
 
 export async function updateSession(request: NextRequest) {
@@ -104,6 +105,15 @@ export async function updateSession(request: NextRequest) {
       url.pathname = "/projects";
       return NextResponse.redirect(url);
     }
+  }
+
+  // Auto-promote to platform_admin if the user's email matches PLATFORM_ADMIN_EMAILS.
+  // Cheap for non-admins (just an env-list string check); idempotent on repeat hits.
+  if (user && typeof user.sub === "string") {
+    await bootstrapPlatformAdminIfNeeded(supabase, {
+      id: user.sub,
+      email: typeof user.email === "string" ? user.email : undefined,
+    });
   }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is.

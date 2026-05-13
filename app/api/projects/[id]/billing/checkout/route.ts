@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { createSubscriptionCheckout } from "@/lib/billing/checkout";
 import type { BillingCurrency, BillingCycle, PlanId } from "@/lib/billing/config";
+import { getProviderFor } from "@/lib/billing/providers/router";
 import { BILLING_ENABLED } from "@/lib/features";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
@@ -66,7 +66,8 @@ export async function POST(
   }
 
   try {
-    const session = await createSubscriptionCheckout({
+    const provider = await getProviderFor(currency, projectId);
+    const result = await provider.createSubscriptionCheckout({
       projectId,
       ownerEmail: user.email ?? "",
       projectName: project.name ?? "SpeedIQ Project",
@@ -74,7 +75,16 @@ export async function POST(
       cycle,
       currency,
     });
-    return NextResponse.json({ url: session.url });
+    if (result.kind === "redirect") {
+      return NextResponse.json({ url: result.url, provider: provider.id });
+    }
+    return NextResponse.json({
+      kind: "client_handler",
+      provider: provider.id,
+      sessionId: result.sessionId,
+      publishableKey: result.publishableKey,
+      clientPayload: result.clientPayload,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Checkout failed";
     console.error("[billing/checkout]", err);

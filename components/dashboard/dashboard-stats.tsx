@@ -186,7 +186,7 @@ export function DashboardStats() {
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[1, 2, 3, 4].map((i) => (
-          <Card key={i} className="bg-white dark:bg-gray-900">
+          <Card key={i} className="bg-[var(--bg-elev)] border border-[var(--line)] rounded-lg">
             <CardContent className="p-6">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1 space-y-2">
@@ -212,22 +212,22 @@ export function DashboardStats() {
         return (
           <Card
             key={stat.key}
-            className="bg-white dark:bg-gray-900"
+            className="bg-[var(--bg-elev)] border border-[var(--line)] rounded-lg"
           >
             <CardContent className="p-6">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <p className="text-xs font-medium text-[var(--fg-3)] uppercase tracking-wider">
                     {stat.label}
                   </p>
-                  <p className="text-2xl font-medium tabular-nums mt-2 text-foreground">
+                  <p className="text-2xl font-medium tabular-nums mt-2 text-[var(--fg)] tracking-tight">
                     {stat.value(o)}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1 truncate">
+                  <p className="text-xs text-[var(--fg-3)] mt-1 truncate">
                     {stat.sublabel(o)}
                   </p>
                 </div>
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center bg-gray-100 dark:bg-gray-800/80 text-muted-foreground">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center bg-[var(--bg-sunken)] text-[var(--fg-3)] rounded-sm">
                   <Icon className="h-6 w-6" />
                 </div>
               </div>

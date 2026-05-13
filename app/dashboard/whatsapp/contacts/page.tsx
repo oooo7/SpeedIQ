@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Loader2, MoreVertical, Plus, Trash2, Upload, Users, X } from "lucide-react";
+import { AlertTriangle, ClipboardPaste, Download, Loader2, MoreVertical, Plus, Trash2, Upload, Users, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,60 @@ import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { useProjectContext } from "@/lib/projects/project-context";
 import { isValidPhone } from "@/lib/whatsapp/phone";
+
+function parseCsvText(text: string): string[][] {
+  const rows: string[][] = [];
+  let current: string[] = [];
+  let cell = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') {
+          cell += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        cell += c;
+      }
+    } else {
+      if (c === '"') {
+        inQuotes = true;
+      } else if (c === "," || c === "\t") {
+        current.push(cell);
+        cell = "";
+      } else if (c === "\n" || c === "\r") {
+        if (c === "\r" && text[i + 1] === "\n") i++;
+        current.push(cell);
+        if (current.some((v) => v.trim())) rows.push(current);
+        current = [];
+        cell = "";
+      } else {
+        cell += c;
+      }
+    }
+  }
+  if (cell || current.length) {
+    current.push(cell);
+    if (current.some((v) => v.trim())) rows.push(current);
+  }
+  return rows;
+}
+
+function detectColumns(header: string[]): { phone: number; name: number; email: number } {
+  const lower = header.map((h) => h.trim().toLowerCase());
+  const findIdx = (re: RegExp) => lower.findIndex((h) => re.test(h));
+  let phone = findIdx(/phone|number|mobile|tel/);
+  if (phone < 0) phone = 0;
+  return {
+    phone,
+    name: findIdx(/name|full.?name/),
+    email: findIdx(/email/),
+  };
+}
 
 interface ContactTag {
   id: string;
@@ -61,6 +115,56 @@ export default function WhatsAppContactsPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  const [importMode, setImportMode] = useState<"file" | "paste">("file");
+  const [pasteText, setPasteText] = useState("");
+  const [csvRows, setCsvRows] = useState<string[][]>([]);
+  const [csvColumns, setCsvColumns] = useState<{ phone: number; name: number; email: number }>({ phone: 0, name: -1, email: -1 });
+  const [csvError, setCsvError] = useState<string | null>(null);
+  const [csvParsing, setCsvParsing] = useState(false);
+
+  const parsedPasteNumbers = useMemo(() => {
+    return pasteText
+      .split(/\r?\n|,|;/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }, [pasteText]);
+
+  useEffect(() => {
+    if (!importFile) {
+      setCsvRows([]);
+      setCsvError(null);
+      return;
+    }
+    let cancelled = false;
+    setCsvParsing(true);
+    setCsvError(null);
+    importFile
+      .text()
+      .then((text) => {
+        if (cancelled) return;
+        const rows = parseCsvText(text.trim());
+        if (rows.length < 2) {
+          setCsvRows([]);
+          setCsvError("CSV needs a header row and at least one data row.");
+          return;
+        }
+        setCsvRows(rows);
+        setCsvColumns(detectColumns(rows[0]));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setCsvError(err instanceof Error ? err.message : "Could not read file");
+        setCsvRows([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCsvParsing(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [importFile]);
+
+  const csvDataRowCount = csvRows.length > 1 ? csvRows.length - 1 : 0;
   const [saving, setSaving] = useState(false);
   const [formPhone, setFormPhone] = useState("");
   const [formName, setFormName] = useState("");
@@ -70,6 +174,72 @@ export default function WhatsAppContactsPage() {
   const [tagDefinitions, setTagDefinitions] = useState<Array<{ id: string; name: string; color: string | null }>>([]);
   const [addingTagContactId, setAddingTagContactId] = useState<string | null>(null);
   const [updatingTagsContactId, setUpdatingTagsContactId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const visibleIds = useMemo(() => contacts.map((c) => c.id), [contacts]);
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+  const someVisibleSelected = visibleIds.some((id) => selectedIds.has(id));
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        visibleIds.forEach((id) => next.delete(id));
+      } else {
+        visibleIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleBulkDelete = async () => {
+    if (!activeProject?.id || selectedIds.size === 0) return;
+    if (!window.confirm(`Delete ${selectedIds.size} selected contact${selectedIds.size === 1 ? "" : "s"}?`)) return;
+    setBulkDeleting(true);
+    const ids = Array.from(selectedIds);
+    const results = await Promise.allSettled(
+      ids.map((id) =>
+        fetch(`/api/projects/${activeProject.id}/whatsapp/contacts/${id}`, { method: "DELETE" }).then(async (res) => {
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error ?? "Failed");
+          }
+        })
+      )
+    );
+    const failed = results.filter((r) => r.status === "rejected").length;
+    const succeeded = ids.length - failed;
+    if (succeeded > 0) toast.success(`Deleted ${succeeded} contact${succeeded === 1 ? "" : "s"}`);
+    if (failed > 0) toast.error(`${failed} delete${failed === 1 ? "" : "s"} failed`);
+    clearSelection();
+    setBulkDeleting(false);
+    fetchContacts();
+  };
+
+  const downloadSampleCsv = () => {
+    const csv = "phone,name,email\n+14155552671,Jane Doe,jane@example.com\n+919876543210,John Smith,john@example.com\n";
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "whatsapp-contacts-sample.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const fetchContacts = useCallback(async () => {
     if (!activeProject?.id) return;
@@ -94,6 +264,10 @@ export default function WhatsAppContactsPage() {
   useEffect(() => {
     fetchContacts();
   }, [fetchContacts]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [search, sourceFilter, tagFilter]);
 
   const fetchTagDefinitions = useCallback(async () => {
     if (!activeProject?.id) return;
@@ -240,23 +414,50 @@ export default function WhatsAppContactsPage() {
 
   const handleImport = async (e: FormEvent) => {
     e.preventDefault();
-    if (!activeProject?.id || !importFile) {
-      toast.error("Select a CSV file");
-      return;
+    if (!activeProject?.id) return;
+
+    let text: string;
+    let columnMap: { phone: number; name?: number; email?: number } | undefined;
+    if (importMode === "file") {
+      if (!importFile) {
+        toast.error("Select a CSV file");
+        return;
+      }
+      if (csvError) {
+        toast.error(csvError);
+        return;
+      }
+      text = await importFile.text();
+      columnMap = {
+        phone: csvColumns.phone,
+        ...(csvColumns.name >= 0 ? { name: csvColumns.name } : {}),
+        ...(csvColumns.email >= 0 ? { email: csvColumns.email } : {}),
+      };
+    } else {
+      if (parsedPasteNumbers.length === 0) {
+        toast.error("Paste at least one phone number");
+        return;
+      }
+      text = ["phone", ...parsedPasteNumbers].join("\n");
     }
+
     setImporting(true);
     try {
-      const text = await importFile.text();
       const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/contacts/import`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ csv: text }),
+        body: JSON.stringify({ csv: text, ...(columnMap ? { columnMap } : {}) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Import failed");
-      toast.success(`Imported ${data.imported ?? 0} contacts`);
+      const imported = data.imported ?? 0;
+      const skipped = data.skipped ?? 0;
+      if (imported > 0) toast.success(`Imported ${imported} contact${imported === 1 ? "" : "s"}`);
+      if (skipped > 0) toast.warning(`Skipped ${skipped} row${skipped === 1 ? "" : "s"} (invalid or duplicate)`);
+      if (imported === 0 && skipped === 0) toast.info("Nothing to import");
       setImportOpen(false);
       setImportFile(null);
+      setPasteText("");
       fetchContacts();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not import");
@@ -291,6 +492,29 @@ export default function WhatsAppContactsPage() {
           </Button>
         </div>
       </div>
+
+      {selectedIds.size > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 px-4 py-2.5">
+          <p className="text-sm font-medium">
+            {selectedIds.size} selected
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={clearSelection} disabled={bulkDeleting}>
+              Clear
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="gap-1"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+            >
+              {bulkDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Delete selected
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center bg-white dark:bg-gray-900 p-4">
         <Input
@@ -349,6 +573,18 @@ export default function WhatsAppContactsPage() {
             <table className="w-full text-sm">
               <thead className="border-b border-gray-100 dark:border-gray-800/80 bg-gray-50 dark:bg-gray-900/50">
                 <tr>
+                  <th className="w-10 p-3">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all"
+                      checked={allVisibleSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = !allVisibleSelected && someVisibleSelected;
+                      }}
+                      onChange={toggleSelectAll}
+                      className="border-gray-300 cursor-pointer"
+                    />
+                  </th>
                   <th className="text-left p-3 font-medium">Phone</th>
                   <th className="text-left p-3 font-medium">Name</th>
                   <th className="text-left p-3 font-medium">Email</th>
@@ -361,8 +597,19 @@ export default function WhatsAppContactsPage() {
                 {contacts.map((c) => (
                   <tr
                     key={c.id}
-                    className="border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-900/30"
+                    className={`border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-900/30 ${
+                      selectedIds.has(c.id) ? "bg-blue-50/40 dark:bg-blue-950/20" : ""
+                    }`}
                   >
+                    <td className="p-3">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${c.phone}`}
+                        checked={selectedIds.has(c.id)}
+                        onChange={() => toggleSelect(c.id)}
+                        className="border-gray-300 cursor-pointer"
+                      />
+                    </td>
                     <td className="p-3">
                       <div className="flex items-center gap-1.5">
                         <span>{c.phone}</span>
@@ -569,34 +816,208 @@ export default function WhatsAppContactsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog
+        open={importOpen}
+        onOpenChange={(open) => {
+          setImportOpen(open);
+          if (!open) {
+            setImportFile(null);
+            setPasteText("");
+            setImportMode("file");
+            setCsvRows([]);
+            setCsvError(null);
+          }
+        }}
+      >
+        <DialogContent className={importMode === "file" && csvRows.length > 0 ? "sm:max-w-2xl" : "sm:max-w-md"}>
           <DialogHeader>
             <DialogTitle>Import contacts</DialogTitle>
             <DialogDescription>
-              Upload a CSV with columns: phone (required), name, email. First row is treated as header.
+              Upload a CSV file or paste a list of phone numbers (one per line).
             </DialogDescription>
           </DialogHeader>
+
+          <div className="flex gap-1 bg-gray-50 dark:bg-gray-800/30 p-1 w-fit">
+            <button
+              type="button"
+              onClick={() => setImportMode("file")}
+              className={`px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                importMode === "file"
+                  ? "bg-white dark:bg-gray-800 text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Upload CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => setImportMode("paste")}
+              className={`px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                importMode === "paste"
+                  ? "bg-white dark:bg-gray-800 text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <ClipboardPaste className="h-3.5 w-3.5" />
+              Paste numbers
+            </button>
+          </div>
+
           <form onSubmit={handleImport} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="import-file">CSV file</Label>
-              <Input
-                id="import-file"
-                type="file"
-                accept=".csv"
-                onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
-              />
-            </div>
+            {importMode === "file" ? (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="import-file">CSV file</Label>
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      onClick={downloadSampleCsv}
+                      className="h-auto p-0 text-xs gap-1"
+                    >
+                      <Download className="h-3 w-3" />
+                      Download sample CSV
+                    </Button>
+                  </div>
+                  <Input
+                    id="import-file"
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Columns: phone (required), name, email. First row is treated as header.
+                  </p>
+                </div>
+
+                {csvParsing && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Parsing file…
+                  </div>
+                )}
+
+                {csvError && (
+                  <div className="flex items-start gap-2 border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-3 py-2 text-xs text-red-800 dark:text-red-300">
+                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>{csvError}</span>
+                  </div>
+                )}
+
+                {!csvError && csvRows.length > 0 && (
+                  <div className="space-y-2 border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-medium">
+                        Preview — {csvDataRowCount} row{csvDataRowCount === 1 ? "" : "s"} ready to import
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant="secondary" className="text-xs">
+                          phone: {csvRows[0][csvColumns.phone] || `column ${csvColumns.phone + 1}`}
+                        </Badge>
+                        {csvColumns.name >= 0 && (
+                          <Badge variant="outline" className="text-xs">
+                            name: {csvRows[0][csvColumns.name]}
+                          </Badge>
+                        )}
+                        {csvColumns.email >= 0 && (
+                          <Badge variant="outline" className="text-xs">
+                            email: {csvRows[0][csvColumns.email]}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto max-h-64 overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50 dark:bg-gray-900/50 sticky top-0">
+                          <tr>
+                            <th className="text-left p-2 font-medium w-8 text-muted-foreground">#</th>
+                            <th className="text-left p-2 font-medium">Phone</th>
+                            <th className="text-left p-2 font-medium">Name</th>
+                            <th className="text-left p-2 font-medium">Email</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {csvRows.slice(1, 11).map((row, idx) => {
+                            const phone = row[csvColumns.phone]?.trim() ?? "";
+                            const name = csvColumns.name >= 0 ? row[csvColumns.name]?.trim() ?? "" : "";
+                            const email = csvColumns.email >= 0 ? row[csvColumns.email]?.trim() ?? "" : "";
+                            const phoneValid = !!phone && isValidPhone(phone);
+                            return (
+                              <tr key={idx} className="border-t border-gray-100 dark:border-gray-800/50">
+                                <td className="p-2 text-muted-foreground">{idx + 1}</td>
+                                <td className="p-2">
+                                  <div className="flex items-center gap-1">
+                                    <span className={phone ? "" : "text-muted-foreground italic"}>
+                                      {phone || "—"}
+                                    </span>
+                                    {phone && !phoneValid && (
+                                      <span title="May fail validation — check country code / format">
+                                        <AlertTriangle className="h-3 w-3 text-amber-500" />
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="p-2">{name || <span className="text-muted-foreground">—</span>}</td>
+                                <td className="p-2">{email || <span className="text-muted-foreground">—</span>}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    {csvDataRowCount > 10 && (
+                      <p className="text-xs text-muted-foreground">
+                        Showing first 10 of {csvDataRowCount} rows.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="paste-numbers">Phone numbers</Label>
+                <textarea
+                  id="paste-numbers"
+                  value={pasteText}
+                  onChange={(e) => setPasteText(e.target.value)}
+                  placeholder={"+14155552671\n+919876543210\n+447700900000\n…"}
+                  rows={8}
+                  className="flex w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Paste one number per line (copy a single column from a sheet). Commas and semicolons also work as separators.
+                  {parsedPasteNumbers.length > 0 && (
+                    <>
+                      {" "}
+                      Detected <span className="font-medium text-foreground">{parsedPasteNumbers.length}</span> number
+                      {parsedPasteNumbers.length === 1 ? "" : "s"}.
+                    </>
+                  )}
+                </p>
+              </div>
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setImportOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={!importFile || importing}>
+              <Button
+                type="submit"
+                disabled={
+                  importing ||
+                  (importMode === "file"
+                    ? !importFile || csvParsing || !!csvError || csvDataRowCount === 0
+                    : parsedPasteNumbers.length === 0)
+                }
+              >
                 {importing ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Importing…
                   </>
+                ) : importMode === "file" && csvDataRowCount > 0 ? (
+                  `Import ${csvDataRowCount}`
                 ) : (
                   "Import"
                 )}

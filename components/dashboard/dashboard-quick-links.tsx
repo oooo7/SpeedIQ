@@ -29,24 +29,24 @@ export function DashboardQuickLinks() {
         return (
           <Link key={item.href} href={item.href}>
             <Card
-              className={`h-full transition-colors ${
+              className={`h-full transition-colors border border-[var(--line)] rounded-lg ${
                 item.locked
-                  ? "bg-gray-50 dark:bg-gray-900/40 hover:bg-gray-100 dark:hover:bg-gray-800/40"
-                  : "bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                  ? "bg-[var(--bg-sunken)] hover:bg-[var(--bg-elev)]"
+                  : "bg-[var(--bg-elev)] hover:bg-[var(--bg-sunken)]"
               }`}
             >
               <CardContent className="p-5 flex items-center gap-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-gray-100 dark:bg-gray-800/80 text-muted-foreground">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-[var(--bg-sunken)] text-[var(--fg-3)] rounded-sm">
                   <Icon className="h-5 w-5" />
                 </div>
                 <span
                   className={`font-medium text-sm ${
-                    item.locked ? "text-muted-foreground" : "text-foreground"
+                    item.locked ? "text-[var(--fg-3)]" : "text-[var(--fg)]"
                   }`}
                 >
                   {item.title}
                 </span>
-                {item.locked && <Lock className="ml-auto h-3.5 w-3.5 text-muted-foreground" />}
+                {item.locked && <Lock className="ml-auto h-3.5 w-3.5 text-[var(--fg-3)]" />}
               </CardContent>
             </Card>
           </Link>

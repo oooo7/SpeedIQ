@@ -50,7 +50,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
   return (
     <ProjectProvider initialProjects={projects} initialActiveProject={activeProject}>
       <BreadcrumbOverrideProvider>
-      <SidebarProvider defaultOpen={defaultOpen}>
+      <SidebarProvider defaultOpen={defaultOpen} className="speediq-dashboard">
         <AppSidebar
           variant="sidebar"
           collapsible="icon"
@@ -60,7 +60,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
             avatar: userData.avatar,
           }}
         />
-        <SidebarInset className={cn("max-w-full bg-gray-100 dark:bg-gray-900")}>
+        <SidebarInset className={cn("max-w-full bg-[var(--bg)] text-[var(--fg)]")}>
           <DashboardHeader />
           <div
             className={cn(

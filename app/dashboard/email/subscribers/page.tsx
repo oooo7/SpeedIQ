@@ -214,7 +214,7 @@ export default function EmailSubscribersPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center bg-white dark:bg-gray-900 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center bg-white dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-800">
         <Input
           placeholder="Search by email, name..."
           value={search}
@@ -224,7 +224,7 @@ export default function EmailSubscribersPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="flex h-9 bg-white dark:bg-gray-900 px-3 py-1 text-sm"
+          className="flex h-9 bg-white dark:bg-gray-900 px-3 py-1 text-sm rounded-md border border-gray-200 dark:border-gray-800"
         >
           <option value="">All statuses</option>
           <option value="subscribed">Subscribed</option>
@@ -232,6 +232,8 @@ export default function EmailSubscribersPage() {
           <option value="bounced">Bounced</option>
         </select>
       </div>
+
+      {/* Empty/table container */}
 
       {loading ? (
         <LoadingState message="Loading subscribers…" />
@@ -254,7 +256,7 @@ export default function EmailSubscribersPage() {
           }
         />
       ) : (
-        <div className="bg-white dark:bg-gray-900 overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-800">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="border-b border-gray-100 dark:border-gray-800/80 bg-gray-50 dark:bg-gray-900/50">
