@@ -10,7 +10,6 @@ export default function WhatsAppChatsPage() {
     <WhatsAppChatLayout
       projectId={activeProject?.id ?? null}
       title="Chats"
-      description="View and reply to WhatsApp conversations. All messages are saved and shown here."
       pollIntervalMs={15000}
       showWebhookHelp
     />

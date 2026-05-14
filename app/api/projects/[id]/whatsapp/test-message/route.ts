@@ -147,6 +147,62 @@ export async function POST(
     );
   }
 
+  // Log the send to whatsapp_messages so the template's delivery log captures
+  // it (and the status webhook can later update it to delivered/read/failed).
+  // Without this row, Meta's async failure webhook has nothing to update,
+  // and the user sees a successful send in the UI while the message never lands.
+  try {
+    // Resolve template_id when only name+language were given (test-by-name path).
+    let resolvedTemplateId: string | null = templateId || null;
+    if (!resolvedTemplateId && templateName) {
+      const { data: localTemplate } = await supabase
+        .from("whatsapp_templates")
+        .select("id")
+        .eq("project_id", projectId)
+        .eq("name", templateName)
+        .maybeSingle();
+      resolvedTemplateId = localTemplate?.id ?? null;
+    }
+
+    // Make sure a contact exists for the recipient — whatsapp_messages.contact_id
+    // is NOT NULL. Don't upsert by phone (some projects allow duplicates); pick
+    // the first matching contact, or insert a minimal one.
+    const normalizedPhone = to.replace(/[^\d+]/g, "");
+    const { data: existingContact } = await supabase
+      .from("whatsapp_contacts")
+      .select("id")
+      .eq("project_id", projectId)
+      .eq("phone", normalizedPhone)
+      .limit(1)
+      .maybeSingle();
+
+    let contactId: string | null = existingContact?.id ?? null;
+    if (!contactId) {
+      const { data: insertedContact } = await supabase
+        .from("whatsapp_contacts")
+        .insert({ project_id: projectId, phone: normalizedPhone })
+        .select("id")
+        .single();
+      contactId = insertedContact?.id ?? null;
+    }
+
+    if (contactId) {
+      await supabase.from("whatsapp_messages").insert({
+        project_id: projectId,
+        contact_id: contactId,
+        direction: "out",
+        type: "text",
+        body: `Template: ${name}`,
+        meta_message_id: result.message_id,
+        status: "sent",
+        template_id: resolvedTemplateId,
+      });
+    }
+  } catch (err) {
+    console.error("[test-message] failed to log send to whatsapp_messages", err);
+    // Don't fail the response — the actual send already succeeded.
+  }
+
   return NextResponse.json({
     success: true,
     message_id: result.message_id,

@@ -295,6 +295,7 @@ export async function GET(request: Request) {
             body: `Template: ${templateName}`,
             meta_message_id: result.message_id,
             status: "sent",
+            template_id: campaign.template_id ?? null,
           }),
           supabase.from("whatsapp_conversations").upsert(
             {

@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
-import { getTemplateStatusViaWaba, getWhatsAppAccountToken } from "@/lib/whatsapp/api";
+import {
+  getTemplateById,
+  getTemplateStatusViaWaba,
+  getWhatsAppAccountToken,
+  metaTemplateToRow,
+} from "@/lib/whatsapp/api";
 
 export async function POST(
   _request: Request,
@@ -50,24 +55,54 @@ export async function POST(
     return NextResponse.json({ error: "WhatsApp account not connected" }, { status: 400 });
   }
 
-  const result = await getTemplateStatusViaWaba(
-    creds.access_token,
-    creds.waba_id,
-    template.name ?? "",
-    template.language ?? "en"
-  );
+  // Prefer ID-based lookup: directly fetches the template from Meta by its ID.
+  // This is reliable; the previous name+language list filter was case-sensitive and
+  // returned 0 matches for templates synced from Meta with mixed-case language codes.
+  const byId = await getTemplateById(creds.access_token, template.meta_template_id);
 
-  if ("error" in result) {
-    return NextResponse.json({ error: result.error.message }, { status: 400 });
+  let nextStatus: string;
+  let fullUpdate: Record<string, unknown> | null = null;
+
+  if ("template" in byId) {
+    const row = metaTemplateToRow(byId.template);
+    nextStatus = row.status;
+    // Also refresh the rest of the template fields — Meta may have changed body/category
+    // during review. Keeps the local copy in sync without forcing a full "Fetch from Meta".
+    fullUpdate = {
+      status: row.status,
+      category: row.category,
+      language: row.language,
+      body: row.body,
+      header: row.header,
+      footer: row.footer,
+      buttons: row.buttons,
+      variables: row.variables,
+      rejection_reason: row.status === "approved" ? null : undefined,
+      updated_at: new Date().toISOString(),
+    };
+  } else {
+    // Fallback for legacy templates without meta_template_id or if ID lookup failed
+    // for transient reasons. Keep the older name+language path as a last resort.
+    const fallback = await getTemplateStatusViaWaba(
+      creds.access_token,
+      creds.waba_id,
+      template.name ?? "",
+      template.language ?? "en"
+    );
+    if ("error" in fallback) {
+      return NextResponse.json({ error: byId.error.message }, { status: 400 });
+    }
+    nextStatus = fallback.status;
+    fullUpdate = {
+      status: fallback.status,
+      rejection_reason: fallback.status === "approved" ? null : undefined,
+      updated_at: new Date().toISOString(),
+    };
   }
 
   const { error: updateError } = await supabase
     .from("whatsapp_templates")
-    .update({
-      status: result.status,
-      rejection_reason: result.status === "approved" ? null : undefined,
-      updated_at: new Date().toISOString(),
-    })
+    .update(fullUpdate)
     .eq("project_id", projectId)
     .eq("id", templateId);
 
@@ -75,5 +110,5 @@ export async function POST(
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true, status: result.status });
+  return NextResponse.json({ success: true, status: nextStatus });
 }

@@ -212,11 +212,18 @@
    layouts (filter bars, table wrappers, settings sections). Sidebar inner
    surface and primitives with their own rounded-* class override this via
    source-order below. */
-.speediq-dashboard .bg-white,
-.speediq-dashboard .dark\:bg-gray-900 { border-radius: var(--radius-lg); }
 .speediq-dashboard [data-slot="sidebar-inner"],
 .speediq-dashboard [data-slot="sidebar-inner"] .bg-white,
 .dark .speediq-dashboard [data-slot="sidebar-inner"] .dark\:bg-gray-900 { border-radius: 0; }
+
+/* Native form controls — give every <select>, <input>, <textarea>, and <button>
+   inside the dashboard scope a sensible default radius so ad-hoc form elements
+   that don't use the shadcn primitives still look on-brand. Explicit
+   rounded-* classes on these elements override via the rules below. */
+.speediq-dashboard select,
+.speediq-dashboard input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.speediq-dashboard textarea,
+.speediq-dashboard button:not([data-sidebar]) { border-radius: var(--radius); }
 
 /* Re-enable rounded corners inside the dashboard scope (Tailwind's radius
    is globally set to 0; marketing already re-enables them, dashboard now too).

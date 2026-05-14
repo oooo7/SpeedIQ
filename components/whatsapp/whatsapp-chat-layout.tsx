@@ -100,7 +100,6 @@ export interface ContactProfile {
 interface WhatsAppChatLayoutProps {
   projectId: string | null;
   title: string;
-  description: string;
   pollIntervalMs?: number;
   showWebhookHelp?: boolean;
 }
@@ -178,7 +177,6 @@ function ContactAvatar({
 export function WhatsAppChatLayout({
   projectId,
   title,
-  description,
   pollIntervalMs = 15000,
   showWebhookHelp = true,
 }: WhatsAppChatLayoutProps) {
@@ -243,8 +241,41 @@ export function WhatsAppChatLayout({
         const res = await fetch(`/api/projects/${projectId}/whatsapp/conversations/${contactId}/messages`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Failed to load");
-        setContactInfo(data.contact ?? null);
-        setMessages(data.messages ?? []);
+        // Avoid replacing the array on every poll — keep the same Message objects
+        // by id when nothing changed, so React doesn't tear down the rendered rows
+        // (that's what made the chat "reload-flash" on each interval tick).
+        setContactInfo((prev) => {
+          const next = data.contact ?? null;
+          if (!next) return prev;
+          if (
+            prev &&
+            prev.id === next.id &&
+            prev.last_inbound_at === next.last_inbound_at &&
+            prev.within_24h_window === next.within_24h_window &&
+            prev.name === next.name &&
+            prev.phone === next.phone
+          ) {
+            return prev;
+          }
+          return next;
+        });
+        setMessages((prev) => {
+          const incoming: Message[] = data.messages ?? [];
+          // Keep any optimistic "temp-..." messages that haven't been replaced yet
+          const optimistic = prev.filter((m) => m.id.startsWith("temp-"));
+          // Bail if nothing changed (length + last id + last status) to avoid re-renders
+          const lastIncoming = incoming[incoming.length - 1];
+          const lastPrev = prev[prev.length - 1];
+          if (
+            optimistic.length === 0 &&
+            incoming.length === prev.length &&
+            lastIncoming?.id === lastPrev?.id &&
+            lastIncoming?.status === lastPrev?.status
+          ) {
+            return prev;
+          }
+          return [...incoming, ...optimistic];
+        });
         if (data.last_inbound_meta_message_id) {
           markAsRead(contactId, data.last_inbound_meta_message_id, false);
         }
@@ -257,18 +288,21 @@ export function WhatsAppChatLayout({
     [projectId, markAsRead]
   );
 
-  const fetchProfile = useCallback(async (contactId: string) => {
+  const fetchProfile = useCallback(async (contactId: string, silent = false) => {
     if (!projectId) return;
-    setProfileLoading(true);
+    // Only show the loading spinner on the initial / explicit fetch.
+    // Background polls update silently — otherwise the Chat Profile panel
+    // flashes every 15 s and looks like a full reload.
+    if (!silent) setProfileLoading(true);
     try {
       const res = await fetch(`/api/projects/${projectId}/whatsapp/contacts/${contactId}/profile`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load profile");
       setProfile(data);
     } catch {
-      setProfile(null);
+      if (!silent) setProfile(null);
     } finally {
-      setProfileLoading(false);
+      if (!silent) setProfileLoading(false);
     }
   }, [projectId]);
 
@@ -332,12 +366,18 @@ export function WhatsAppChatLayout({
 
   useEffect(() => {
     if (!projectId || pollIntervalMs <= 0) return;
+    let profileTickCounter = 0;
     const t = setInterval(() => {
       if (document.visibilityState !== "visible") return;
       fetchConversations(true);
       if (selectedContactId) {
         fetchMessages(selectedContactId, true);
-        fetchProfile(selectedContactId);
+        // Profile data changes slowly — only re-fetch every 4 ticks (60 s on the
+        // default 15 s interval). And always silent: no loading spinner on poll.
+        profileTickCounter = (profileTickCounter + 1) % 4;
+        if (profileTickCounter === 0) {
+          fetchProfile(selectedContactId, true);
+        }
       }
     }, pollIntervalMs);
     return () => clearInterval(t);
@@ -390,8 +430,8 @@ export function WhatsAppChatLayout({
       }
       // Replace optimistic message with the real one from the server
       setMessages((prev) => prev.map((m) => m.id === tempId ? (data.message ?? m) : m));
-      fetchConversations();
-      if (profile) fetchProfile(selectedContactId);
+      fetchConversations(true);
+      if (profile) fetchProfile(selectedContactId, true);
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       toast.error(err instanceof Error ? err.message : "Could not send");
@@ -438,8 +478,8 @@ export function WhatsAppChatLayout({
         return;
       }
       setMessages((prev) => prev.map((m) => m.id === tempId ? (data.message ?? m) : m));
-      fetchConversations();
-      if (profile) fetchProfile(selectedContactId);
+      fetchConversations(true);
+      if (profile) fetchProfile(selectedContactId, true);
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       toast.error(err instanceof Error ? err.message : "Could not send");
@@ -537,16 +577,15 @@ export function WhatsAppChatLayout({
 
   if (!projectId) {
     return (
-      <div className="flex flex-col gap-10">
+      <div className="flex flex-col gap-10 p-6">
         <PageHeader title={title} description="Select a project to view conversations." />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <PageHeader title={title} description={description} />
-      <div className="flex h-[calc(100vh-12rem)] flex-col gap-0 overflow-hidden bg-white dark:bg-gray-900 md:flex-row">
+    <div className="flex h-full w-full max-w-full min-w-0 overflow-hidden bg-white dark:bg-gray-900">
+      <div className="flex min-w-0 flex-1 flex-col gap-0 overflow-hidden bg-white dark:bg-gray-900 md:flex-row">
         {/* Left: Contact list */}
         <div className="flex w-full flex-col border-b border-gray-100 dark:border-gray-800/80 md:w-80 md:flex-shrink-0 md:border-b-0 md:border-r">
           <div className="flex items-center justify-between gap-2 border-b border-gray-100 bg-[#f0f2f5] dark:border-gray-800/80 dark:bg-gray-900/80 p-3">
@@ -591,7 +630,7 @@ export function WhatsAppChatLayout({
                 key={f}
                 type="button"
                 onClick={() => setConversationFilter(f)}
-                className={`flex-1 py-2 text-xs font-medium capitalize transition-colors ${
+                className={`flex-1 py-2 text-xs font-medium capitalize transition-colors !rounded-none ${
                   conversationFilter === f
                     ? "border-b-2 border-[#25D366] text-[#25D366]"
                     : "text-muted-foreground hover:text-foreground"
@@ -700,7 +739,7 @@ export function WhatsAppChatLayout({
         </div>
 
         {/* Center: Messages */}
-        <div className="flex min-h-0 flex-1 flex-col bg-[#e5ddd5] dark:bg-gray-900">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#e5ddd5] dark:bg-gray-900">
           {!selectedContactId ? (
             <div className="flex flex-1 items-center justify-center bg-[#efeae2] dark:bg-gray-900">
               <p className="text-sm text-muted-foreground">Select a conversation</p>

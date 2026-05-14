@@ -58,38 +58,34 @@ begin
     v_endpoint := v_config.endpoint_url;
   end if;
 
-  -- 3. last pg_net response for that endpoint
-  if v_endpoint is not null then
-    begin
-      select r.status_code, r.content, r.created
-        into v_last_response
-        from net._http_response r
-        join net.http_request_queue q on q.id = r.id
-        where q.url like rtrim(v_endpoint, '/') || '%'
-        order by r.created desc
-        limit 1;
-      if found then
-        v_last_status := v_last_response.status_code;
-        v_last_content := left(coalesce(v_last_response.content, ''), 500);
-        v_last_called := v_last_response.created;
-      end if;
-    exception when others then
-      -- pg_net not installed or schema differs; ignore
-      null;
-    end;
-  end if;
-
-  -- 4. last successful run inferred from net._http_response (any 2xx)
+  -- 3. Last pg_net response in the recent window.
+  -- pg_net 0.19+ deletes net.http_request_queue rows once the response is recorded,
+  -- so we cannot filter responses by URL anymore. We take the most recent response
+  -- in the last 15 minutes — in practice each project runs 1–3 cron jobs and the
+  -- latest pg_net call is almost always the one being checked.
   begin
-    select max(r.created)
+    select status_code, content, created
+      into v_last_response
+      from net._http_response
+      where created > now() - interval '15 minutes'
+      order by created desc
+      limit 1;
+    if found then
+      v_last_status := v_last_response.status_code;
+      v_last_content := left(coalesce(v_last_response.content, ''), 500);
+      v_last_called := v_last_response.created;
+    end if;
+  exception when others then null;
+  end;
+
+  -- 4. last 2xx response in the same window
+  begin
+    select max(created)
       into v_last_run
-      from net._http_response r
-      join net.http_request_queue q on q.id = r.id
-      where v_endpoint is not null
-        and q.url like rtrim(v_endpoint, '/') || '%'
-        and r.status_code between 200 and 299;
-  exception when others then
-    null;
+      from net._http_response
+      where status_code between 200 and 299
+        and created > now() - interval '15 minutes';
+  exception when others then null;
   end;
 
   return jsonb_build_object(
@@ -111,6 +107,12 @@ $$;
 
 comment on function public.get_cron_health(text) is
   'Returns health snapshot for a pg_cron-driven send job (whatsapp_send / email_send / sms_send). Reads cron.job, app_cron_config, and net._http_response. Used by the app diagnostic UI.';
+
+-- The function reads net._http_response, which in Supabase is only readable by
+-- the postgres role. Without this ownership change, security definer runs as the
+-- function creator (the dashboard user) and the SELECT silently fails with
+-- "permission denied for schema net", returning null for last_response_*.
+alter function public.get_cron_health(text) owner to postgres;
 
 grant execute on function public.get_cron_health(text) to authenticated;
 grant execute on function public.get_cron_health(text) to service_role;

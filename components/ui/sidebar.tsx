@@ -686,7 +686,7 @@ function SidebarMenuSubButton({
       data-size={size}
       data-active={isActive}
       className={cn(
-        "text-gray-900 dark:text-gray-50 ring-gray-400 dark:ring-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-50 active:bg-gray-100 dark:active:bg-gray-800 active:text-gray-900 dark:active:text-gray-50 [&>svg]:text-gray-900 dark:[&>svg]:text-gray-50 flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden px-2 outline-hidden focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+        "text-gray-900 dark:text-gray-50 ring-gray-400 dark:ring-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-50 active:bg-gray-100 dark:active:bg-gray-800 active:text-gray-900 dark:active:text-gray-50 [&>svg]:text-gray-900 dark:[&>svg]:text-gray-50 flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 outline-hidden focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
         "data-[active=true]:bg-gray-100 dark:data-[active=true]:bg-gray-800 data-[active=true]:text-gray-900 dark:data-[active=true]:text-gray-50",
         size === "sm" && "text-xs",
         size === "md" && "text-sm",

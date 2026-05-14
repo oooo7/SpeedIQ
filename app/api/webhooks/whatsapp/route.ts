@@ -95,6 +95,7 @@ export async function POST(request: Request) {
           recipient_id: string;
           status: string;
           timestamp: string;
+          errors?: Array<{ code?: number; title?: string; message?: string; error_data?: { details?: string } }>;
         }>;
         errors?: Array<{ code: number; title: string }>;
       };
@@ -405,9 +406,31 @@ export async function POST(request: Request) {
 
       if (value.statuses) {
         for (const status of value.statuses) {
+          const isFailed = status.status === "failed";
+          const firstError = status.errors?.[0];
+          const errorCode = firstError?.code != null ? String(firstError.code) : null;
+          const errorTitle = firstError?.title ?? firstError?.message ?? firstError?.error_data?.details ?? null;
+
+          // 1. Update chat-history message row
+          const messageUpdate: Record<string, unknown> = { status: status.status };
+          if (isFailed) {
+            messageUpdate.error_code = errorCode;
+            messageUpdate.error_title = errorTitle;
+          }
           await supabase
             .from("whatsapp_messages")
-            .update({ status: status.status })
+            .update(messageUpdate)
+            .eq("meta_message_id", status.id);
+
+          // 2. Mirror status onto campaign recipients so the campaign UI doesn't
+          // show "sent" for a message Meta later marked as delivered/read/failed.
+          const recipientUpdate: Record<string, unknown> = { status: status.status };
+          if (isFailed) {
+            recipientUpdate.error_code = errorCode ?? errorTitle ?? "delivery_failed";
+          }
+          await supabase
+            .from("whatsapp_campaign_recipients")
+            .update(recipientUpdate)
             .eq("meta_message_id", status.id);
         }
       }

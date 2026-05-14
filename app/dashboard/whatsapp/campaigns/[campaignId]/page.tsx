@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { AlertTriangle, Calendar, Loader2, Pencil, RefreshCw, Send, XCircle } from "lucide-react";
-import Link from "next/link";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -472,13 +471,11 @@ export default function CampaignDetailPage() {
               <div className="flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                 <div className="space-y-1">
-                  <p className="font-medium">This campaign has been &quot;sending&quot; for over 5 minutes with {stats.pending} recipient{stats.pending === 1 ? "" : "s"} still pending.</p>
+                  <p className="font-medium">
+                    This campaign is taking longer than usual — {stats.pending} recipient{stats.pending === 1 ? "" : "s"} still pending after 5 minutes.
+                  </p>
                   <p>
-                    The Supabase cron job that processes campaigns may not be running. Check{" "}
-                    <Link href="/dashboard/settings/whatsapp-account" className="underline font-medium">
-                      Settings → WhatsApp
-                    </Link>{" "}
-                    for the cron health status, or click &quot;Cancel send&quot; above to move this back to draft.
+                    Click &quot;Cancel send&quot; above to move it back to draft, or contact support if the issue persists.
                   </p>
                 </div>
               </div>

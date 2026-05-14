@@ -321,6 +321,40 @@ export function metaTemplateToRow(meta: MetaMessageTemplate): {
   };
 }
 
+/**
+ * Fetch a single template directly from Meta by its template ID.
+ * This avoids the name/language case-sensitivity issues in getTemplateStatusViaWaba
+ * (Meta stores names like "hello_world" and languages like "en_US", but the name+language
+ * filter on the list endpoint is case-sensitive and brittle).
+ *
+ * Returns full template data so callers can also refresh body/header/footer/buttons/category.
+ */
+export async function getTemplateById(
+  accessToken: string,
+  metaTemplateId: string
+): Promise<{ template: MetaMessageTemplate } | { error: { message: string } }> {
+  const url = `${META_GRAPH_BASE}/${META_API_VERSION}/${encodeURIComponent(metaTemplateId)}?fields=id,name,language,status,category,components&access_token=${encodeURIComponent(accessToken)}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  if (!res.ok) {
+    const msg = data?.error?.message ?? "Meta API error";
+    const isObjectNotFound =
+      msg.includes("does not exist") ||
+      msg.includes("Unsupported get request") ||
+      msg.includes("cannot be loaded");
+    if (isObjectNotFound) {
+      return {
+        error: {
+          message:
+            "This template no longer exists in Meta. It may have been deleted in WhatsApp Manager. Use 'Fetch from Meta' on the list page to resync.",
+        },
+      };
+    }
+    return { error: { message: msg } };
+  }
+  return { template: data as MetaMessageTemplate };
+}
+
 /** Fetch template status from Meta via WABA message_templates list (avoids direct template ID access). */
 export async function getTemplateStatusViaWaba(
   accessToken: string,

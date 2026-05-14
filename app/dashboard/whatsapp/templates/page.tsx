@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { LayoutTemplate, Loader2, MoreVertical, Plus, RefreshCw, Send, Trash2 } from "lucide-react";
+import { Eye, LayoutTemplate, Loader2, MoreVertical, Plus, RefreshCw, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -203,7 +203,7 @@ export default function WhatsAppTemplatesPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="flex h-9 border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-1 text-sm"
+          className="flex h-9 rounded-md border border-gray-200 dark:border-gray-800 bg-transparent px-3 py-1 text-sm"
         >
           <option value="">All statuses</option>
           <option value="draft">Draft</option>
@@ -251,22 +251,25 @@ export default function WhatsAppTemplatesPage() {
               key={t.id}
               className="flex items-center justify-between gap-4 border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4"
             >
-              <div className="min-w-0 flex-1">
+              <Link
+                href={`/dashboard/whatsapp/templates/${t.id}`}
+                className="min-w-0 flex-1 group"
+              >
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-medium truncate">{t.name}</p>
+                  <p className="font-medium truncate group-hover:underline">{t.name}</p>
                   <Badge variant={statusVariant(t.status)}>{t.status}</Badge>
                   <span className="text-xs text-muted-foreground capitalize">{t.category}</span>
                   <span className="text-xs text-muted-foreground">{t.language}</span>
                 </div>
                 {t.rejection_reason && (
-                  <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                  <p className="text-sm text-red-600 dark:text-red-400 mt-1 line-clamp-1">
                     Rejected: {t.rejection_reason}
                   </p>
                 )}
                 {t.body && (
                   <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{t.body}</p>
                 )}
-              </div>
+              </Link>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
@@ -274,6 +277,12 @@ export default function WhatsAppTemplatesPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href={`/dashboard/whatsapp/templates/${t.id}`} className="flex items-center">
+                      <Eye className="h-4 w-4 mr-2" />
+                      View details
+                    </Link>
+                  </DropdownMenuItem>
                   {t.status === "draft" && (
                     <>
                       <DropdownMenuItem

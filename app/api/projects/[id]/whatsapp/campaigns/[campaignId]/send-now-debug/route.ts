@@ -244,6 +244,7 @@ export async function POST(
           body: `Template: ${templateName}`,
           meta_message_id: result.message_id,
           status: "sent",
+          template_id: campaign.template_id ?? null,
         }),
         admin.from("whatsapp_conversations").upsert(
           {

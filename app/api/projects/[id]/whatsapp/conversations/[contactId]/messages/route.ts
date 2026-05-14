@@ -144,6 +144,14 @@ export async function POST(
         { status: 400 }
       );
     }
+    // Resolve template_id so this send appears in the template's delivery log
+    // and the failure-status webhook can later mark it failed if Meta drops it.
+    const { data: tplRow } = await supabase
+      .from("whatsapp_templates")
+      .select("id")
+      .eq("project_id", projectId)
+      .eq("name", template_name)
+      .maybeSingle();
     const { data: msg, error: insertError } = await supabase
       .from("whatsapp_messages")
       .insert({
@@ -154,6 +162,7 @@ export async function POST(
         body: `Template: ${template_name}`,
         meta_message_id: result.message_id,
         status: "sent",
+        template_id: tplRow?.id ?? null,
       })
       .select("id, direction, type, body, status, created_at")
       .single();

@@ -170,15 +170,45 @@ export async function POST(
     });
   }
 
+  const nowIso = new Date().toISOString();
   await admin
     .from("whatsapp_campaign_recipients")
     .update({
       status: "sent",
-      sent_at: new Date().toISOString(),
+      sent_at: nowIso,
       meta_message_id: result.message_id,
       retry_count: nextRetryCount,
     })
     .eq("id", recipient.id);
+
+  // Log the send so the template's delivery log captures it and the webhook
+  // can later update delivered/read/failed status.
+  try {
+    await Promise.all([
+      admin.from("whatsapp_messages").insert({
+        project_id: projectId,
+        contact_id: recipient.contact_id,
+        direction: "out",
+        type: "text",
+        body: `Template: ${templateName}`,
+        meta_message_id: result.message_id,
+        status: "sent",
+        template_id: campaign.template_id ?? null,
+      }),
+      admin.from("whatsapp_conversations").upsert(
+        {
+          project_id: projectId,
+          contact_id: recipient.contact_id,
+          last_message_at: nowIso,
+          updated_at: nowIso,
+          unread_count: 0,
+        },
+        { onConflict: "project_id,contact_id", ignoreDuplicates: false }
+      ),
+    ]);
+  } catch (err) {
+    console.error("[send-to] failed to log message / upsert conversation", err);
+  }
 
   return NextResponse.json({
     ok: true,

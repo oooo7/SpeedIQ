@@ -64,8 +64,12 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
           <DashboardHeader />
           <div
             className={cn(
-              "h-full w-full",
-              isWhatsAppLiveChat ? "max-w-none p-0" : "max-w-7xl mx-auto p-4 md:p-6",
+              "w-full",
+              isWhatsAppLiveChat
+                // Live-chat fills the remaining vertical space below the header and
+                // never scrolls the page — the chat panels manage their own scroll.
+                ? "flex-1 min-h-0 min-w-0 max-w-none overflow-hidden"
+                : "h-full max-w-7xl mx-auto p-4 md:p-6",
             )}
           >
             {children}

@@ -1163,29 +1163,22 @@ export default function WhatsAppAccountPage() {
               </div>
 
               {testLog && (
-                <div className="pt-4 border-t border-gray-200 dark:border-gray-800 mt-4 space-y-3">
-                  {testLog.status === 200 && (testLog.response as { success?: boolean })?.success === true && (
-                    <div className="text-sm text-amber-700 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded p-3">
-                      <p className="font-medium">API says sent but you don&apos;t see the message?</p>
-                      <ul className="list-disc list-inside mt-1.5 space-y-0.5 text-muted-foreground">
-                        <li>Open WhatsApp on the <strong>recipient</strong> phone (the number you typed above). The message appears there, from your business number.</li>
-                        <li>Don&apos;t send to the same number as your connected business number—use a different phone (e.g. a friend&apos;s or second device) to test.</li>
-                        <li>Confirm that number has WhatsApp and has internet. Wait 1–2 minutes and pull to refresh the chat.</li>
-                        <li>Check that the recipient hasn&apos;t blocked your business or archived the chat.</li>
-                      </ul>
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-800 mt-4">
+                  {testLog.status === 200 && (testLog.response as { success?: boolean })?.success === true ? (
+                    <div className="text-sm text-green-700 dark:text-green-200 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded p-3 space-y-2">
+                      <p className="font-medium">Test message sent.</p>
+                      <p className="text-muted-foreground">
+                        Open WhatsApp on the recipient phone to confirm it arrived. If you don&apos;t see it, make sure that number has WhatsApp and isn&apos;t the same number as your business number.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-red-700 dark:text-red-200 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded p-3">
+                      <p className="font-medium">Couldn&apos;t send the test message.</p>
+                      <p className="text-muted-foreground mt-1">
+                        {(testLog.response as { error?: { message?: string } })?.error?.message ?? "Please try again, or check that your template is approved and the phone number is valid."}
+                      </p>
                     </div>
                   )}
-                  <Collapsible defaultOpen>
-                    <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
-                      <ChevronDown className="h-4 w-4" />
-                      Full request / response log
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="pt-3">
-                      <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-3 rounded overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-all">
-                        {JSON.stringify({ status: testLog.status, request: testLog.request, response: testLog.response }, null, 2)}
-                      </pre>
-                    </CollapsibleContent>
-                  </Collapsible>
                 </div>
               )}
             </form>
