@@ -15,10 +15,16 @@ import {
 import {
   CREDIT_PACKS,
   CREDIT_WEIGHTS,
-  detectCurrency,
   formatPrice,
   PLANS,
 } from "@/lib/marketing/currency";
+
+const USD_CONTEXT = {
+  currency: "usd" as const,
+  country: null,
+  symbol: "$",
+  locale: "en-US",
+};
 
 export const metadata: Metadata = {
   title: "Pricing — SpeedIQ",
@@ -35,10 +41,8 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function PricingPage() {
-  const ctx = await detectCurrency();
-  const defaultCurrency: "INR" | "USD" = ctx.currency === "inr" ? "INR" : "USD";
-  const c = ctx.currency;
+export default function PricingPage() {
+  const ctx = USD_CONTEXT;
 
   return (
     <>
@@ -61,14 +65,13 @@ export default async function PricingPage() {
               letterSpacing: ".02em",
             }}
           >
-            Showing prices in {c === "inr" ? "₹ INR" : "$ USD"}
-            {ctx.country ? ` — based on your location (${ctx.country})` : ""}. Toggle below to switch.
+            Showing prices in $ USD. Billed via Stripe.
           </p>
         </Container>
       </section>
 
       {/* PLAN CARDS — reuses the same Pricing block as the landing */}
-      <Pricing defaultCurrency={defaultCurrency} />
+      <Pricing />
 
       {/* CREDIT WEIGHTS */}
       <section
@@ -181,7 +184,7 @@ export default async function PricingPage() {
                 <Eyebrow dot={false}>credits</Eyebrow>
                 <div style={{ marginTop: "auto", display: "flex", alignItems: "baseline", gap: 6 }}>
                   <span style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 500, letterSpacing: "-0.02em" }}>
-                    {formatPrice(c === "inr" ? pack.inr : pack.usd, ctx)}
+                    {formatPrice(pack.usd, ctx)}
                   </span>
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-3)" }}>one-time</span>
                 </div>
@@ -255,7 +258,7 @@ export default async function PricingPage() {
                             fontWeight: 400,
                           }}
                         >
-                          {formatPrice(plan.monthly[c], ctx)}/mo
+                          {formatPrice(plan.monthly.usd, ctx)}/mo
                         </div>
                       </th>
                     ))}
@@ -266,7 +269,7 @@ export default async function PricingPage() {
                   <ComparisonRow label="Contacts" values={PLANS.map((p) => p.contacts.toLocaleString())} />
                   <ComparisonRow label="Team seats" values={PLANS.map((p) => (p.seats ? String(p.seats) : "Unlimited"))} />
                   <ComparisonRow label="WhatsApp + Email" values={["✓", "✓", "✓"]} />
-                  <ComparisonRow label="SMS (Twilio · DLT)" values={["—", "✓", "✓"]} />
+                  <ComparisonRow label="SMS (Twilio · 10DLC)" values={["—", "✓", "✓"]} />
                   <ComparisonRow label="Custom email domain" values={["✓", "✓", "✓"]} />
                   <ComparisonRow label="Live unified inbox" values={["✓", "✓", "✓"]} />
                   <ComparisonRow label="Automations" values={["Basic", "Full", "Full + branching"]} />

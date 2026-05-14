@@ -12,11 +12,11 @@ import {
 
 // ─── 1. Live Inbox panel ────────────────────────────────────────────────────
 const INBOX_THREADS = [
-  { name: "Aarav Sharma", ch: "wa", preview: "Please hold size L. COD okay?", time: "2m", unread: 2, active: true },
-  { name: "Riya Patel", ch: "wa", preview: "Loved the broadcast — got a link?", time: "14m", unread: 0 },
-  { name: "priya@northbeam", ch: "em", preview: "Following up on the demo last…", time: "1h", unread: 1 },
-  { name: "Vikram K.", ch: "sm", preview: "OTP confirmed. Order placed.", time: "3h", unread: 0 },
-  { name: "Saanvi Studio", ch: "wa", preview: "Can we schedule for tomorrow?", time: "1d", unread: 0 },
+  { name: "Ava Carter", ch: "wa", preview: "Please hold size L. Cash on delivery okay?", time: "2m", unread: 2, active: true },
+  { name: "Liam Bennett", ch: "wa", preview: "Loved the broadcast — got a link?", time: "14m", unread: 0 },
+  { name: "maya@northbeam.com", ch: "em", preview: "Following up on the demo last…", time: "1h", unread: 1 },
+  { name: "Noah K.", ch: "sm", preview: "OTP confirmed. Order placed.", time: "3h", unread: 0 },
+  { name: "Hudson Studio", ch: "wa", preview: "Can we schedule for tomorrow?", time: "1d", unread: 0 },
 ] as const;
 
 export function InboxPanel({ compact = false, animated = false }: { compact?: boolean; animated?: boolean }) {
@@ -133,12 +133,12 @@ export function InboxPanel({ compact = false, animated = false }: { compact?: bo
       {/* THREAD */}
       <div style={{ display: "flex", flexDirection: "column", background: "var(--bg-elev)" }}>
         <div style={{ padding: "12px 18px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", gap: 12 }}>
-          <Avatar name="Aarav Sharma" size={34} />
+          <Avatar name="Ava Carter" size={34} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13.5, fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}>
-              Aarav Sharma
+              Ava Carter
               <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10.5, color: "var(--fg-3)", fontFamily: "var(--font-mono)", letterSpacing: ".02em" }}>
-                <ChannelDot ch="wa" size={11} withRing={false} /> +91 98xxx 22118
+                <ChannelDot ch="wa" size={11} withRing={false} /> +1 415-555-2118
               </span>
             </div>
             <div style={{ fontSize: 11, color: "var(--fg-3)", display: "flex", alignItems: "center", gap: 6 }}>
@@ -209,7 +209,7 @@ export function BroadcastPanel() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18, gap: 16 }}>
         <div>
           <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--fg-3)", letterSpacing: ".06em", textTransform: "uppercase" }}>WHATSAPP · MARKETING</div>
-          <div style={{ fontSize: 17, fontWeight: 500, letterSpacing: "-0.015em", marginTop: 3 }}>Diwali Sale · 30% off</div>
+          <div style={{ fontSize: 17, fontWeight: 500, letterSpacing: "-0.015em", marginTop: 3 }}>Black Friday · 30% off</div>
           <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 3 }}>
             Audience: <span style={{ fontFamily: "var(--font-mono)", color: "var(--fg-2)" }}>tag:purchased · last_reply &lt; 30d</span>
           </div>
@@ -374,7 +374,7 @@ export function AutomationPanel() {
 // ─── 4. Campaigns panel ─────────────────────────────────────────────────────
 export function CampaignsPanel() {
   const rows = [
-    { name: "Diwali Sale · 30% off", ch: "wa", status: "sending", pct: 26, sent: "2,341 / 8,932", when: "now", type: "marketing" },
+    { name: "Black Friday · 30% off", ch: "wa", status: "sending", pct: 26, sent: "2,341 / 8,932", when: "now", type: "marketing" },
     { name: "Order confirmation #4821", ch: "wa", status: "completed", pct: 100, sent: "8,932", when: "2h ago", type: "utility" },
     { name: "Sept newsletter", ch: "em", status: "scheduled", pct: 0, sent: "14,238 queued", when: "Tue 9:00am", type: "campaign" },
     { name: "OTP transactional", ch: "sm", status: "completed", pct: 100, sent: "1,204", when: "today", type: "otp" },
@@ -488,7 +488,7 @@ export function TemplatePanel() {
         <div style={{ background: "#fff", borderRadius: 10, padding: 12, fontSize: 12.5, lineHeight: 1.4, color: "#111", boxShadow: "0 2px 8px rgba(0,0,0,.06)", maxWidth: 260, marginLeft: "auto" }}>
           <div style={{ fontWeight: 600, marginBottom: 4 }}>Order #4821 confirmed</div>
           <div style={{ color: "#333" }}>
-            Hi Aarav, your order is on the way. Track with this link: <span style={{ color: "#25D366" }}>spdq.in/t/4821</span>. Reply STOP to opt out.
+            Hi Ava, your order is on the way. Track with this link: <span style={{ color: "#25D366" }}>spdq.co/t/4821</span>. Reply STOP to opt out.
           </div>
           <div style={{ color: "#9ca3af", fontSize: 10, marginTop: 6 }}>SpeedIQ · Sent via WhatsApp Business</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8, paddingTop: 8, borderTop: "1px solid #f0f0f0" }}>
@@ -619,10 +619,10 @@ export function AnalyticsPanel() {
 // ─── 8. Team panel ─────────────────────────────────────────────────────────
 export function TeamPanel() {
   const members = [
-    { name: "Sarah Chen", email: "sarah@speediq.in", role: "Owner", status: "active" },
-    { name: "Rohit Iyer", email: "rohit@speediq.in", role: "Admin", status: "active" },
-    { name: "Anjali Mehta", email: "anjali@speediq.in", role: "Editor", status: "active" },
-    { name: "pending@speediq.in", email: "invited 3d ago", role: "Viewer", status: "pending" },
+    { name: "Sarah Chen", email: "sarah@kettlewala.co", role: "Owner", status: "active" },
+    { name: "Marcus Reed", email: "marcus@kettlewala.co", role: "Admin", status: "active" },
+    { name: "Emma Wilson", email: "emma@kettlewala.co", role: "Editor", status: "active" },
+    { name: "raj@kettlewala.co", email: "invited 3d ago", role: "Viewer", status: "pending" },
   ];
   return (
     <div style={{ background: "var(--bg-elev)", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)", overflow: "hidden", fontFamily: "var(--font-sans)", boxShadow: "0 1px 0 rgba(255,255,255,.6) inset" }}>
@@ -656,7 +656,7 @@ export function TeamPanel() {
 // ─── 9. Credit ledger panel ────────────────────────────────────────────────
 export function CreditLedgerPanel() {
   const rows = [
-    { kind: "send · wa marketing", n: -325, ref: "Diwali Sale broadcast", when: "2m ago" },
+    { kind: "send · wa marketing", n: -325, ref: "Black Friday broadcast", when: "2m ago" },
     { kind: "send · email", n: -218, ref: "Sept newsletter", when: "1h ago" },
     { kind: "send · wa utility", n: -57, ref: "order_confirmation #4821", when: "2h ago" },
     { kind: "top-up", n: 5000, ref: "pack: Growth 5k", when: "yesterday" },
@@ -694,11 +694,11 @@ export function CreditLedgerPanel() {
 // ─── 10. Contacts panel ─────────────────────────────────────────────────────
 export function ContactsPanel() {
   const rows = [
-    { name: "Aarav Sharma", phone: "+91 98xxx 22118", tags: ["vip", "purchased"], ch: "wa" },
-    { name: "Riya Patel", phone: "+91 91xxx 47702", tags: ["lead", "homepage"], ch: "wa" },
-    { name: "priya@northbeam.in", phone: "newsletter", tags: ["subscribed"], ch: "em" },
-    { name: "Vikram K.", phone: "+91 88xxx 90013", tags: ["otp", "active"], ch: "sm" },
-    { name: "Anjali Mehta", phone: "+91 99xxx 22411", tags: ["vip", "high-value"], ch: "wa" },
+    { name: "Ava Carter", phone: "+1 415-555-2118", tags: ["vip", "purchased"], ch: "wa" },
+    { name: "Liam Bennett", phone: "+1 415-555-4770", tags: ["lead", "homepage"], ch: "wa" },
+    { name: "maya@northbeam.com", phone: "newsletter list", tags: ["subscribed"], ch: "em" },
+    { name: "Noah K.", phone: "+1 415-555-9001", tags: ["otp", "active"], ch: "sm" },
+    { name: "Emma Wilson", phone: "+1 415-555-2241", tags: ["vip", "high-value"], ch: "wa" },
   ];
   return (
     <div style={{ background: "var(--bg-elev)", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)", overflow: "hidden", fontFamily: "var(--font-sans)" }}>

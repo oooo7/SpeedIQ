@@ -18,14 +18,14 @@ export default function DpaPage() {
     <LegalPageLayout
       title="Data Processing Addendum"
       lastUpdated="May 12, 2026"
-      intro="This Data Processing Addendum (“DPA”) forms part of the agreement between SpeedIQ (“Processor”) and the customer using the Services (“Controller”). It applies whenever SpeedIQ processes personal data on behalf of the Controller, including under the EU/UK GDPR and India's DPDP Act."
+      intro="This Data Processing Addendum (“DPA”) forms part of the agreement between SpeedIQ (“Processor”) and the customer using the Services (“Controller”). It applies whenever SpeedIQ processes personal data on behalf of the Controller, including under the EU/UK GDPR, the California CCPA/CPRA, and Canada's PIPEDA."
     >
       <LegalSection title="1. Definitions">
         <p>
           Terms used in this DPA, such as “personal data”, “processing”,
           “controller”, “processor”, and “data subject”, have the meaning given
-          in applicable data protection laws (including the GDPR, UK GDPR, and
-          India&apos;s DPDP Act, as applicable).
+          in applicable data protection laws (including the GDPR, UK GDPR, the
+          California CCPA/CPRA, and Canada&apos;s PIPEDA, as applicable).
         </p>
       </LegalSection>
 
@@ -150,9 +150,10 @@ export default function DpaPage() {
           deemed incorporated into this DPA by reference.
         </p>
         <p>
-          For transfers under India&apos;s DPDP Act, transfers are made only to
-          jurisdictions permitted by the Government of India and subject to
-          appropriate safeguards.
+          For transfers involving Canadian personal data, the parties comply
+          with PIPEDA accountability and cross-border transfer requirements,
+          including contractual safeguards with sub-processors located outside
+          Canada.
         </p>
       </LegalSection>
 

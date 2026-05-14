@@ -4,9 +4,9 @@ import { SmsIcon } from "@/components/marketing/atoms";
 import { FeaturePageLayout } from "@/components/marketing/feature-page-layout";
 
 export const metadata: Metadata = {
-  title: "SMS marketing with DLT compliance — SpeedIQ",
+  title: "SMS marketing with 10DLC compliance — SpeedIQ",
   description:
-    "Connect Twilio. Send SMS in India or worldwide. STOP/HELP handled automatically. Pause, resume and retry mid-campaign.",
+    "Connect Twilio. Send SMS in US/Canada or worldwide. STOP/HELP handled automatically. Pause, resume and retry mid-campaign.",
   alternates: { canonical: "/features/sms" },
 };
 
@@ -15,7 +15,7 @@ export default function SmsFeaturePage() {
     <FeaturePageLayout
       eyebrow="SMS"
       title="SMS that *reaches every phone.*"
-      subtitle="Connect Twilio. Send SMS in India or worldwide. Reply to inbound messages. Stay compliant with DLT rules."
+      subtitle="Connect Twilio. Send SMS in US/Canada or worldwide. Reply to inbound messages. Stay compliant with 10DLC and CTIA rules."
       accent="#a855f7"
       grad="linear-gradient(135deg, #4c1d95 0%, #a855f7 55%, #e7d3ff 100%)"
       icon={<SmsIcon size={26} color="#fff" />}
@@ -25,8 +25,8 @@ export default function SmsFeaturePage() {
           body: "Use your own Twilio account. Provision numbers and set up messaging services right inside SpeedIQ.",
         },
         {
-          title: "DLT for India",
-          body: "Register your business, content templates and sender IDs — all surfaced in the UI for India sends.",
+          title: "10DLC for the US",
+          body: "Register your brand, campaigns and use cases — all surfaced in the UI for US A2P sends.",
         },
         {
           title: "Templates",
@@ -45,8 +45,8 @@ export default function SmsFeaturePage() {
           body: "STOP, START and HELP keywords are handled automatically. Opt-outs tracked per contact.",
         },
         {
-          title: "India & global",
-          body: "India SMS at 5 credits each. MMS at 8. International at 15. Costs shown on every send.",
+          title: "US/Canada & global",
+          body: "Domestic SMS at 5 credits each. MMS at 8. International at 15. Costs shown on every send.",
         },
         {
           title: "Schedule & throttle",
@@ -59,14 +59,14 @@ export default function SmsFeaturePage() {
       ]}
       highlights={[
         {
-          heading: "Built for the real rules of Indian SMS",
-          body: "DLT rules mean you can't send SMS from any number to any phone in India. We surface entity registration, template IDs and approved sender IDs — and won't let you fire a non-compliant send.",
+          heading: "Built for the real rules of A2P SMS",
+          body: "10DLC rules mean you can't send SMS from any number to any phone in the US. We surface brand registration, campaign approval and approved use cases — and won't let you fire a non-compliant send.",
           bullets: [
-            "Entity SID setup in one place",
-            "Content template ID per send",
-            "Sender ID management",
+            "Brand registration in one place",
+            "Campaign approval workflow",
+            "Sender ID and short code management",
             "Pre-flight compliance checks",
-            "India 5 credits / global 15 credits",
+            "Domestic 5 credits / global 15 credits",
           ],
         },
         {
@@ -102,8 +102,8 @@ export default function SmsFeaturePage() {
           a: "SMS is on Pro and Business. Starter focuses on WhatsApp and Email. Upgrade to Pro any time to unlock it.",
         },
         {
-          q: "How does DLT work for non-India sends?",
-          a: "DLT only applies to messages ending in India. International sends follow the destination country's rules. We track them as international (15 credits) and use Twilio's global network.",
+          q: "How does compliance work for international sends?",
+          a: "10DLC applies to messages ending in the US. Canada follows CRTC and CWTA rules. Other destinations follow local regulations. We track non-domestic sends as international (15 credits) and use Twilio's global network.",
         },
         {
           q: "What happens when someone replies STOP?",

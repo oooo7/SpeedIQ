@@ -119,7 +119,7 @@ export const CREDIT_WEIGHTS: CreditWeight[] = [
   { channel: "WhatsApp session message", credits: 2, note: "within 24h reply window" },
   { channel: "WhatsApp utility / auth template", credits: 3 },
   { channel: "WhatsApp marketing template", credits: 5 },
-  { channel: "SMS domestic (India)", credits: 5 },
+  { channel: "SMS domestic (US/Canada)", credits: 5 },
   { channel: "SMS MMS", credits: 8 },
   { channel: "SMS international", credits: 15 },
   { channel: "AI assist", credits: 10, note: "per generation" },

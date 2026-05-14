@@ -8,7 +8,7 @@ import {
 export const metadata: Metadata = {
   title: "Privacy Policy — SpeedIQ",
   description:
-    "How SpeedIQ collects, uses, stores, and protects your personal data. Compliant with GDPR and India's DPDP Act.",
+    "How SpeedIQ collects, uses, stores, and protects your personal data. Compliant with GDPR, CCPA, and PIPEDA.",
   alternates: { canonical: "/legal/privacy" },
   robots: { index: true, follow: true },
 };
@@ -161,9 +161,11 @@ export default function PrivacyPage() {
           <li><strong>Complain</strong> — lodge a complaint with your local data protection authority.</li>
         </ul>
         <p>
-          For India under the DPDP Act, you additionally have the right to
-          nominate a person to exercise rights on your behalf and to a grievance
-          redressal mechanism.
+          California residents under the CCPA/CPRA additionally have the right
+          to opt out of the sale or sharing of personal information and to
+          limit the use of sensitive personal information. Canadian residents
+          under PIPEDA have parallel rights of access and correction through
+          our designated privacy officer.
         </p>
         <p>
           To exercise any of these rights, email{" "}
