@@ -231,6 +231,16 @@ export async function PATCH(
         );
       }
     }
+    const { count: recipientCount } = await supabase
+      .from("whatsapp_campaign_recipients")
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_id", campaignId);
+    if (!recipientCount || recipientCount === 0) {
+      return NextResponse.json(
+        { error: "Add at least one recipient before sending or scheduling this campaign." },
+        { status: 400 }
+      );
+    }
   }
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -240,6 +250,9 @@ export async function PATCH(
   if (body.scheduled_at !== undefined) updates.scheduled_at = body.scheduled_at?.trim() ?? null;
   if (body.template_id !== undefined) updates.template_id = body.template_id?.trim() ?? null;
   if (body.use_hello_world !== undefined) updates.use_hello_world = !!body.use_hello_world;
+  // Set started_at when transitioning to "sending" so detail page shows correct timing
+  // and the stuck-detection banner can age from a real timestamp.
+  if (newStatus === "sending") updates.started_at = new Date().toISOString();
 
   const { data: campaign, error } = await supabase
     .from("whatsapp_campaigns")

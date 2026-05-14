@@ -9,6 +9,11 @@ import { isValidPhone } from "@/lib/whatsapp/phone";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+// Cap synchronous batch so we don't hit Vercel's 60s function limit on big campaigns.
+// At ~200ms per WhatsApp API call + ~3 DB writes, 50 recipients leaves headroom.
+// Anything beyond this stays as "pending" and the cron picks them up within ~1 minute.
+const SYNC_BATCH_LIMIT = 50;
+
 /**
  * Run send for this campaign synchronously and return sent/failed/errors.
  * Use for development debugging so errors show on the page.
@@ -78,7 +83,11 @@ export async function POST(
 
   await admin
     .from("whatsapp_campaigns")
-    .update({ status: "sending", updated_at: new Date().toISOString() })
+    .update({
+      status: "sending",
+      started_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", campaignId);
 
   const creds = await getWhatsAppAccountToken(admin, projectId);
@@ -123,11 +132,19 @@ export async function POST(
     hasVariables = fallbackVariables.length > 0 || !!(mapping && mapping.length > 0);
   }
 
+  const { data: projectSettings } = await admin
+    .from("whatsapp_account_settings")
+    .select("respect_opt_out_for_campaigns")
+    .eq("project_id", projectId)
+    .maybeSingle();
+  const respectOptOut = projectSettings?.respect_opt_out_for_campaigns !== false;
+
   const { data: recipients } = await admin
     .from("whatsapp_campaign_recipients")
     .select("id, contact_id, retry_count")
     .eq("campaign_id", campaignId)
-    .eq("status", "pending");
+    .eq("status", "pending")
+    .limit(SYNC_BATCH_LIMIT);
 
   const list = recipients ?? [];
   const errors: Array<{ phone: string; error: string }> = [];
@@ -152,7 +169,7 @@ export async function POST(
       errors.push({ phone, error: "Contact has no phone number" });
       continue;
     }
-    if (contact.opt_out) {
+    if (contact.opt_out && respectOptOut) {
       await admin
         .from("whatsapp_campaign_recipients")
         .update({ status: "failed", error_code: "opt_out", retry_count: nextRetryCount })
@@ -205,17 +222,20 @@ export async function POST(
       errors.push({ phone: contact.phone, error: errMsg });
     } else {
       const nowIso = new Date().toISOString();
-      await Promise.all([
-        admin
-          .from("whatsapp_campaign_recipients")
-          .update({
-            status: "sent",
-            sent_at: nowIso,
-            meta_message_id: result.message_id,
-            retry_count: nextRetryCount,
-          })
-          .eq("id", rec.id),
-        // Record in chat history so the message appears in the live chat
+      const { error: recipientUpdateError } = await admin
+        .from("whatsapp_campaign_recipients")
+        .update({
+          status: "sent",
+          sent_at: nowIso,
+          meta_message_id: result.message_id,
+          retry_count: nextRetryCount,
+        })
+        .eq("id", rec.id);
+      if (recipientUpdateError) {
+        console.error("[send-now] recipient update failed", { recipientId: rec.id, error: recipientUpdateError.message });
+      }
+
+      const auxResults = await Promise.allSettled([
         admin.from("whatsapp_messages").insert({
           project_id: projectId,
           contact_id: rec.contact_id,
@@ -225,7 +245,6 @@ export async function POST(
           meta_message_id: result.message_id,
           status: "sent",
         }),
-        // Ensure conversation record exists / update last_message_at
         admin.from("whatsapp_conversations").upsert(
           {
             project_id: projectId,
@@ -237,6 +256,11 @@ export async function POST(
           { onConflict: "project_id,contact_id", ignoreDuplicates: false }
         ),
       ]);
+      for (const r of auxResults) {
+        if (r.status === "rejected") {
+          console.error("[send-now] auxiliary write failed", { recipientId: rec.id, reason: r.reason });
+        }
+      }
       sent++;
     }
   }
@@ -275,6 +299,7 @@ export async function POST(
     sent,
     failed,
     processed: sent + failed,
+    deferred: remainingPending ?? 0,
     errors,
   });
 }

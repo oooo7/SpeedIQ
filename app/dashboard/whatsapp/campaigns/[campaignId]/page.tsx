@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Calendar, Loader2, Pencil, RefreshCw, Send } from "lucide-react";
+import { AlertTriangle, Calendar, Loader2, Pencil, RefreshCw, Send, XCircle } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -102,6 +103,7 @@ export default function CampaignDetailPage() {
   const [debugResult, setDebugResult] = useState<{ sent: number; failed: number; errors: Array<{ phone: string; error: string }> } | null>(null);
   const [debugLoading, setDebugLoading] = useState(false);
   const [sendingToContactId, setSendingToContactId] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const [editTagIds, setEditTagIds] = useState<string[]>([]);
   const [editContactIds, setEditContactIds] = useState<string[]>([]);
   const [editTagDefinitions, setEditTagDefinitions] = useState<Array<{ id: string; name: string; color: string | null; contact_count?: number }>>([]);
@@ -244,10 +246,17 @@ export default function CampaignDetailPage() {
         failed: json.failed ?? 0,
         errors: Array.isArray(json.errors) ? json.errors : [],
       });
+      const deferred = typeof json.deferred === "number" ? json.deferred : 0;
       if ((json.failed ?? 0) > 0) {
         toast.error(`${json.failed} failed. See results below.`);
       } else if ((json.sent ?? 0) > 0) {
-        toast.success(`Sent ${json.sent} message(s).`);
+        toast.success(
+          deferred > 0
+            ? `Sent ${json.sent}. ${deferred} more will send via cron within the next minute.`
+            : `Sent ${json.sent} message(s).`
+        );
+      } else if (deferred > 0) {
+        toast.success(`Campaign started. ${deferred} recipient${deferred === 1 ? "" : "s"} will send via cron within the next minute.`);
       }
       fetchDetail();
     } catch (err) {
@@ -287,6 +296,25 @@ export default function CampaignDetailPage() {
       toast.error(err instanceof Error ? err.message : "Request failed");
     } finally {
       setSendingToContactId(null);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!activeProject?.id || !campaignId) return;
+    if (!confirm("Cancel this send? The campaign will move back to draft. Recipients already sent stay sent.")) return;
+    setCancelling(true);
+    try {
+      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/campaigns/${campaignId}/cancel`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed to cancel");
+      toast.success("Campaign moved back to draft.");
+      fetchDetail();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not cancel");
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -341,12 +369,22 @@ export default function CampaignDetailPage() {
   const { campaign, template, recipients, stats } = data;
   const canEdit = campaign.status === "draft" || campaign.status === "scheduled" || campaign.status === "failed";
   const canSendOrSchedule = campaign.status === "draft" || campaign.status === "scheduled";
+  const canCancel = campaign.status === "sending" || campaign.status === "scheduled";
   const hasTemplate = campaign.use_hello_world || campaign.template_id;
+  const isStuckSending = (() => {
+    if (campaign.status !== "sending") return false;
+    if (stats.pending === 0) return false;
+    const sinceIso = campaign.started_at ?? campaign.updated_at;
+    if (!sinceIso) return false;
+    const ageMs = Date.now() - new Date(sinceIso).getTime();
+    return ageMs > 5 * 60 * 1000;
+  })();
   const hasAlerts =
     (canSendOrSchedule && !hasTemplate) ||
     (canSendOrSchedule && hasTemplate && stats.total === 0) ||
     (!campaign.use_hello_world && template?.status !== "approved") ||
     stats.failed > 0 ||
+    isStuckSending ||
     debugResult;
 
   return (
@@ -366,47 +404,60 @@ export default function CampaignDetailPage() {
               </Button>
             )}
           </div>
-          {canSendOrSchedule && (
-            <div className="flex items-center gap-2 flex-wrap shrink-0">
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            {canSendOrSchedule && (
+              <>
+                <Button
+                  onClick={handleSendNow}
+                  disabled={debugLoading || stats.total === 0 || !hasTemplate || (!campaign.use_hello_world && template?.status !== "approved")}
+                  className="gap-1"
+                >
+                  {debugLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  Send now
+                </Button>
+                {campaign.status === "draft" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setScheduleDialogOpen(true)}
+                    disabled={triggering || !hasTemplate}
+                    className="gap-1"
+                  >
+                    <Calendar className="h-4 w-4" />
+                    Schedule for later
+                  </Button>
+                )}
+                {campaign.status === "scheduled" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setScheduleAt(campaign.scheduled_at ? new Date(campaign.scheduled_at).toISOString().slice(0, 16) : "");
+                      setScheduleDialogOpen(true);
+                    }}
+                    disabled={triggering || !hasTemplate}
+                    className="gap-1"
+                  >
+                    <Calendar className="h-4 w-4" />
+                    Reschedule
+                  </Button>
+                )}
+              </>
+            )}
+            {canCancel && (
               <Button
-                onClick={handleSendNow}
-                disabled={debugLoading || stats.total === 0 || !hasTemplate || (!campaign.use_hello_world && template?.status !== "approved")}
+                variant="outline"
+                onClick={handleCancel}
+                disabled={cancelling}
                 className="gap-1"
               >
-                {debugLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-                Send now
+                {cancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                {campaign.status === "sending" ? "Cancel send" : "Cancel schedule"}
               </Button>
-              {campaign.status === "draft" && (
-                <Button
-                  variant="outline"
-                  onClick={() => setScheduleDialogOpen(true)}
-                  disabled={triggering || !hasTemplate}
-                  className="gap-1"
-                >
-                  <Calendar className="h-4 w-4" />
-                  Schedule for later
-                </Button>
-              )}
-              {campaign.status === "scheduled" && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setScheduleAt(campaign.scheduled_at ? new Date(campaign.scheduled_at).toISOString().slice(0, 16) : "");
-                    setScheduleDialogOpen(true);
-                  }}
-                  disabled={triggering || !hasTemplate}
-                  className="gap-1"
-                >
-                  <Calendar className="h-4 w-4" />
-                  Reschedule
-                </Button>
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </div>
         {campaign.description && (
           <p className="text-sm text-muted-foreground max-w-2xl">{campaign.description}</p>
@@ -416,6 +467,23 @@ export default function CampaignDetailPage() {
       {/* Alerts: template approval, missing template/recipients, send results */}
       {hasAlerts && (
         <section className="space-y-3">
+          {isStuckSending && (
+            <div className="border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <div className="space-y-1">
+                  <p className="font-medium">This campaign has been &quot;sending&quot; for over 5 minutes with {stats.pending} recipient{stats.pending === 1 ? "" : "s"} still pending.</p>
+                  <p>
+                    The Supabase cron job that processes campaigns may not be running. Check{" "}
+                    <Link href="/dashboard/settings/whatsapp-account" className="underline font-medium">
+                      Settings → WhatsApp
+                    </Link>{" "}
+                    for the cron health status, or click &quot;Cancel send&quot; above to move this back to draft.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           {canSendOrSchedule && !hasTemplate && (
             <div className="border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
               Add a template or enable the default hello_world template (Edit campaign) before you can send or schedule.

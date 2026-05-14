@@ -23,6 +23,44 @@ export async function GET(request: Request) {
   const supabase = createAdminClient();
   const now = new Date().toISOString();
 
+  // Auto-fail campaigns stuck in "sending" for >30 minutes with no pending recipients
+  // being processed — safety net for cron outages that have since recovered, so the
+  // campaign doesn't sit at "sending" forever after the user has already given up on it.
+  const stuckCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  const { data: stuckCampaigns } = await supabase
+    .from("whatsapp_campaigns")
+    .select("id")
+    .eq("status", "sending")
+    .lte("updated_at", stuckCutoff);
+  if (stuckCampaigns?.length) {
+    for (const c of stuckCampaigns) {
+      const { count: pendingCount } = await supabase
+        .from("whatsapp_campaign_recipients")
+        .select("id", { count: "exact", head: true })
+        .eq("campaign_id", c.id)
+        .eq("status", "pending");
+      if ((pendingCount ?? 0) === 0) {
+        const [{ count: sentCount }, { count: failedCount }] = await Promise.all([
+          supabase
+            .from("whatsapp_campaign_recipients")
+            .select("id", { count: "exact", head: true })
+            .eq("campaign_id", c.id)
+            .in("status", ["sent", "delivered", "read"]),
+          supabase
+            .from("whatsapp_campaign_recipients")
+            .select("id", { count: "exact", head: true })
+            .eq("campaign_id", c.id)
+            .eq("status", "failed"),
+        ]);
+        const finalStatus = (sentCount ?? 0) === 0 && (failedCount ?? 0) > 0 ? "failed" : "completed";
+        await supabase
+          .from("whatsapp_campaigns")
+          .update({ status: finalStatus, completed_at: now, updated_at: now })
+          .eq("id", c.id);
+      }
+    }
+  }
+
   // Start scheduled campaigns whose scheduled_at time has passed (same cron run, so no extra job needed)
   const { data: dueScheduled } = await supabase
     .from("whatsapp_campaigns")
@@ -59,6 +97,13 @@ export async function GET(request: Request) {
   let totalFailed = 0;
 
   for (const campaign of campaigns) {
+    const { data: projectSettings } = await supabase
+      .from("whatsapp_account_settings")
+      .select("respect_opt_out_for_campaigns")
+      .eq("project_id", campaign.project_id)
+      .maybeSingle();
+    const respectOptOut = projectSettings?.respect_opt_out_for_campaigns !== false; // default true
+
     const useHelloWorld = !!campaign.use_hello_world;
     if (!useHelloWorld && !campaign.template_id) {
       await supabase
@@ -153,7 +198,7 @@ export async function GET(request: Request) {
         totalFailed++;
         continue;
       }
-      if (contact?.opt_out) {
+      if (contact?.opt_out && respectOptOut) {
         await supabase
           .from("whatsapp_campaign_recipients")
           .update({ status: "failed", error_code: "opt_out", retry_count: nextRetryCount })
@@ -226,17 +271,22 @@ export async function GET(request: Request) {
         totalFailed++;
       } else {
         const nowIso = new Date().toISOString();
-        await Promise.all([
-          supabase
-            .from("whatsapp_campaign_recipients")
-            .update({
-              status: "sent",
-              sent_at: nowIso,
-              meta_message_id: result.message_id,
-              retry_count: nextRetryCount,
-            })
-            .eq("id", rec.id),
-          // Record in chat history so the message appears in the live chat
+        // Recipient status is the critical write — do it first and fail the send if it errors.
+        const { error: recipientUpdateError } = await supabase
+          .from("whatsapp_campaign_recipients")
+          .update({
+            status: "sent",
+            sent_at: nowIso,
+            meta_message_id: result.message_id,
+            retry_count: nextRetryCount,
+          })
+          .eq("id", rec.id);
+        if (recipientUpdateError) {
+          console.error("[whatsapp-send] recipient status update failed", { recipientId: rec.id, error: recipientUpdateError.message });
+        }
+
+        // Auxiliary writes — log errors but don't block other recipients.
+        const auxResults = await Promise.allSettled([
           supabase.from("whatsapp_messages").insert({
             project_id: campaign.project_id,
             contact_id: rec.contact_id,
@@ -246,7 +296,6 @@ export async function GET(request: Request) {
             meta_message_id: result.message_id,
             status: "sent",
           }),
-          // Ensure conversation record exists / update last_message_at
           supabase.from("whatsapp_conversations").upsert(
             {
               project_id: campaign.project_id,
@@ -269,6 +318,11 @@ export async function GET(request: Request) {
             status: "sent",
           }),
         ]);
+        for (const r of auxResults) {
+          if (r.status === "rejected") {
+            console.error("[whatsapp-send] auxiliary write failed", { recipientId: rec.id, reason: r.reason });
+          }
+        }
         totalSent++;
       }
 

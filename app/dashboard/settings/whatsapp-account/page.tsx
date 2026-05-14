@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { CronHealthCard } from "@/components/whatsapp/cron-health-card";
 import { WhatsAppConnectButton } from "@/components/whatsapp/whatsapp-connect-button";
 import { useProjectContext } from "@/lib/projects/project-context";
 
@@ -1491,6 +1492,7 @@ export default function WhatsAppAccountPage() {
           </form>
         ) : null
       )}
+      <CronHealthCard />
         </>
       )}
 

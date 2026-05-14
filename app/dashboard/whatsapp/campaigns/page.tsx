@@ -266,13 +266,29 @@ export default function WhatsAppCampaignsPage() {
     }
     setSendingId(c.id);
     try {
-      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/campaigns/${c.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "sending", scheduled_at: null }),
+      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/campaigns/${c.id}/send-now-debug`, {
+        method: "POST",
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to start");
+      if (!res.ok) {
+        throw new Error(data.error ?? "Failed to start");
+      }
+      const sent = typeof data.sent === "number" ? data.sent : 0;
+      const failed = typeof data.failed === "number" ? data.failed : 0;
+      const deferred = typeof data.deferred === "number" ? data.deferred : 0;
+      if (failed > 0 && sent === 0) {
+        toast.error(`Send failed for ${failed} recipient${failed === 1 ? "" : "s"}. Open the campaign to see details.`);
+      } else if (failed > 0) {
+        toast.success(`Sent ${sent}, failed ${failed}. Open the campaign to see details.`);
+      } else if (sent > 0) {
+        toast.success(
+          deferred > 0
+            ? `Sent ${sent}. ${deferred} more will send via cron within the next minute.`
+            : `Sent ${sent} message${sent === 1 ? "" : "s"}.`
+        );
+      } else {
+        toast.success("Campaign started. Remaining recipients will be processed by the cron in the next minute.");
+      }
       fetchCampaigns();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not start campaign");
