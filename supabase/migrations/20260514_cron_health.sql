@@ -19,6 +19,9 @@ declare
   v_last_status int := null;
   v_last_content text := null;
   v_last_called timestamptz := null;
+  -- Convention: app_cron_config.id uses underscores (e.g. 'whatsapp_send'),
+  -- but cron.schedule() registers the job with hyphens ('whatsapp-send').
+  v_cron_jobname text := replace(p_job_id, '_', '-');
 begin
   -- Permission: only project members who have any role on at least one project
   -- can call this, plus service_role. The data is global, not per-project,
@@ -31,12 +34,12 @@ begin
     end if;
   end if;
 
-  -- 1. cron schedule
+  -- 1. cron schedule (try the hyphenated convention first, fall back to the raw id)
   begin
     select jobname, schedule, active
       into v_job
       from cron.job
-      where jobname = p_job_id;
+      where jobname in (v_cron_jobname, p_job_id);
     if found then
       v_job_exists := true;
     end if;

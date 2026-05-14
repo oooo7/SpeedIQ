@@ -66,6 +66,13 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
+  // Cron endpoints are invoked by Supabase pg_cron with a Bearer token — no user session.
+  // The route handlers validate CRON_SECRET themselves. Without this bypass, pg_net follows
+  // the login redirect and the cron call appears to succeed (200) while never running.
+  if (pathname.startsWith("/api/cron")) {
+    return supabaseResponse;
+  }
+
   // WhatsApp OAuth callback: allow through so we can read code/state and redirect to login if no session
   if (pathname === "/api/whatsapp/callback") {
     return supabaseResponse;
