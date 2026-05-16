@@ -71,7 +71,7 @@ function parseCsvText(text: string): string[][] {
   return rows;
 }
 
-function detectColumns(header: string[]): { phone: number; name: number; email: number } {
+function detectColumns(header: string[]): { phone: number; name: number; email: number; tags: number } {
   const lower = header.map((h) => h.trim().toLowerCase());
   const findIdx = (re: RegExp) => lower.findIndex((h) => re.test(h));
   let phone = findIdx(/phone|number|mobile|tel/);
@@ -80,7 +80,16 @@ function detectColumns(header: string[]): { phone: number; name: number; email: 
     phone,
     name: findIdx(/name|full.?name/),
     email: findIdx(/email/),
+    tags: findIdx(/^(tags?|labels?)$/),
   };
+}
+
+function parseTagCell(value: string | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(/[,;|]/)
+    .map((t) => t.trim())
+    .filter(Boolean);
 }
 
 interface ContactTag {
@@ -118,7 +127,7 @@ export default function WhatsAppContactsPage() {
   const [importMode, setImportMode] = useState<"file" | "paste">("file");
   const [pasteText, setPasteText] = useState("");
   const [csvRows, setCsvRows] = useState<string[][]>([]);
-  const [csvColumns, setCsvColumns] = useState<{ phone: number; name: number; email: number }>({ phone: 0, name: -1, email: -1 });
+  const [csvColumns, setCsvColumns] = useState<{ phone: number; name: number; email: number; tags: number }>({ phone: 0, name: -1, email: -1, tags: -1 });
   const [csvError, setCsvError] = useState<string | null>(null);
   const [csvParsing, setCsvParsing] = useState(false);
 
@@ -229,7 +238,10 @@ export default function WhatsAppContactsPage() {
   };
 
   const downloadSampleCsv = () => {
-    const csv = "phone,name,email\n+14155552671,Jane Doe,jane@example.com\n+919876543210,John Smith,john@example.com\n";
+    const csv =
+      "phone,name,email,tags\n" +
+      "+14155552671,Jane Doe,jane@example.com,\"vip,customer\"\n" +
+      "+919876543210,John Smith,john@example.com,lead\n";
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -417,7 +429,7 @@ export default function WhatsAppContactsPage() {
     if (!activeProject?.id) return;
 
     let text: string;
-    let columnMap: { phone: number; name?: number; email?: number } | undefined;
+    let columnMap: { phone: number; name?: number; email?: number; tags?: number } | undefined;
     if (importMode === "file") {
       if (!importFile) {
         toast.error("Select a CSV file");
@@ -432,6 +444,7 @@ export default function WhatsAppContactsPage() {
         phone: csvColumns.phone,
         ...(csvColumns.name >= 0 ? { name: csvColumns.name } : {}),
         ...(csvColumns.email >= 0 ? { email: csvColumns.email } : {}),
+        ...(csvColumns.tags >= 0 ? { tags: csvColumns.tags } : {}),
       };
     } else {
       if (parsedPasteNumbers.length === 0) {
@@ -888,7 +901,7 @@ export default function WhatsAppContactsPage() {
                     onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Columns: phone (required), name, email. First row is treated as header.
+                    Columns: phone (required), name, email, tags. First row is treated as header. Use comma, semicolon or pipe to separate multiple tags in one cell (e.g. <span className="font-mono">&quot;vip,customer&quot;</span>). Missing tags are created automatically.
                   </p>
                 </div>
 
@@ -926,6 +939,11 @@ export default function WhatsAppContactsPage() {
                             email: {csvRows[0][csvColumns.email]}
                           </Badge>
                         )}
+                        {csvColumns.tags >= 0 && (
+                          <Badge variant="outline" className="text-xs">
+                            tags: {csvRows[0][csvColumns.tags]}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <div className="overflow-x-auto max-h-64 overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
@@ -936,6 +954,7 @@ export default function WhatsAppContactsPage() {
                             <th className="text-left p-2 font-medium">Phone</th>
                             <th className="text-left p-2 font-medium">Name</th>
                             <th className="text-left p-2 font-medium">Email</th>
+                            <th className="text-left p-2 font-medium">Tags</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -943,6 +962,7 @@ export default function WhatsAppContactsPage() {
                             const phone = row[csvColumns.phone]?.trim() ?? "";
                             const name = csvColumns.name >= 0 ? row[csvColumns.name]?.trim() ?? "" : "";
                             const email = csvColumns.email >= 0 ? row[csvColumns.email]?.trim() ?? "" : "";
+                            const tags = csvColumns.tags >= 0 ? parseTagCell(row[csvColumns.tags]) : [];
                             const phoneValid = !!phone && isValidPhone(phone);
                             return (
                               <tr key={idx} className="border-t border-gray-100 dark:border-gray-800/50">
@@ -961,6 +981,19 @@ export default function WhatsAppContactsPage() {
                                 </td>
                                 <td className="p-2">{name || <span className="text-muted-foreground">—</span>}</td>
                                 <td className="p-2">{email || <span className="text-muted-foreground">—</span>}</td>
+                                <td className="p-2">
+                                  {tags.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {tags.map((t) => (
+                                        <Badge key={t} variant="secondary" className="text-[10px] py-0 px-1.5 rounded-full">
+                                          {t}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </td>
                               </tr>
                             );
                           })}
