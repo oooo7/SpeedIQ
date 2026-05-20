@@ -33,6 +33,7 @@ create table if not exists public.subscription_plans (
 
 alter table public.subscription_plans enable row level security;
 
+drop policy if exists "Plans readable by anyone authenticated" on public.subscription_plans;
 create policy "Plans readable by anyone authenticated"
   on public.subscription_plans for select
   using (auth.role() = 'authenticated');
@@ -104,6 +105,7 @@ create index if not exists idx_project_subscriptions_stripe_subscription on publ
 
 alter table public.project_subscriptions enable row level security;
 
+drop policy if exists "Subscriptions visible to project members" on public.project_subscriptions;
 create policy "Subscriptions visible to project members"
   on public.project_subscriptions for select
   using (public.user_can_access_project(project_id));
@@ -131,11 +133,13 @@ create table if not exists public.credit_wallets (
 
 alter table public.credit_wallets enable row level security;
 
+drop policy if exists "Wallet visible to project members" on public.credit_wallets;
 create policy "Wallet visible to project members"
   on public.credit_wallets for select
   using (public.user_can_access_project(project_id));
 
 -- Owners/admins may toggle auto-recharge from the UI.
+drop policy if exists "Owners/admins can update wallet preferences" on public.credit_wallets;
 create policy "Owners/admins can update wallet preferences"
   on public.credit_wallets for update
   using (public.user_is_project_owner_or_admin(project_id));
@@ -166,6 +170,7 @@ create index if not exists idx_credit_ledger_reason on public.credit_ledger (rea
 
 alter table public.credit_ledger enable row level security;
 
+drop policy if exists "Ledger visible to project members" on public.credit_ledger;
 create policy "Ledger visible to project members"
   on public.credit_ledger for select
   using (public.user_can_access_project(project_id));
@@ -193,6 +198,7 @@ create index if not exists idx_usage_events_campaign on public.usage_events (cam
 
 alter table public.usage_events enable row level security;
 
+drop policy if exists "Usage events visible to project members" on public.usage_events;
 create policy "Usage events visible to project members"
   on public.usage_events for select
   using (public.user_can_access_project(project_id));

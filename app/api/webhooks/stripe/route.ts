@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 
+import { sendBillingEmail } from "@/lib/billing/billing-emails";
 import {
   getCreditPackByPriceId,
   matchPlanByPriceId,
@@ -106,6 +107,22 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
       refId: session.id,
       metadata: { pack_id: pack.id, currency: session.currency },
     });
+
+    const recipient = session.customer_details?.email ?? null;
+    if (recipient) {
+      await sendBillingEmail({
+        kind: "top_up_receipt",
+        projectId,
+        to: recipient,
+        refId: session.id,
+        data: {
+          packName: pack.name,
+          credits: pack.credits,
+          amount: session.amount_total != null ? session.amount_total / 100 : undefined,
+          currency: (session.currency ?? "inr").toLowerCase(),
+        },
+      });
+    }
     return;
   }
 
@@ -170,6 +187,25 @@ async function handleSubscriptionDeleted(sub: Stripe.Subscription): Promise<void
     status: "canceled",
     canceled_at: new Date().toISOString(),
   });
+
+  const supabase = createAdminClient();
+  const { data: project } = await supabase
+    .from("projects")
+    .select("owner_id")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (!project?.owner_id) return;
+  const { data: ownerData } = await supabase.auth.admin.getUserById(project.owner_id as string);
+  const recipient = ownerData?.user?.email ?? null;
+  if (recipient) {
+    await sendBillingEmail({
+      kind: "subscription_canceled",
+      projectId,
+      to: recipient,
+      refId: sub.id,
+      data: {},
+    });
+  }
 }
 
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
@@ -227,6 +263,27 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice): Promise<v
   await upsertProjectSubscription(projectId, {
     last_credit_grant_at: new Date().toISOString(),
   });
+
+  const recipient = invoice.customer_email ?? null;
+  if (recipient) {
+    const { data: planRow } = await supabase
+      .from("subscription_plans")
+      .select("name")
+      .eq("id", match.plan)
+      .maybeSingle();
+    await sendBillingEmail({
+      kind: "plan_grant_receipt",
+      projectId,
+      to: recipient,
+      refId: invoice.id ?? undefined,
+      data: {
+        planName: planRow?.name ?? match.plan,
+        credits,
+        amount: invoice.amount_paid != null ? invoice.amount_paid / 100 : undefined,
+        currency: match.currency,
+      },
+    });
+  }
 }
 
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
@@ -244,4 +301,15 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice): Promise<void
   const projectId = sub.metadata?.project_id ?? null;
   if (!projectId) return;
   await upsertProjectSubscription(projectId, { status: "past_due" });
+
+  const recipient = invoice.customer_email ?? null;
+  if (recipient) {
+    await sendBillingEmail({
+      kind: "payment_failed",
+      projectId,
+      to: recipient,
+      refId: invoice.id ?? undefined,
+      data: {},
+    });
+  }
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { Command } from "lucide-react";
+import { Command, ShieldCheck } from "lucide-react";
 
 import {
   Sidebar,
@@ -21,6 +21,7 @@ import { NavUser } from "./nav-user";
 
 export function AppSidebar({
   user,
+  isPlatformAdmin,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   readonly user: {
@@ -28,6 +29,7 @@ export function AppSidebar({
     readonly email: string;
     readonly avatar: string;
   };
+  readonly isPlatformAdmin?: boolean;
 }) {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
@@ -59,9 +61,22 @@ export function AppSidebar({
           items={sidebarItems}
           isProjectSelected={Boolean(activeProject)}
         />
+        {isPlatformAdmin && (
+          <Link
+            href="/admin"
+            className={cn(
+              "mx-2 mt-2 flex items-center gap-2 rounded-md border border-dashed border-primary/40 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors",
+              isCollapsed && "justify-center px-1.5"
+            )}
+            title="Platform admin"
+          >
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+            {!isCollapsed && <span>Platform admin</span>}
+          </Link>
+        )}
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={user} />
+        <NavUser user={user} isPlatformAdmin={isPlatformAdmin} />
       </SidebarFooter>
     </Sidebar>
   );
