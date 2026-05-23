@@ -1,7 +1,24 @@
 import { NextResponse } from "next/server";
 
+import { createAdminClient } from "@/lib/supabase/admin";
+import { CANNED_MESSAGE_BUCKET } from "@/lib/supabase/canned-messages-storage";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
+
+async function signMediaPath(path: string | null | undefined): Promise<string | null> {
+  if (!path) return null;
+  // Already a full URL — return as-is (legacy templates may have stored full URLs).
+  if (/^https?:\/\//i.test(path)) return path;
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin.storage
+      .from(CANNED_MESSAGE_BUCKET)
+      .createSignedUrl(path, 60 * 60); // 1 hour
+    return data?.signedUrl ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export async function GET(
   _request: Request,
@@ -37,7 +54,8 @@ export async function GET(
     return NextResponse.json({ error: "Template not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ template });
+  const header_media_signed_url = await signMediaPath(template.header_media_url);
+  return NextResponse.json({ template: { ...template, header_media_signed_url } });
 }
 
 export async function PATCH(
@@ -103,7 +121,8 @@ export async function PATCH(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ template });
+  const header_media_signed_url = await signMediaPath(template.header_media_url);
+  return NextResponse.json({ template: { ...template, header_media_signed_url } });
 }
 
 export async function DELETE(

@@ -27,6 +27,81 @@ export function toMetaLanguageCode(lang: string): string {
   return `${trimmed}_${trimmed.toUpperCase()}`;
 }
 
+/**
+ * Upload media to Meta's Resumable Upload API to get a `header_handle` for template creation.
+ * Required for templates with IMAGE / VIDEO / DOCUMENT headers — Meta won't accept a plain URL.
+ *
+ * Two-step process:
+ *   1. POST /{app_id}/uploads — create session (returns "upload:<session_id>")
+ *   2. POST /{session_id} with file bytes (Authorization: OAuth <token>) — returns { h: "<handle>" }
+ *
+ * See https://developers.facebook.com/docs/graph-api/guides/upload/
+ * Handle is valid for ~1 week so generate fresh at submit time.
+ */
+export async function uploadMediaToMetaResumable(
+  accessToken: string,
+  fileBytes: Buffer,
+  fileName: string,
+  fileType: string
+): Promise<{ handle: string } | { error: { message: string; code?: number } }> {
+  const appId = process.env.FACEBOOK_APP_ID;
+  if (!appId) {
+    return { error: { message: "FACEBOOK_APP_ID is not configured on the server." } };
+  }
+
+  // Step 1: create upload session
+  const sessionUrl = new URL(`${META_GRAPH_BASE}/v22.0/${appId}/uploads`);
+  sessionUrl.searchParams.set("file_name", fileName);
+  sessionUrl.searchParams.set("file_length", String(fileBytes.length));
+  sessionUrl.searchParams.set("file_type", fileType);
+  sessionUrl.searchParams.set("access_token", accessToken);
+
+  const sessionRes = await fetch(sessionUrl.toString(), { method: "POST" });
+  const sessionData = await sessionRes.json();
+  if (!sessionRes.ok) {
+    return {
+      error: {
+        message:
+          sessionData?.error?.message ??
+          "Failed to start media upload session with Meta.",
+        code: sessionData?.error?.code,
+      },
+    };
+  }
+  const sessionId: string | undefined = sessionData?.id;
+  if (!sessionId) {
+    return { error: { message: "Meta did not return an upload session id." } };
+  }
+
+  // Step 2: upload bytes (fetch wants Uint8Array, not Buffer, in some TS configs)
+  const uploadUrl = `${META_GRAPH_BASE}/v22.0/${sessionId}`;
+  const uploadRes = await fetch(uploadUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `OAuth ${accessToken}`,
+      file_offset: "0",
+      "Content-Type": fileType || "application/octet-stream",
+    },
+    body: new Uint8Array(fileBytes),
+  });
+  const uploadData = await uploadRes.json();
+  if (!uploadRes.ok) {
+    return {
+      error: {
+        message:
+          uploadData?.error?.message ??
+          "Failed to upload media bytes to Meta.",
+        code: uploadData?.error?.code,
+      },
+    };
+  }
+  const handle: string | undefined = uploadData?.h;
+  if (!handle) {
+    return { error: { message: "Meta did not return a file handle." } };
+  }
+  return { handle };
+}
+
 export async function submitTemplateToMeta(
   accessToken: string,
   wabaId: string,
@@ -38,7 +113,7 @@ export async function submitTemplateToMeta(
       type: "HEADER" | "BODY" | "FOOTER" | "BUTTONS";
       format?: string;
       text?: string;
-      example?: { body_text?: string[][]; header_text?: string[] };
+      example?: { body_text?: string[][]; header_text?: string[]; header_handle?: string[] };
       buttons?: Array<{ type: "QUICK_REPLY" | "URL" | "PHONE_NUMBER"; text: string; url?: string; phone_number?: string }>;
     }>;
   }

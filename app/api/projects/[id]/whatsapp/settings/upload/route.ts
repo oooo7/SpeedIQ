@@ -72,8 +72,15 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Signed URL so the client can preview the uploaded file (bucket is private).
+  const { data: signed } = await admin.storage
+    .from(BUCKET)
+    .createSignedUrl(data.path, 60 * 60 * 24 * 7); // 7 days
+
   return NextResponse.json({
     path: data.path,
     filename: file.name,
+    signed_url: signed?.signedUrl ?? null,
+    content_type: file.type || "application/octet-stream",
   });
 }
