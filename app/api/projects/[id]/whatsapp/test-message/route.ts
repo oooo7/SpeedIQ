@@ -138,6 +138,14 @@ export async function POST(
   // Manual values from the UI take priority over auto-looked-up example values
   const finalVariableValues = manualVariableValues ?? variableValues;
 
+  // TEMP DEBUG: surface what we resolved before calling Meta. Strip after diagnosis.
+  console.log("[test-message] resolved", {
+    templateName: name,
+    language,
+    variableValues: finalVariableValues,
+    headerMedia,
+  });
+
   // Look up header format for the resolved template. When Meta-approved templates
   // require media but we have no sample stored locally, Meta rejects the send with
   // 132012 — surface that early with a clearer message instead.
@@ -176,6 +184,29 @@ export async function POST(
   if ("error" in result) {
     const code = result.error.code;
     const needsRegistration = code === 133010;
+
+    // Meta tells us the expected header format in error_data.details (we surface this
+    // up via sendTemplateMessage). When the local DB drifted out of sync (synced before
+    // we knew how to read media headers), self-heal the row so the next send already
+    // shows the upload-sample warning instead of round-tripping to Meta again.
+    const rawMsg = result.error.message ?? "";
+    const formatMismatch = code === 132012 ? rawMsg.match(/header:\s*Format mismatch,\s*expected\s+(IMAGE|VIDEO|DOCUMENT)/i) : null;
+    if (formatMismatch) {
+      const correctFormat = formatMismatch[1].toLowerCase();
+      await supabase
+        .from("whatsapp_templates")
+        .update({ header_format: correctFormat, updated_at: new Date().toISOString() })
+        .eq("project_id", projectId)
+        .eq("name", name);
+      return NextResponse.json(
+        {
+          error: `This template has a ${correctFormat} header on Meta. Open the template and upload a sample ${correctFormat} file, then try again. (Your local copy was just updated.)`,
+          code: 132012,
+        },
+        { status: 400 }
+      );
+    }
+
     const errorMessage = needsRegistration
       ? "Your WhatsApp number isn't set up for sending yet. Complete the quick step in the popup to start messaging."
       : getFriendlyErrorMessage(result.error.message ?? "", code);
