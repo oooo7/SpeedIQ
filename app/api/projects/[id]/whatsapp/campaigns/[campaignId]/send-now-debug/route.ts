@@ -3,7 +3,13 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getProjectRole } from "@/lib/team";
-import { getVariableValuesForContact, getWhatsAppAccountToken, sendTemplateMessage } from "@/lib/whatsapp/api";
+import {
+  getVariableValuesForContact,
+  getWhatsAppAccountToken,
+  resolveHeaderMediaForSend,
+  sendTemplateMessage,
+  type TemplateHeaderMedia,
+} from "@/lib/whatsapp/api";
 import { isValidPhone } from "@/lib/whatsapp/phone";
 
 export const dynamic = "force-dynamic";
@@ -104,6 +110,7 @@ export async function POST(
   let fallbackVariables: string[] = [];
   let mapping: string[] | null = null;
   let hasVariables = false;
+  let headerMedia: TemplateHeaderMedia | null = null;
 
   if (useHelloWorld) {
     templateName = "hello_world";
@@ -111,7 +118,7 @@ export async function POST(
   } else {
     const { data: template } = await admin
       .from("whatsapp_templates")
-      .select("name, language, status, variables, variable_field_mapping")
+      .select("name, language, status, variables, variable_field_mapping, header_format, header_media_url")
       .eq("id", campaign.template_id)
       .single();
     if (!template?.name) {
@@ -130,6 +137,7 @@ export async function POST(
       ? (template.variable_field_mapping as string[])
       : null;
     hasVariables = fallbackVariables.length > 0 || !!(mapping && mapping.length > 0);
+    headerMedia = await resolveHeaderMediaForSend(admin, template.header_format, template.header_media_url);
   }
 
   const { data: projectSettings } = await admin
@@ -204,6 +212,7 @@ export async function POST(
       templateLanguage,
       {
         ...(variableValues && variableValues.length > 0 ? { variableValues } : {}),
+        ...(headerMedia ? { headerMedia } : {}),
         wabaId: creds.waba_id,
       }
     );

@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
 import {
   fetchMessageTemplatesFromMeta,
   getFriendlyErrorMessage,
   getWhatsAppAccountToken,
+  resolveHeaderMediaForSend,
   sendTemplateMessage,
+  type TemplateHeaderMedia,
 } from "@/lib/whatsapp/api";
 
 export const dynamic = "force-dynamic";
@@ -59,14 +62,17 @@ export async function POST(
     return NextResponse.json({ error: "WhatsApp account not connected." }, { status: 400 });
   }
 
+  const admin = createAdminClient();
+
   let name: string;
   let language: string;
   let variableValues: string[] | undefined;
+  let headerMedia: TemplateHeaderMedia | null = null;
 
   if (templateId) {
     const { data: template, error: tErr } = await supabase
       .from("whatsapp_templates")
-      .select("name, language, status, variables")
+      .select("name, language, status, variables, header_format, header_media_url")
       .eq("project_id", projectId)
       .eq("id", templateId)
       .single();
@@ -82,19 +88,21 @@ export async function POST(
     if (Array.isArray(template.variables) && template.variables.length > 0) {
       variableValues = (template.variables as string[]).map(String);
     }
+    headerMedia = await resolveHeaderMediaForSend(admin, template.header_format, template.header_media_url);
   } else if (templateName) {
     name = templateName;
     language = templateLanguage || "en";
-    // Look up example variable values from local DB (populated during sync)
+    // Look up example variable values + header media from local DB (populated during sync)
     const { data: localTemplate } = await supabase
       .from("whatsapp_templates")
-      .select("variables")
+      .select("variables, header_format, header_media_url")
       .eq("project_id", projectId)
       .eq("name", templateName)
       .maybeSingle();
     if (Array.isArray(localTemplate?.variables) && localTemplate.variables.length > 0) {
       variableValues = (localTemplate.variables as string[]).map(String);
     }
+    headerMedia = await resolveHeaderMediaForSend(admin, localTemplate?.header_format, localTemplate?.header_media_url);
   } else if (autoPick) {
     const metaResult = await fetchMessageTemplatesFromMeta(creds.access_token, creds.waba_id);
     if ("error" in metaResult) {
@@ -103,9 +111,13 @@ export async function POST(
         { status: 400 }
       );
     }
-    const approved = metaResult.templates.filter(
-      (t) => t.status.toLowerCase() === "approved"
-    );
+    const approved = metaResult.templates.filter((t) => {
+      if (t.status.toLowerCase() !== "approved") return false;
+      // Skip media-header templates — auto-pick can't supply the required header media.
+      const headerComp = t.components?.find((c) => c.type === "HEADER");
+      const fmt = (headerComp?.format ?? "").toUpperCase();
+      return !["IMAGE", "VIDEO", "DOCUMENT"].includes(fmt);
+    });
     if (approved.length === 0) {
       return NextResponse.json(
         {
@@ -132,7 +144,11 @@ export async function POST(
     to,
     name,
     language,
-    { ...(finalVariableValues ? { variableValues: finalVariableValues } : {}), wabaId: creds.waba_id }
+    {
+      ...(finalVariableValues ? { variableValues: finalVariableValues } : {}),
+      ...(headerMedia ? { headerMedia } : {}),
+      wabaId: creds.waba_id,
+    }
   );
 
   if ("error" in result) {

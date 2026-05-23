@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
-import { getWhatsAppAccountToken, isWithin24hWindow, markMessageAsRead, sendTemplateMessage, sendTextMessage } from "@/lib/whatsapp/api";
+import {
+  getWhatsAppAccountToken,
+  isWithin24hWindow,
+  resolveHeaderMediaForSend,
+  sendTemplateMessage,
+  sendTextMessage,
+} from "@/lib/whatsapp/api";
 
 export async function GET(
   request: Request,
@@ -127,13 +134,23 @@ export async function POST(
   }
 
   if (template_name) {
+    // Look up media header for this template so Meta won't return 132012.
+    const { data: tplMeta } = await supabase
+      .from("whatsapp_templates")
+      .select("header_format, header_media_url")
+      .eq("project_id", projectId)
+      .eq("name", template_name)
+      .maybeSingle();
+    const admin = createAdminClient();
+    const headerMedia = await resolveHeaderMediaForSend(admin, tplMeta?.header_format, tplMeta?.header_media_url);
+
     const result = await sendTemplateMessage(
       creds.access_token,
       creds.phone_number_id,
       contact.phone,
       template_name,
       template_language,
-      { wabaId: creds.waba_id }
+      { wabaId: creds.waba_id, ...(headerMedia ? { headerMedia } : {}) }
     );
     if ("error" in result) {
       const code = result.error.code;

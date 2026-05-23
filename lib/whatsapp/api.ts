@@ -5,7 +5,54 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { CANNED_MESSAGE_BUCKET } from "@/lib/supabase/canned-messages-storage";
+
 const META_GRAPH_BASE = "https://graph.facebook.com";
+
+/**
+ * Header media descriptor passed to {@link sendTemplateMessage}. When a template was
+ * approved with an IMAGE/VIDEO/DOCUMENT header, Meta requires a matching header
+ * parameter on every send — otherwise it returns error 132012
+ * "Parameter format does not match format in the created template".
+ */
+export type TemplateHeaderMedia = {
+  type: "image" | "video" | "document";
+  link: string;
+  filename?: string;
+};
+
+/**
+ * Convert a stored header reference (Supabase storage path OR a full URL) into a
+ * signed/public URL suitable for Meta to download at send time. Returns null when
+ * the template doesn't use a media header or no media is stored.
+ *
+ * Signed URLs are valid for one hour, which is plenty for an immediate send. For
+ * cron batches that may take longer, call once per batch.
+ */
+export async function resolveHeaderMediaForSend(
+  admin: SupabaseClient,
+  headerFormat: string | null | undefined,
+  headerMediaRef: string | null | undefined
+): Promise<TemplateHeaderMedia | null> {
+  const fmt = (headerFormat ?? "").toLowerCase();
+  if (fmt !== "image" && fmt !== "video" && fmt !== "document") return null;
+  const ref = headerMediaRef?.trim();
+  if (!ref) return null;
+
+  if (/^https?:\/\//i.test(ref)) {
+    return { type: fmt, link: ref, filename: ref.split("/").pop()?.split("?")[0] };
+  }
+
+  const { data } = await admin.storage
+    .from(CANNED_MESSAGE_BUCKET)
+    .createSignedUrl(ref, 60 * 60);
+  if (!data?.signedUrl) return null;
+  return {
+    type: fmt,
+    link: data.signedUrl,
+    filename: ref.split("/").pop(),
+  };
+}
 
 export async function getWhatsAppAccountToken(
   supabase: SupabaseClient,
@@ -573,9 +620,10 @@ export async function sendTemplateMessage(
   templateName: string,
   language: string,
   options?: {
-    components?: Array<{ type: "button" | "body" | "header"; parameters: Array<{ type: "text"; text: string }> }>;
+    components?: Array<{ type: "button" | "body" | "header"; parameters: Array<Record<string, unknown>> }>;
     variableValues?: string[];
     wabaId?: string;
+    headerMedia?: TemplateHeaderMedia;
   }
 ): Promise<{ message_id: string } | { error: { message: string; code?: number } }> {
   const normalizedTemplateName = templateName.trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
@@ -608,6 +656,17 @@ export async function sendTemplateMessage(
         parameters: options.variableValues.map((text) => ({ type: "text" as const, text: String(text).slice(0, 1000) })),
       },
     ];
+  }
+  // Prepend header component when the template uses a media header. Meta returns
+  // 132012 if a media-header template is sent without this.
+  if (options?.headerMedia) {
+    const hm = options.headerMedia;
+    const param: Record<string, unknown> =
+      hm.type === "image" ? { type: "image", image: { link: hm.link } } :
+      hm.type === "video" ? { type: "video", video: { link: hm.link } } :
+      { type: "document", document: { link: hm.link, ...(hm.filename ? { filename: hm.filename } : {}) } };
+    const headerComp = { type: "header" as const, parameters: [param] };
+    components = components ? [headerComp, ...components] : [headerComp];
   }
   if (components && components.length > 0) {
     (body.template as Record<string, unknown>).components = components;
