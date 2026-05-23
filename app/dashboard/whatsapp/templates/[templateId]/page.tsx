@@ -13,6 +13,7 @@ import {
   Info,
   Loader2,
   MapPin,
+  Pencil,
   Phone,
   RefreshCw,
   Send,
@@ -65,6 +66,7 @@ interface TemplateDetail {
   header: string | null;
   header_format?: string | null;
   header_media_url?: string | null;
+  header_media_signed_url?: string | null;
   footer: string | null;
   buttons: TemplateButton[];
   variables: string[];
@@ -262,10 +264,18 @@ export default function TemplateDetailPage() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {isDraft && (
-              <Button onClick={handleSubmit} disabled={submitting} className="gap-1">
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Submit for approval
-              </Button>
+              <>
+                <Button asChild variant="outline" className="gap-1">
+                  <Link href={`/dashboard/whatsapp/templates/${template.id}/edit`}>
+                    <Pencil className="h-4 w-4" />
+                    Edit draft
+                  </Link>
+                </Button>
+                <Button onClick={handleSubmit} disabled={submitting} className="gap-1">
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Submit for approval
+                </Button>
+              </>
             )}
             {hasMetaId && !isDraft && (
               <Button variant="outline" onClick={handleRefresh} disabled={refreshing} className="gap-1">
@@ -310,13 +320,15 @@ export default function TemplateDetailPage() {
                 </p>
                 {isMediaHeader ? (
                   <div className="border border-gray-200 dark:border-gray-800 p-3 bg-gray-50 dark:bg-gray-900/50 text-sm">
-                    {template.header_media_url ? (
+                    {template.header_media_signed_url || template.header_media_url ? (
                       headerFormat === "image" ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={template.header_media_url} alt="Header" className="max-h-48 object-contain" />
+                        <img src={template.header_media_signed_url ?? template.header_media_url ?? ""} alt="Header" className="max-h-48 object-contain" />
+                      ) : headerFormat === "video" ? (
+                        <video src={template.header_media_signed_url ?? template.header_media_url ?? ""} controls className="max-h-48 w-full" />
                       ) : (
                         <a
-                          href={template.header_media_url}
+                          href={template.header_media_signed_url ?? template.header_media_url ?? "#"}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-1 underline"

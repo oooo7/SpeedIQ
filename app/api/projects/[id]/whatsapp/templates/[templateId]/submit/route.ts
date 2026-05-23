@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 
+import { createAdminClient } from "@/lib/supabase/admin";
+import { CANNED_MESSAGE_BUCKET } from "@/lib/supabase/canned-messages-storage";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
-import { getWhatsAppAccountToken, submitTemplateToMeta } from "@/lib/whatsapp/api";
+import {
+  getWhatsAppAccountToken,
+  submitTemplateToMeta,
+  uploadMediaToMetaResumable,
+} from "@/lib/whatsapp/api";
 
 export async function POST(
   _request: Request,
@@ -70,7 +76,7 @@ export async function POST(
     type: "HEADER" | "BODY" | "FOOTER" | "BUTTONS";
     format?: string;
     text?: string;
-    example?: { body_text?: string[][]; header_text?: string[] };
+    example?: { body_text?: string[][]; header_text?: string[]; header_handle?: string[] };
     buttons?: Array<{ type: "QUICK_REPLY" | "URL" | "PHONE_NUMBER"; text: string; url?: string; phone_number?: string }>;
   }> = [];
 
@@ -92,12 +98,72 @@ export async function POST(
     }
     components.push(headerComp);
   } else if (["IMAGE", "VIDEO", "DOCUMENT"].includes(hdrFormat)) {
-    const mediaComp: Record<string, unknown> = { type: "HEADER", format: hdrFormat };
-    const mediaUrl = template.header_media_url?.trim();
-    if (mediaUrl) {
-      mediaComp.example = { header_handle: [mediaUrl] };
+    const mediaRef = template.header_media_url?.trim();
+    if (!mediaRef) {
+      return NextResponse.json(
+        { error: "Header media is required for image, video, or document templates. Upload a sample file and try again." },
+        { status: 400 }
+      );
     }
-    components.push(mediaComp as typeof components[number]);
+
+    // Meta requires a `header_handle` from its Resumable Upload API — not a plain URL.
+    // Fetch the bytes (from Supabase storage path or a remote URL), then upload to Meta.
+    let fileBytes: Buffer;
+    let fileName: string;
+    let contentType: string;
+    try {
+      if (/^https?:\/\//i.test(mediaRef)) {
+        const remote = await fetch(mediaRef);
+        if (!remote.ok) throw new Error(`Failed to download header media (HTTP ${remote.status})`);
+        fileBytes = Buffer.from(await remote.arrayBuffer());
+        fileName = mediaRef.split("/").pop()?.split("?")[0] || `header.${hdrFormat.toLowerCase()}`;
+        contentType = remote.headers.get("content-type") ?? "";
+      } else {
+        const admin = createAdminClient();
+        const { data: blob, error: dlError } = await admin.storage
+          .from(CANNED_MESSAGE_BUCKET)
+          .download(mediaRef);
+        if (dlError || !blob) throw new Error(dlError?.message ?? "Could not read header media from storage");
+        fileBytes = Buffer.from(await blob.arrayBuffer());
+        fileName = mediaRef.split("/").pop() || `header.${hdrFormat.toLowerCase()}`;
+        contentType = blob.type || "";
+      }
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Failed to read header media" },
+        { status: 400 }
+      );
+    }
+
+    if (!contentType) {
+      const ext = (fileName.split(".").pop() ?? "").toLowerCase();
+      contentType =
+        ext === "jpg" || ext === "jpeg" ? "image/jpeg" :
+        ext === "png" ? "image/png" :
+        ext === "mp4" ? "video/mp4" :
+        ext === "3gp" || ext === "3gpp" ? "video/3gpp" :
+        ext === "pdf" ? "application/pdf" :
+        "application/octet-stream";
+    }
+
+    const handleResult = await uploadMediaToMetaResumable(
+      creds.access_token,
+      fileBytes,
+      fileName,
+      contentType
+    );
+    if ("error" in handleResult) {
+      return NextResponse.json(
+        { error: `Could not upload header media to Meta: ${handleResult.error.message}`, code: handleResult.error.code },
+        { status: 400 }
+      );
+    }
+
+    components.push({
+      type: "HEADER",
+      format: hdrFormat,
+      example: { header_handle: [handleResult.handle] },
+    });
   } else if (hdrFormat === "LOCATION") {
     components.push({ type: "HEADER", format: "LOCATION" } as typeof components[number]);
   }
