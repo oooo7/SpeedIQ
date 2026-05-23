@@ -92,13 +92,19 @@ export async function POST(
   } else if (templateName) {
     name = templateName;
     language = templateLanguage || "en";
-    // Look up example variable values + header media from local DB (populated during sync)
-    const { data: localTemplate } = await supabase
+    // Look up example variable values + header media from local DB (populated during sync).
+    // Filter by project_id + name; if multiple rows exist for different languages, pick the
+    // best match (exact language → en variants → first).
+    const { data: localRows, error: lookupErr } = await supabase
       .from("whatsapp_templates")
-      .select("variables, header_format, header_media_url")
+      .select("id, language, variables, header_format, header_media_url")
       .eq("project_id", projectId)
-      .eq("name", templateName)
-      .maybeSingle();
+      .eq("name", templateName);
+    console.log("[test-message] local lookup", { templateName, projectId, language, rows: localRows, lookupErr });
+    const langCandidates = [language, language?.split("_")[0], "en", "en_US"].filter(Boolean) as string[];
+    let localTemplate = (localRows ?? []).find((r) => langCandidates.includes(r.language ?? "")) ?? (localRows ?? [])[0] ?? null;
+    if (!localTemplate && (localRows?.length ?? 0) > 0) localTemplate = localRows![0];
+    console.log("[test-message] picked local row", localTemplate);
     if (Array.isArray(localTemplate?.variables) && localTemplate.variables.length > 0) {
       variableValues = (localTemplate.variables as string[]).map(String);
     }
