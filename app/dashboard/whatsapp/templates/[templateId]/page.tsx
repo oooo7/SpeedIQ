@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -18,6 +18,8 @@ import {
   RefreshCw,
   Send,
   Trash2,
+  Upload,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -106,6 +108,8 @@ export default function TemplateDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [mediaUploading, setMediaUploading] = useState(false);
+  const mediaInputRef = useRef<HTMLInputElement | null>(null);
 
   const fetchTemplate = useCallback(async () => {
     if (!activeProject?.id || !templateId) return;
@@ -185,6 +189,64 @@ export default function TemplateDetailPage() {
       toast.error(err instanceof Error ? err.message : "Could not refresh");
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleMediaUpload = async (file: File) => {
+    if (!activeProject?.id || !template) return;
+    setMediaUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploadRes = await fetch(
+        `/api/projects/${activeProject.id}/whatsapp/settings/upload`,
+        { method: "POST", body: formData }
+      );
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) throw new Error(uploadData.error ?? "Upload failed");
+
+      const patchRes = await fetch(
+        `/api/projects/${activeProject.id}/whatsapp/templates/${template.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ header_media_url: uploadData.path }),
+        }
+      );
+      const patchData = await patchRes.json();
+      if (!patchRes.ok) throw new Error(patchData.error ?? "Could not save media");
+      toast.success("Header media saved. You can now send this template.");
+      fetchTemplate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save media");
+    } finally {
+      setMediaUploading(false);
+    }
+  };
+
+  const handleMediaRemove = async () => {
+    if (!activeProject?.id || !template) return;
+    if (!window.confirm("Remove the header media sample? Sends will fail until you add a new one.")) return;
+    setMediaUploading(true);
+    try {
+      const res = await fetch(
+        `/api/projects/${activeProject.id}/whatsapp/templates/${template.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ header_media_url: null }),
+        }
+      );
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Could not remove media");
+      }
+      toast.success("Header media removed");
+      fetchTemplate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not remove media");
+    } finally {
+      setMediaUploading(false);
     }
   };
 
@@ -319,26 +381,57 @@ export default function TemplateDetailPage() {
                   Header ({headerFormat})
                 </p>
                 {isMediaHeader ? (
-                  <div className="border border-gray-200 dark:border-gray-800 p-3 bg-gray-50 dark:bg-gray-900/50 text-sm">
+                  <div className="space-y-2">
+                    <input
+                      ref={mediaInputRef}
+                      type="file"
+                      className="hidden"
+                      accept={headerFormat === "image" ? "image/jpeg,image/png" : headerFormat === "video" ? "video/mp4,video/3gpp" : ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"}
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleMediaUpload(f); e.target.value = ""; }}
+                    />
                     {template.header_media_signed_url || template.header_media_url ? (
-                      headerFormat === "image" ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={template.header_media_signed_url ?? template.header_media_url ?? ""} alt="Header" className="max-h-48 object-contain" />
-                      ) : headerFormat === "video" ? (
-                        <video src={template.header_media_signed_url ?? template.header_media_url ?? ""} controls className="max-h-48 w-full" />
-                      ) : (
-                        <a
-                          href={template.header_media_signed_url ?? template.header_media_url ?? "#"}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 underline"
-                        >
-                          View {headerFormat}
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      )
+                      <div className="space-y-2">
+                        <div className="border border-gray-200 dark:border-gray-800 p-3 bg-gray-50 dark:bg-gray-900/50 text-sm">
+                          {headerFormat === "image" ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={template.header_media_signed_url ?? template.header_media_url ?? ""} alt="Header" className="max-h-48 object-contain" />
+                          ) : headerFormat === "video" ? (
+                            <video src={template.header_media_signed_url ?? template.header_media_url ?? ""} controls className="max-h-48 w-full" />
+                          ) : (
+                            <a
+                              href={template.header_media_signed_url ?? template.header_media_url ?? "#"}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 underline"
+                            >
+                              View {headerFormat}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" disabled={mediaUploading} onClick={() => mediaInputRef.current?.click()} className="gap-1">
+                            {mediaUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                            Replace
+                          </Button>
+                          <Button variant="outline" size="sm" disabled={mediaUploading} onClick={handleMediaRemove} className="gap-1 text-red-600 dark:text-red-400 hover:text-red-700">
+                            <X className="h-3.5 w-3.5" /> Remove
+                          </Button>
+                        </div>
+                      </div>
                     ) : (
-                      <span className="text-muted-foreground">Media sample not stored locally.</span>
+                      <div className="border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm space-y-2">
+                        <div className="flex items-start gap-2 text-amber-800 dark:text-amber-200">
+                          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                          <p>
+                            No sample {headerFormat} stored. Meta requires header media on every send, so this template can&apos;t be sent until you upload a sample.
+                          </p>
+                        </div>
+                        <Button variant="outline" size="sm" disabled={mediaUploading} onClick={() => mediaInputRef.current?.click()} className="gap-1">
+                          {mediaUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                          Upload sample {headerFormat}
+                        </Button>
+                      </div>
                     )}
                   </div>
                 ) : (
