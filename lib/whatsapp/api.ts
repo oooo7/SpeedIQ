@@ -683,12 +683,15 @@ export async function sendTemplateMessage(
   if (components && components.length > 0) {
     (body.template as Record<string, unknown>).components = components;
   }
+  // TEMP DEBUG: log the exact payload going to Meta and what comes back. Strip after diagnosis.
+  console.log("[sendTemplateMessage] →", JSON.stringify(body, null, 2));
   let res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
     body: JSON.stringify(body),
   });
   let data = await res.json();
+  console.log("[sendTemplateMessage] ←", res.status, JSON.stringify(data, null, 2));
   if (!res.ok && data?.error?.code === 132001 && options?.wabaId) {
     // Retry once with any other approved language available on this WABA.
     const available = await getTemplateLanguages(
@@ -710,7 +713,10 @@ export async function sendTemplateMessage(
   if (!res.ok) {
     const code = data.error?.code;
     const msg = data.error?.message ?? "Meta API error";
-    return { error: { message: formatSendError(msg, code), code } };
+    // Meta puts the specific parameter mismatch detail in error_data.details for 132012.
+    const details = data.error?.error_data?.details;
+    const fullMsg = details ? `${msg} — ${details}` : msg;
+    return { error: { message: formatSendError(fullMsg, code), code } };
   }
   const messageId = data.messages?.[0]?.id;
   if (!messageId) {
