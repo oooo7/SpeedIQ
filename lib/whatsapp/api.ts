@@ -395,6 +395,7 @@ export function metaTemplateToRow(meta: MetaMessageTemplate): {
   status: string;
   body: string | null;
   header: string | null;
+  header_format: "text" | "image" | "video" | "document" | "location";
   footer: string | null;
   buttons: unknown[];
   variables: string[];
@@ -402,12 +403,22 @@ export function metaTemplateToRow(meta: MetaMessageTemplate): {
 } {
   const components = meta.components ?? [];
   const bodyComp = components.find((c) => c.type === "BODY");
-  const headerComp = components.find((c) => c.type === "HEADER" && (c.format === "TEXT" || !c.format));
+  // Any HEADER, regardless of format — so we capture image/video/document too.
+  const anyHeaderComp = components.find((c) => c.type === "HEADER");
+  const textHeaderComp = anyHeaderComp && (anyHeaderComp.format === "TEXT" || !anyHeaderComp.format)
+    ? anyHeaderComp
+    : null;
   const footerComp = components.find((c) => c.type === "FOOTER");
   const buttonsComp = components.find((c) => c.type === "BUTTONS");
 
   const body = bodyComp?.text?.trim() ?? null;
-  const header = headerComp?.text?.trim() ?? null;
+  const header = textHeaderComp?.text?.trim() ?? null;
+  const rawHeaderFormat = (anyHeaderComp?.format ?? "TEXT").toLowerCase();
+  const header_format: "text" | "image" | "video" | "document" | "location" =
+    rawHeaderFormat === "image" || rawHeaderFormat === "video" ||
+    rawHeaderFormat === "document" || rawHeaderFormat === "location"
+      ? rawHeaderFormat
+      : "text";
   const footer = footerComp?.text?.trim() ?? null;
 
   const indices = getBodyVariableIndicesFromText(body ?? undefined);
@@ -436,6 +447,7 @@ export function metaTemplateToRow(meta: MetaMessageTemplate): {
     status: status === "approved" ? "approved" : status === "rejected" ? "rejected" : "pending",
     body,
     header,
+    header_format,
     footer,
     buttons,
     variables,

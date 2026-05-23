@@ -91,22 +91,40 @@ export async function PATCH(
   if (!existing) {
     return NextResponse.json({ error: "Template not found" }, { status: 404 });
   }
-  if (existing.status !== "draft") {
-    return NextResponse.json({ error: "Only draft templates can be edited" }, { status: 400 });
-  }
 
   const body = await request.json().catch(() => ({}));
+  const isDraft = existing.status === "draft";
+
+  // Content fields (name/body/header text/buttons/etc.) can only be edited on drafts —
+  // Meta locks the template content after approval. The per-send sample media
+  // (header_media_url) is NOT part of the approved content (it's just supplied at
+  // send time), so it can always be updated, including on approved templates.
+  const contentFieldsAttempted =
+    body.name !== undefined || body.category !== undefined || body.language !== undefined ||
+    body.body !== undefined || body.header !== undefined || body.footer !== undefined ||
+    Array.isArray(body.buttons) || Array.isArray(body.variables) ||
+    Array.isArray(body.variable_field_mapping) || body.header_format !== undefined;
+
+  if (!isDraft && contentFieldsAttempted) {
+    return NextResponse.json(
+      { error: "Only draft templates can be edited. Use a new draft to change content." },
+      { status: 400 }
+    );
+  }
+
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (body.name !== undefined) updates.name = body.name?.trim();
-  if (body.category !== undefined) updates.category = body.category?.trim();
-  if (body.language !== undefined) updates.language = body.language?.trim();
-  if (body.body !== undefined) updates.body = body.body?.trim();
-  if (body.header !== undefined) updates.header = body.header?.trim() ?? null;
-  if (body.footer !== undefined) updates.footer = body.footer?.trim() ?? null;
-  if (Array.isArray(body.buttons)) updates.buttons = body.buttons;
-  if (Array.isArray(body.variables)) updates.variables = body.variables;
-  if (Array.isArray(body.variable_field_mapping)) updates.variable_field_mapping = body.variable_field_mapping;
-  if (body.header_format !== undefined) updates.header_format = body.header_format?.trim() ?? "text";
+  if (isDraft) {
+    if (body.name !== undefined) updates.name = body.name?.trim();
+    if (body.category !== undefined) updates.category = body.category?.trim();
+    if (body.language !== undefined) updates.language = body.language?.trim();
+    if (body.body !== undefined) updates.body = body.body?.trim();
+    if (body.header !== undefined) updates.header = body.header?.trim() ?? null;
+    if (body.footer !== undefined) updates.footer = body.footer?.trim() ?? null;
+    if (Array.isArray(body.buttons)) updates.buttons = body.buttons;
+    if (Array.isArray(body.variables)) updates.variables = body.variables;
+    if (Array.isArray(body.variable_field_mapping)) updates.variable_field_mapping = body.variable_field_mapping;
+    if (body.header_format !== undefined) updates.header_format = body.header_format?.trim() ?? "text";
+  }
   if (body.header_media_url !== undefined) updates.header_media_url = body.header_media_url?.trim() ?? null;
 
   const { data: template, error } = await supabase
