@@ -3,7 +3,13 @@ import { NextResponse } from "next/server";
 import { whatsappCost } from "@/lib/billing/cost";
 import { deductCredits, grantCredits, recordUsageEvent } from "@/lib/billing/credits";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getVariableValuesForContact, getWhatsAppAccountToken, sendTemplateMessage } from "@/lib/whatsapp/api";
+import {
+  getVariableValuesForContact,
+  getWhatsAppAccountToken,
+  resolveHeaderMediaForSend,
+  sendTemplateMessage,
+  type TemplateHeaderMedia,
+} from "@/lib/whatsapp/api";
 import { isValidPhone } from "@/lib/whatsapp/phone";
 
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -128,6 +134,7 @@ export async function GET(request: Request) {
     let fallbackVariables: string[] = [];
     let mapping: string[] | null = null;
     let hasVariables = false;
+    let headerMedia: TemplateHeaderMedia | null = null;
 
     if (useHelloWorld) {
       templateName = "hello_world";
@@ -136,7 +143,7 @@ export async function GET(request: Request) {
     } else {
       const { data: template } = await supabase
         .from("whatsapp_templates")
-        .select("name, language, status, variables, variable_field_mapping, category")
+        .select("name, language, status, variables, variable_field_mapping, category, header_format, header_media_url")
         .eq("id", campaign.template_id)
         .single();
 
@@ -158,6 +165,11 @@ export async function GET(request: Request) {
         ? (template.variable_field_mapping as string[])
         : null;
       hasVariables = fallbackVariables.length > 0 || !!(mapping && mapping.length > 0);
+      headerMedia = await resolveHeaderMediaForSend(
+        supabase,
+        (template as { header_format?: string | null }).header_format,
+        (template as { header_media_url?: string | null }).header_media_url
+      );
     }
 
     const { credits: waCredits, type: waMessageType } = whatsappCost({
@@ -245,6 +257,7 @@ export async function GET(request: Request) {
         templateLanguage,
         {
           ...(variableValues && variableValues.length > 0 ? { variableValues } : {}),
+          ...(headerMedia ? { headerMedia } : {}),
           wabaId: creds.waba_id,
         }
       );

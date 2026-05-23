@@ -3,7 +3,13 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getProjectRole } from "@/lib/team";
-import { getVariableValuesForContact, getWhatsAppAccountToken, sendTemplateMessage } from "@/lib/whatsapp/api";
+import {
+  getVariableValuesForContact,
+  getWhatsAppAccountToken,
+  resolveHeaderMediaForSend,
+  sendTemplateMessage,
+  type TemplateHeaderMedia,
+} from "@/lib/whatsapp/api";
 
 export const dynamic = "force-dynamic";
 
@@ -104,6 +110,7 @@ export async function POST(
   let templateName: string;
   let templateLanguage: string;
   let variableValues: string[] | undefined;
+  let headerMedia: TemplateHeaderMedia | null = null;
 
   if (useHelloWorld) {
     templateName = "hello_world";
@@ -112,7 +119,7 @@ export async function POST(
   } else {
     const { data: template } = await admin
       .from("whatsapp_templates")
-      .select("name, language, status, variables, variable_field_mapping")
+      .select("name, language, status, variables, variable_field_mapping, header_format, header_media_url")
       .eq("id", campaign.template_id)
       .single();
 
@@ -139,6 +146,7 @@ export async function POST(
           fallbackVariables
         )
       : undefined;
+    headerMedia = await resolveHeaderMediaForSend(admin, template.header_format, template.header_media_url);
   }
 
   const result = await sendTemplateMessage(
@@ -149,6 +157,7 @@ export async function POST(
     templateLanguage,
     {
       ...(variableValues && variableValues.length > 0 ? { variableValues } : {}),
+      ...(headerMedia ? { headerMedia } : {}),
       wabaId: creds.waba_id,
     }
   );
