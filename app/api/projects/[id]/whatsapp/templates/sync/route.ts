@@ -80,6 +80,7 @@ export async function POST(
       status: row.status,
       body: row.body,
       header: row.header,
+      header_format: row.header_format,
       footer: row.footer,
       buttons: row.buttons,
       variables: row.variables,

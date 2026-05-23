@@ -138,6 +138,28 @@ export async function POST(
   // Manual values from the UI take priority over auto-looked-up example values
   const finalVariableValues = manualVariableValues ?? variableValues;
 
+  // Look up header format for the resolved template. When Meta-approved templates
+  // require media but we have no sample stored locally, Meta rejects the send with
+  // 132012 — surface that early with a clearer message instead.
+  if (!headerMedia) {
+    const { data: hdrCheck } = await supabase
+      .from("whatsapp_templates")
+      .select("header_format, header_media_url")
+      .eq("project_id", projectId)
+      .eq("name", name)
+      .maybeSingle();
+    const fmt = (hdrCheck?.header_format ?? "").toLowerCase();
+    if ((fmt === "image" || fmt === "video" || fmt === "document") && !hdrCheck?.header_media_url) {
+      return NextResponse.json(
+        {
+          error: `This template uses a ${fmt} header. Open the template and upload a sample ${fmt} before sending — Meta requires header media on every send.`,
+          code: 132012,
+        },
+        { status: 400 }
+      );
+    }
+  }
+
   const result = await sendTemplateMessage(
     creds.access_token,
     creds.phone_number_id,
