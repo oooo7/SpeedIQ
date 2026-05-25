@@ -210,7 +210,16 @@ export async function sendBillingEmail(args: SendBillingEmailArgs): Promise<bool
   const platformName = await getPlatformName();
   const { subject, html } = buildEmail(args, platformName);
 
-  const result = await sendEmail({ to: args.to, subject, html });
+  const result = await sendEmail({
+    to: args.to,
+    subject,
+    html,
+    audit: {
+      kind: "billing",
+      projectId: args.projectId,
+      refId: args.refId ?? args.kind,
+    },
+  });
   if (!result.success) {
     console.error("[billing-emails] send failed", { kind: args.kind, projectId: args.projectId, error: result.error });
     return false;

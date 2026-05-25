@@ -3,8 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { emailCost } from "@/lib/billing/cost";
 import { deductCredits, grantCredits, recordUsageEvent } from "@/lib/billing/credits";
 import { sendEmailForProject } from "@/lib/email/client";
-import { renderEmailBody, buildSubscriberVariables } from "@/lib/email/template";
-import { getUnsubscribeUrl } from "@/lib/email/unsubscribe";
+import { prepareCampaignEmail } from "@/lib/email/prepare-campaign-email";
 
 const THROTTLE_MS = 100;
 const BATCH_SIZE = 50;
@@ -119,11 +118,15 @@ export async function processCampaignBatch(
       continue;
     }
 
-    const unsubscribeUrl = getUnsubscribeUrl(campaign.project_id, rec.subscriber_id);
-    const variables = buildSubscriberVariables(subscriber?.name ?? null, email, unsubscribeUrl);
-    const html = renderEmailBody(template.body_html ?? "", variables);
-    const subject = renderEmailBody(template.subject, variables);
-    const text = template.body_text ? renderEmailBody(template.body_text, variables) : undefined;
+    const prepared = await prepareCampaignEmail({
+      projectId: campaign.project_id,
+      subscriberId: rec.subscriber_id,
+      subscriberEmail: email,
+      subscriberName: subscriber?.name ?? null,
+      templateSubject: template.subject,
+      templateHtml: template.body_html,
+      templateText: template.body_text,
+    });
 
     const credits = emailCost();
     const balanceAfter = await deductCredits({
@@ -146,9 +149,11 @@ export async function processCampaignBatch(
 
     const result = await sendEmailForProject(campaign.project_id, {
       to: email,
-      subject,
-      html,
-      text,
+      subject: prepared.subject,
+      html: prepared.html,
+      text: prepared.text,
+      listUnsubscribeUrl: prepared.unsubscribeUrl || undefined,
+      audit: { kind: "campaign", refId: campaignId },
     });
 
     if (result.success) {

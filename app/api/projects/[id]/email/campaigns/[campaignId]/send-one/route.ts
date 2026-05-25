@@ -3,8 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
 import { sendEmailForProject } from "@/lib/email/client";
-import { renderEmailBody, buildSubscriberVariables } from "@/lib/email/template";
-import { getUnsubscribeUrl } from "@/lib/email/unsubscribe";
+import { prepareCampaignEmail } from "@/lib/email/prepare-campaign-email";
 
 /**
  * Send the campaign email to a single recipient immediately.
@@ -107,17 +106,23 @@ export async function POST(
     return NextResponse.json({ success: false, error: `Subscriber has ${subscriber.status}` }, { status: 400 });
   }
 
-  const unsubscribeUrl = getUnsubscribeUrl(campaign.project_id, subscriber_id);
-  const variables = buildSubscriberVariables(subscriber.name ?? null, subscriber.email, unsubscribeUrl);
-  const html = renderEmailBody(template.body_html ?? "", variables);
-  const subject = renderEmailBody(template.subject, variables);
-  const text = template.body_text ? renderEmailBody(template.body_text, variables) : undefined;
+  const prepared = await prepareCampaignEmail({
+    projectId: campaign.project_id,
+    subscriberId: subscriber_id,
+    subscriberEmail: subscriber.email,
+    subscriberName: subscriber.name ?? null,
+    templateSubject: template.subject,
+    templateHtml: template.body_html,
+    templateText: template.body_text,
+  });
 
   const result = await sendEmailForProject(campaign.project_id, {
     to: subscriber.email,
-    subject,
-    html,
-    text,
+    subject: prepared.subject,
+    html: prepared.html,
+    text: prepared.text,
+    listUnsubscribeUrl: prepared.unsubscribeUrl || undefined,
+    audit: { kind: "campaign", refId: campaignId },
   });
 
   const now = new Date().toISOString();
