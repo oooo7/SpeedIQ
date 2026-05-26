@@ -58,8 +58,39 @@ export async function updateSession(request: NextRequest) {
 
   // IMPORTANT: If you remove getClaims() and you use server-side rendering
   // with the Supabase client, your users may be randomly logged out.
-  const { data } = await supabase.auth.getClaims();
-  const user = data?.claims;
+  //
+  // Wrap with retry: this is the first network call of every request, and if
+  // it throws (TypeError: fetch failed on a transient Supabase blip), the
+  // middleware error surfaces as `{"error":"TypeError: fetch failed"}` to the
+  // browser BEFORE any route handler's try/catch can run.
+  let user: Record<string, unknown> | undefined;
+  try {
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const { data } = await supabase.auth.getClaims();
+        user = data?.claims;
+        break;
+      } catch (err) {
+        lastErr = err;
+        const msg = err instanceof Error ? err.message : String(err);
+        const transient =
+          msg.includes("fetch failed") ||
+          msg.includes("ECONNRESET") ||
+          msg.includes("ETIMEDOUT") ||
+          msg.includes("socket hang up");
+        if (!transient || attempt === 2) throw err;
+        await new Promise((r) => setTimeout(r, 200 * Math.pow(2, attempt)));
+      }
+    }
+    if (user === undefined && lastErr) throw lastErr;
+  } catch (err) {
+    // Auth-check fetch is unrecoverable — let the request through with no
+    // session so the route handler can return its own clean error instead of
+    // the framework surfacing raw "TypeError: fetch failed" JSON.
+    console.error("[middleware] auth getClaims failed after retries:", err);
+    user = undefined;
+  }
 
   // Webhooks (e.g. WhatsApp) are called by external services without a user session
   if (pathname.startsWith("/api/webhooks")) {
@@ -116,11 +147,16 @@ export async function updateSession(request: NextRequest) {
 
   // Auto-promote to platform_admin if the user's email matches PLATFORM_ADMIN_EMAILS.
   // Cheap for non-admins (just an env-list string check); idempotent on repeat hits.
+  // Best-effort: a transient fetch failure here shouldn't kill the request.
   if (user && typeof user.sub === "string") {
-    await bootstrapPlatformAdminIfNeeded(supabase, {
-      id: user.sub,
-      email: typeof user.email === "string" ? user.email : undefined,
-    });
+    try {
+      await bootstrapPlatformAdminIfNeeded(supabase, {
+        id: user.sub,
+        email: typeof user.email === "string" ? user.email : undefined,
+      });
+    } catch (err) {
+      console.error("[middleware] bootstrapPlatformAdminIfNeeded failed:", err);
+    }
   }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is.
