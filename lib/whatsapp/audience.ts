@@ -14,6 +14,38 @@ const PAGE_SIZE = 1000;
 const IN_FILTER_CHUNK = 500;
 
 /**
+ * Retry a Supabase operation on transient network failures. The Supabase JS
+ * client throws `TypeError: fetch failed` on connection resets, DNS hiccups,
+ * etc. — these are recoverable with backoff.
+ */
+export async function withFetchRetry<T>(
+  op: () => Promise<T>,
+  maxRetries = 2
+): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await op();
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const isTransient =
+        msg.includes("fetch failed") ||
+        msg.includes("ECONNRESET") ||
+        msg.includes("ETIMEDOUT") ||
+        msg.includes("ENETUNREACH") ||
+        msg.includes("ENOTFOUND") ||
+        msg.includes("socket hang up");
+      if (!isTransient || attempt === maxRetries) throw err;
+      const delay = 500 * Math.pow(2, attempt);
+      console.warn(`[supabase-retry] transient error, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`, msg);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
+/**
  * Get every unique contact_id linked to any of the given tags. Pages
  * through results so a 30k-contact tag isn't silently truncated to 1000.
  */
@@ -27,11 +59,17 @@ export async function getContactIdsForTags(
   // Hard ceiling to avoid an infinite loop in case the cursor never advances.
   const MAX_PAGES = 200;
   for (let page = 0; page < MAX_PAGES; page++) {
-    const { data, error } = await supabase
-      .from("whatsapp_contact_tags")
-      .select("contact_id")
-      .in("tag_id", tagIds)
-      .range(from, from + PAGE_SIZE - 1);
+    // Stable order is required — without it PostgreSQL may return rows in
+    // different orders across requests and pagination can skip or repeat.
+    // (Set handles repeats, but skipping = data loss.)
+    const { data, error } = await withFetchRetry(async () =>
+      supabase
+        .from("whatsapp_contact_tags")
+        .select("contact_id")
+        .in("tag_id", tagIds)
+        .order("contact_id")
+        .range(from, from + PAGE_SIZE - 1)
+    );
     if (error) throw new Error(error.message);
     const rows = (data ?? []) as Array<{ contact_id: string }>;
     if (rows.length === 0) break;
@@ -56,12 +94,14 @@ export async function filterOptedInContacts(
   const allowed: string[] = [];
   for (let i = 0; i < contactIds.length; i += IN_FILTER_CHUNK) {
     const chunk = contactIds.slice(i, i + IN_FILTER_CHUNK);
-    const { data, error } = await supabase
-      .from("whatsapp_contacts")
-      .select("id")
-      .eq("project_id", projectId)
-      .in("id", chunk)
-      .or("opt_out.eq.false,opt_out.is.null");
+    const { data, error } = await withFetchRetry(async () =>
+      supabase
+        .from("whatsapp_contacts")
+        .select("id")
+        .eq("project_id", projectId)
+        .in("id", chunk)
+        .or("opt_out.eq.false,opt_out.is.null")
+    );
     if (error) throw new Error(error.message);
     for (const r of (data ?? []) as Array<{ id: string }>) allowed.push(r.id);
   }

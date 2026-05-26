@@ -237,7 +237,13 @@ export function getFriendlyErrorMessage(message: string, code?: number): string 
     return "This template isn't available on your connected WhatsApp number for the selected language. In WhatsApp Manager, make sure the template is approved for this same number and language, or choose another approved template.";
   }
   if (code === 131026 || (message && String(message).includes("131026"))) {
-    return "You can't send to this number yet—the person needs to message you first within the last 24 hours, or you need to use an approved message template.";
+    // Note: this is sent for TEMPLATE messages, so the old "they need to message you first"
+    // copy was wrong — templates don't require the 24h window. Real causes (in order):
+    //   1. Phone number isn't on WhatsApp (most common with imported lists)
+    //   2. Daily messaging limit reached for your WABA tier
+    //   3. Account quality dropped (Red/Yellow) — Meta throttling marketing sends
+    //   4. Recipient blocked your business
+    return "This number can't receive WhatsApp messages right now. The most common reasons: the number isn't on WhatsApp, your account's daily sending limit was hit, your account quality dropped, or the recipient has blocked your business.";
   }
   if (code === 131047 || (message && String(message).includes("131047"))) {
     return "This template isn't approved or doesn't exist for your account. Check WhatsApp Manager and use an approved template, or try \"hello_world\" for testing.";
@@ -353,7 +359,13 @@ async function getTemplateLanguages(
   ];
 }
 
-async function resolveTemplateLanguageForSend(
+/**
+ * Resolve the exact approved language for a template on this WABA. Exported so
+ * the campaign cron can call this ONCE per batch instead of per-send (which
+ * was previously doubling Meta API traffic — 300 sends became 600-900 API
+ * calls and could trip Meta's quality protection).
+ */
+export async function resolveTemplateLanguageForSend(
   accessToken: string,
   wabaId: string,
   templateName: string,
@@ -636,19 +648,29 @@ export async function sendTemplateMessage(
     variableValues?: string[];
     wabaId?: string;
     headerMedia?: TemplateHeaderMedia;
+    /**
+     * Skip the per-send Meta API call to resolve template language. Caller is
+     * expected to have called resolveTemplateLanguageForSend once already
+     * (e.g., per batch in the campaign cron) and pass the result here.
+     */
+    preResolvedLanguageCode?: string;
   }
 ): Promise<{ message_id: string } | { error: { message: string; code?: number } }> {
   const normalizedTemplateName = templateName.trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
-  let languageCode =
-    normalizedTemplateName === "hello_world" ? "en" : toMetaLanguageCode(language);
-  if (options?.wabaId) {
-    // Pick the exact approved language that exists on this WABA to avoid 132001.
-    languageCode = await resolveTemplateLanguageForSend(
-      accessToken,
-      options.wabaId,
-      normalizedTemplateName || templateName,
-      languageCode
-    );
+  let languageCode: string;
+  if (options?.preResolvedLanguageCode) {
+    languageCode = options.preResolvedLanguageCode;
+  } else {
+    languageCode = normalizedTemplateName === "hello_world" ? "en" : toMetaLanguageCode(language);
+    if (options?.wabaId) {
+      // Pick the exact approved language that exists on this WABA to avoid 132001.
+      languageCode = await resolveTemplateLanguageForSend(
+        accessToken,
+        options.wabaId,
+        normalizedTemplateName || templateName,
+        languageCode
+      );
+    }
   }
   const url = `${META_GRAPH_BASE}/v22.0/${phoneNumberId}/messages`;
   const body: Record<string, unknown> = {

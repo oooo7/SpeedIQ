@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { withRouteErrorHandler } from "@/lib/api/route-error";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
 import {
@@ -12,7 +13,14 @@ import {
  * Returns the number of unique contacts that have any of the given tags.
  * Used to show "X contacts will receive" when selecting tags in campaign wizard.
  */
-export async function GET(
+export function GET(
+  request: Request,
+  ctx: { params: Promise<{ id: string }> }
+) {
+  return withRouteErrorHandler(() => handleGet(request, ctx));
+}
+
+async function handleGet(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
