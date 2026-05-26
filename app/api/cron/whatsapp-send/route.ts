@@ -542,6 +542,27 @@ export async function GET(request: Request) {
 
       totalSent += batchSent;
       totalFailed += batchFailed;
+
+      // Per-batch auto-stop: if every attempt in this batch failed (tier
+      // limit hit, account blocked, template revoked), halt the campaign
+      // immediately instead of waiting for the all-time ratio guard to
+      // catch up. The all-time guard can be masked by historical sent
+      // rows after a retry, so it never trips on day-2-after-tier-hit
+      // scenarios without this.
+      if (batchSent === 0 && batchFailed >= 100) {
+        console.warn(
+          `[whatsapp-send] auto-stopping campaign ${campaign.id}: current batch had ${batchFailed} failures and 0 sends`
+        );
+        await supabase
+          .from("whatsapp_campaigns")
+          .update({
+            status: "failed",
+            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", campaign.id);
+        continue;
+      }
     }
 
     // Only run the (somewhat expensive) completion-check COUNT queries when

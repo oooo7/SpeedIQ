@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
 
+import { withRouteErrorHandler } from "@/lib/api/route-error";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
 
-export async function GET(
+export function GET(
+  request: Request,
+  ctx: { params: Promise<{ id: string }> }
+) {
+  return withRouteErrorHandler(() => handleGet(request, ctx));
+}
+
+async function handleGet(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -63,7 +71,14 @@ export async function GET(
   return NextResponse.json({ tags: tagsWithCount });
 }
 
-export async function POST(
+export function POST(
+  request: Request,
+  ctx: { params: Promise<{ id: string }> }
+) {
+  return withRouteErrorHandler(() => handlePost(request, ctx));
+}
+
+async function handlePost(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {

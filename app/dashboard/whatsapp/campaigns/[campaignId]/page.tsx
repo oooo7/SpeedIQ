@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { AlertTriangle, Calendar, Loader2, Pencil, RefreshCw, Send, XCircle } from "lucide-react";
+import { AlertTriangle, Calendar, Loader2, Pencil, RefreshCw, RotateCcw, Send, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -99,10 +99,10 @@ export default function CampaignDetailPage() {
   const [triggering, setTriggering] = useState(false);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [scheduleAt, setScheduleAt] = useState("");
-  const [debugResult, setDebugResult] = useState<{ sent: number; failed: number; errors: Array<{ phone: string; error: string }> } | null>(null);
   const [debugLoading, setDebugLoading] = useState(false);
   const [sendingToContactId, setSendingToContactId] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [retryingAll, setRetryingAll] = useState(false);
   const [editTagIds, setEditTagIds] = useState<string[]>([]);
   const [editContactIds, setEditContactIds] = useState<string[]>([]);
   const [editTagDefinitions, setEditTagDefinitions] = useState<Array<{ id: string; name: string; color: string | null; contact_count?: number }>>([]);
@@ -224,7 +224,6 @@ export default function CampaignDetailPage() {
       return;
     }
     setDebugLoading(true);
-    setDebugResult(null);
     try {
       const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/campaigns/${campaignId}/send-now-debug`, {
         method: "POST",
@@ -232,27 +231,21 @@ export default function CampaignDetailPage() {
       const json = await res.json();
       if (!res.ok) {
         toast.error(json.error ?? "Send failed");
-        setDebugResult({
-          sent: json.sent ?? 0,
-          failed: json.failed ?? 0,
-          errors: Array.isArray(json.errors) ? json.errors : [{ phone: "-", error: json.error ?? "Request failed" }],
-        });
         fetchDetail();
         return;
       }
-      setDebugResult({
-        sent: json.sent ?? 0,
-        failed: json.failed ?? 0,
-        errors: Array.isArray(json.errors) ? json.errors : [],
-      });
       const deferred = typeof json.deferred === "number" ? json.deferred : 0;
-      if ((json.failed ?? 0) > 0) {
-        toast.error(`${json.failed} failed. See results below.`);
-      } else if ((json.sent ?? 0) > 0) {
+      const sentCount = json.sent ?? 0;
+      const failedCount = json.failed ?? 0;
+      if (failedCount > 0 && sentCount === 0) {
+        toast.error(`${failedCount} failed. See per-recipient errors in the Recipients list below.`);
+      } else if (failedCount > 0) {
+        toast.warning(`${sentCount} sent, ${failedCount} failed. See per-recipient errors below.`);
+      } else if (sentCount > 0) {
         toast.success(
           deferred > 0
-            ? `Sent ${json.sent}. ${deferred} more will send via cron within the next minute.`
-            : `Sent ${json.sent} message(s).`
+            ? `Sent ${sentCount}. ${deferred} more will send via cron within the next minute.`
+            : `Sent ${sentCount} message(s).`
         );
       } else if (deferred > 0) {
         toast.success(`Campaign started. ${deferred} recipient${deferred === 1 ? "" : "s"} will send via cron within the next minute.`);
@@ -260,9 +253,32 @@ export default function CampaignDetailPage() {
       fetchDetail();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Request failed");
-      setDebugResult({ sent: 0, failed: 0, errors: [{ phone: "-", error: String(err) }] });
     } finally {
       setDebugLoading(false);
+    }
+  };
+
+  const handleRetryAllFailed = async () => {
+    if (!activeProject?.id || !campaignId) return;
+    if (!confirm("Retry all failed recipients? They'll be re-queued and the cron will pick them up within a minute. The auto-stop guard still applies (campaign halts if >80% fail again over 100+ attempts).")) return;
+    setRetryingAll(true);
+    try {
+      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/campaigns/${campaignId}/retry-failed`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed to retry");
+      const retried = json.retried ?? 0;
+      if (retried === 0) {
+        toast.info(json.message ?? "No failed recipients to retry.");
+      } else {
+        toast.success(`Re-queued ${retried} recipient${retried === 1 ? "" : "s"}. Cron will start sending within a minute.`);
+      }
+      fetchDetail();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not retry");
+    } finally {
+      setRetryingAll(false);
     }
   };
 
@@ -284,11 +300,6 @@ export default function CampaignDetailPage() {
         toast.success(json.message ?? "Message sent to this contact.");
       } else {
         toast.error(json.error ?? json.error_code ?? "Send failed");
-        setDebugResult((prev) => ({
-          sent: prev?.sent ?? 0,
-          failed: (prev?.failed ?? 0) + 1,
-          errors: [...(prev?.errors ?? []), { phone: json.phone ?? contactId, error: json.error ?? json.error_code ?? "Unknown" }],
-        }));
       }
       fetchDetail();
     } catch (err) {
@@ -387,14 +398,19 @@ export default function CampaignDetailPage() {
   })();
   const isStuckSending = sendProgress?.truelyStuck ?? false;
   const isSendingInProgress = campaign.status === "sending" && stats.pending > 0 && !isStuckSending;
+  const hasTemplateNotFoundFailure = recipients.some(
+    (r) =>
+      r.status === "failed" &&
+      (String(r.error_code ?? "").includes("132001") ||
+        String(r.error_code ?? "").includes("Template name does not exist"))
+  );
   const hasAlerts =
     (canSendOrSchedule && !hasTemplate) ||
     (canSendOrSchedule && hasTemplate && stats.total === 0) ||
     (!campaign.use_hello_world && template?.status !== "approved") ||
-    stats.failed > 0 ||
     isStuckSending ||
     isSendingInProgress ||
-    debugResult;
+    hasTemplateNotFoundFailure;
 
   return (
     <div className="flex flex-col gap-8">
@@ -464,6 +480,18 @@ export default function CampaignDetailPage() {
               >
                 {cancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
                 {campaign.status === "sending" ? "Cancel send" : "Cancel schedule"}
+              </Button>
+            )}
+            {stats.failed > 0 && campaign.status !== "sending" && hasTemplate && (
+              <Button
+                variant="outline"
+                onClick={handleRetryAllFailed}
+                disabled={retryingAll}
+                className="gap-1"
+                title={`Re-queue all ${stats.failed} failed recipients`}
+              >
+                {retryingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                Retry {stats.failed} failed
               </Button>
             )}
           </div>
@@ -549,43 +577,9 @@ export default function CampaignDetailPage() {
               Approve the template first to send. Use the Templates page to submit your draft for approval.
             </div>
           )}
-          {(stats.failed > 0 || debugResult) && (
-            <div className={`border px-4 py-4 ${debugResult && debugResult.failed > 0 ? "border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30" : "border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30"}`}>
-              <h3 className="text-sm font-medium mb-2">Send results</h3>
-              {(recipients.some((r) => r.status === "failed" && (String(r.error_code ?? "").includes("132001") || String(r.error_code ?? "").includes("Template name does not exist"))) ||
-                debugResult?.errors?.some((e) => String(e.error).includes("132001") || String(e.error).includes("Template name does not exist"))) && (
-                <p className="text-sm text-amber-800 dark:text-amber-300 mb-2">
-                  <strong>Template not found in WhatsApp.</strong> The template is not approved or doesn&apos;t exist in your WhatsApp Business Account. Approve it in Meta Business Manager or choose another template in Edit campaign.
-                </p>
-              )}
-              {recipients.filter((r) => r.status === "failed").length > 0 && (
-                <div className="mb-2">
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Failed recipients:</p>
-                  <ul className="text-sm list-disc list-inside">
-                    {recipients
-                      .filter((r) => r.status === "failed")
-                      .map((r) => (
-                        <li key={r.id}>
-                          {r.phone ?? r.contact_name ?? r.contact_id}: {r.error_code ?? "Unknown error"}
-                        </li>
-                      ))}
-                  </ul>
-                </div>
-              )}
-              {debugResult && (
-                <div className="mt-2">
-                  <p className="text-xs font-medium mb-1">
-                    Last run: {debugResult.sent} sent, {debugResult.failed} failed
-                  </p>
-                  {debugResult.errors.length > 0 ? (
-                    <pre className="text-xs bg-white dark:bg-black/20 p-2 border border-gray-200 dark:border-gray-800 overflow-auto max-h-40">
-                      {debugResult.errors.map((e) => `${e.phone}: ${e.error}`).join("\n")}
-                    </pre>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">No errors from last run.</p>
-                  )}
-                </div>
-              )}
+          {recipients.some((r) => r.status === "failed" && (String(r.error_code ?? "").includes("132001") || String(r.error_code ?? "").includes("Template name does not exist"))) && (
+            <div className="border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+              <strong>Template not found in WhatsApp.</strong> The template is not approved or doesn&apos;t exist in your WhatsApp Business Account. Approve it in Meta Business Manager or choose another template in Edit campaign.
             </div>
           )}
         </section>

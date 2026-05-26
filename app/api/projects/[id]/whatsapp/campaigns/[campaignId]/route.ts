@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
 import {
@@ -9,9 +10,11 @@ import {
 
 // PostgREST default response cap. Recipients query needs to page past 1000.
 const RECIPIENT_PAGE = 1000;
-// `.in("id", [N uuids])` becomes a URL parameter — keep N small enough to
-// stay under HTTP URL length limits.
-const CONTACT_FETCH_CHUNK = 500;
+// `.in("id", [N uuids])` becomes a URL parameter — Supabase's PostgREST
+// gateway rejects URLs much past ~8KB. 500 UUIDs ≈ 18KB and silently returned
+// nothing for 16k-recipient campaigns, which is why the table showed "—" for
+// every phone/name. 150 UUIDs ≈ 5.5KB sits comfortably under the limit.
+const CONTACT_FETCH_CHUNK = 150;
 
 export async function GET(
   _request: Request,
@@ -83,14 +86,25 @@ export async function GET(
   const contactIds = [...new Set(recList.map((r) => r.contact_id))];
   const contactsMap: Record<string, { phone: string; name: string | null }> = {};
   if (contactIds.length > 0) {
-    // Chunk the IN filter — 30k UUIDs in a single URL = ~1MB and would
-    // silently fail at typical URL length limits.
+    // Use admin client: bypasses RLS (the role check above already gated
+    // access) and avoids per-row policy evaluation on 16k-contact campaigns,
+    // which was returning empty results on some user-client requests.
+    const admin = createAdminClient();
+    // Chunk the IN filter — see CONTACT_FETCH_CHUNK comment above.
     for (let i = 0; i < contactIds.length; i += CONTACT_FETCH_CHUNK) {
       const chunk = contactIds.slice(i, i + CONTACT_FETCH_CHUNK);
-      const { data: contacts } = await supabase
+      const { data: contacts, error: contactsError } = await admin
         .from("whatsapp_contacts")
         .select("id, phone, name")
         .in("id", chunk);
+      if (contactsError) {
+        // Log loudly — silent failure here was the cause of "all rows show —".
+        console.error(
+          `[campaigns/${campaignId}] contact lookup chunk ${i / CONTACT_FETCH_CHUNK + 1} failed:`,
+          contactsError
+        );
+        continue;
+      }
       for (const c of (contacts ?? []) as Array<{ id: string; phone: string; name: string | null }>) {
         contactsMap[c.id] = { phone: c.phone, name: c.name };
       }
