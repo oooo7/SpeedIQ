@@ -310,17 +310,26 @@ export async function GET(request: Request) {
       .eq("status", "pending")
       .gte("retry_count", MAX_RETRIES);
 
-    // Step 2: pick the next batch. Only rows that haven't exhausted retries.
-    // (Postgres `<` against NULL is NULL/false, so we have to OR in IS NULL.)
-    const { data: recipients } = await supabase
+    // Step 2: pick the next batch. Schema is `retry_count integer NOT NULL
+    // DEFAULT 0`, so no row has a null retry_count and the previous OR-with-IS-NULL
+    // filter was unnecessary. The old form was the prime suspect for an intermittent
+    // PostgREST silent-empty-response that left 15k pending rows untouched while
+    // the cron reported processed:0 every tick.
+    const { data: recipients, error: recipientsError } = await supabase
       .from("whatsapp_campaign_recipients")
       .select("id, contact_id, retry_count")
       .eq("campaign_id", campaign.id)
       .eq("status", "pending")
-      .or(`retry_count.is.null,retry_count.lt.${MAX_RETRIES}`)
+      .lt("retry_count", MAX_RETRIES)
       .limit(BATCH_SIZE);
+    if (recipientsError) {
+      console.error(`[whatsapp-send] campaign ${campaign.id} recipient fetch failed:`, recipientsError);
+    }
 
     const list = recipients ?? [];
+    console.log(
+      `[whatsapp-send] campaign=${campaign.id} fetched=${list.length} batch_size=${BATCH_SIZE} prev_sent=${prevSent ?? 0} prev_failed=${prevFailed ?? 0}`
+    );
 
     if (list.length === 0) {
       // No work for this campaign; let the completion check below run.
