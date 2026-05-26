@@ -683,15 +683,35 @@ export async function sendTemplateMessage(
   if (components && components.length > 0) {
     (body.template as Record<string, unknown>).components = components;
   }
-  // TEMP DEBUG: log the exact payload going to Meta and what comes back. Strip after diagnosis.
-  console.log("[sendTemplateMessage] →", JSON.stringify(body, null, 2));
-  let res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify(body),
-  });
-  let data = await res.json();
-  console.log("[sendTemplateMessage] ←", res.status, JSON.stringify(data, null, 2));
+  // Verbose payload logging — only when WHATSAPP_DEBUG=1, otherwise it floods
+  // logs at scale (30k campaigns = 60k log entries).
+  if (process.env.WHATSAPP_DEBUG === "1") {
+    console.log("[sendTemplateMessage] →", JSON.stringify(body));
+  }
+
+  // Send with retry: 429 (rate limit) and 5xx (server error) are retried with
+  // exponential backoff. 4xx errors other than 429 are non-retryable.
+  const RETRY_DELAYS_MS = [500, 1500];
+  let res: Response;
+  let data: { error?: { message?: string; code?: number; error_data?: { details?: string } }; messages?: Array<{ id: string }> } = {};
+  let attempt = 0;
+  while (true) {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body),
+    });
+    data = await res.json();
+    if (process.env.WHATSAPP_DEBUG === "1") {
+      console.log("[sendTemplateMessage] ←", res.status, JSON.stringify(data));
+    }
+    const retryable = res.status === 429 || (res.status >= 500 && res.status <= 599);
+    if (!retryable || attempt >= RETRY_DELAYS_MS.length) break;
+    const delay = RETRY_DELAYS_MS[attempt];
+    console.warn(`[sendTemplateMessage] ${res.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${RETRY_DELAYS_MS.length})`);
+    await new Promise((r) => setTimeout(r, delay));
+    attempt++;
+  }
   if (!res.ok && data?.error?.code === 132001 && options?.wabaId) {
     // Retry once with any other approved language available on this WABA.
     const available = await getTemplateLanguages(

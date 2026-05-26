@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
+import {
+  filterOptedInContacts,
+  getContactIdsForTags,
+} from "@/lib/whatsapp/audience";
+
+// A 30k bulk insert risks the Vercel function timeout because Supabase
+// evaluates RLS per row at insert time. Chunked inserts keep each request
+// under a few seconds.
+const RECIPIENT_INSERT_CHUNK = 1000;
+
+export const maxDuration = 60;
 
 export async function GET(
   request: Request,
@@ -140,13 +151,18 @@ export async function POST(
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
 
-  let contactIdList: string[] = contact_ids;
+  // Dedupe up front so a duplicate id in the request body doesn't break a
+  // recipient chunk insert (unique constraint on campaign_id,contact_id).
+  let contactIdList: string[] = [...new Set<string>(contact_ids)];
   if (contactIdList.length === 0 && tag_ids.length > 0) {
-    const { data: links } = await supabase
-      .from("whatsapp_contact_tags")
-      .select("contact_id")
-      .in("tag_id", tag_ids);
-    contactIdList = [...new Set((links ?? []).map((r: { contact_id: string }) => r.contact_id))];
+    try {
+      contactIdList = await getContactIdsForTags(supabase, tag_ids);
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Failed to resolve tag audience" },
+        { status: 500 }
+      );
+    }
   }
 
   const { data: settingsRow } = await supabase
@@ -154,14 +170,18 @@ export async function POST(
     .select("respect_opt_out_for_campaigns")
     .eq("project_id", projectId)
     .maybeSingle();
-  if (settingsRow?.respect_opt_out_for_campaigns && contactIdList.length > 0) {
-    const { data: allowed } = await supabase
-      .from("whatsapp_contacts")
-      .select("id")
-      .eq("project_id", projectId)
-      .in("id", contactIdList)
-      .or("opt_out.eq.false,opt_out.is.null");
-    contactIdList = (allowed ?? []).map((r: { id: string }) => r.id);
+  // Default to "respect opt-out" when no row exists — match the cron's
+  // default so we don't insert recipients the cron will later skip.
+  const respectOptOut = settingsRow?.respect_opt_out_for_campaigns !== false;
+  if (respectOptOut && contactIdList.length > 0) {
+    try {
+      contactIdList = await filterOptedInContacts(supabase, projectId, contactIdList);
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Failed to filter opted-out contacts" },
+        { status: 500 }
+      );
+    }
   }
 
   const isDraft = save_as_draft || (!send_now && !scheduled_at);
@@ -204,19 +224,32 @@ export async function POST(
   }
 
   if (contactIdList.length > 0) {
-    const recipients = contactIdList.map((contact_id: string) => ({
-      campaign_id: campaign.id,
-      contact_id,
-      status: "pending",
-    }));
+    // Chunk to avoid timing out on large audiences. RLS evaluates per row, so
+    // a single 30k insert can exceed the function timeout even though
+    // postgres can handle the bulk write itself just fine.
+    for (let offset = 0; offset < contactIdList.length; offset += RECIPIENT_INSERT_CHUNK) {
+      const chunk = contactIdList.slice(offset, offset + RECIPIENT_INSERT_CHUNK);
+      const recipients = chunk.map((contact_id: string) => ({
+        campaign_id: campaign.id,
+        contact_id,
+        status: "pending",
+      }));
 
-    const { error: recipientsError } = await supabase
-      .from("whatsapp_campaign_recipients")
-      .insert(recipients);
+      const { error: recipientsError } = await supabase
+        .from("whatsapp_campaign_recipients")
+        .insert(recipients);
 
-    if (recipientsError) {
-      await supabase.from("whatsapp_campaigns").delete().eq("id", campaign.id);
-      return NextResponse.json({ error: recipientsError.message }, { status: 500 });
+      if (recipientsError) {
+        // Cleanup: drop the half-built campaign + any recipients we managed to
+        // insert (FK cascade handles the recipients).
+        await supabase.from("whatsapp_campaigns").delete().eq("id", campaign.id);
+        return NextResponse.json(
+          {
+            error: `Recipient insert failed at row ${offset + 1}/${contactIdList.length}: ${recipientsError.message}`,
+          },
+          { status: 500 }
+        );
+      }
     }
   }
 

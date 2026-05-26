@@ -13,11 +13,49 @@ import {
 import { isValidPhone } from "@/lib/whatsapp/phone";
 
 const CRON_SECRET = process.env.CRON_SECRET;
-const THROTTLE_MS = 15;
-const BATCH_SIZE = 50;
+
+// Tunable per deployment. Defaults chosen to safely fit inside Vercel's 60s
+// function timeout while staying well under Meta's 80 sends/sec/phone limit:
+//   BATCH_SIZE × ~latency / CONCURRENCY ≪ 60s
+//   500 × 0.5s / 20 = 12.5s of API work per batch
+const BATCH_SIZE = Number(process.env.WHATSAPP_SEND_BATCH_SIZE) || 500;
+const CONCURRENCY = Number(process.env.WHATSAPP_SEND_CONCURRENCY) || 20;
+// After this many attempts a stuck-pending row gets marked failed so the
+// campaign can eventually complete. Caps the cost of consistent transient
+// errors (e.g., bad phone normalizer, Meta-side outage on a single number).
+const MAX_RETRIES = 5;
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+/**
+ * Run `worker` over `items` with at most `limit` running at once. Replaces a
+ * strict sequential loop + sleep throttle — each worker pulls the next item
+ * as soon as it's free, so the network/API is kept busy without ever
+ * exceeding the concurrency cap.
+ */
+async function runInPool<T>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<void>
+): Promise<void> {
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const idx = cursor++;
+      if (idx >= items.length) return;
+      try {
+        await worker(items[idx]);
+      } catch (err) {
+        // Workers must never throw — that would kill the pool. Each worker
+        // is responsible for catching its own errors and recording them on
+        // the recipient row.
+        console.error("[whatsapp-send] worker error", err);
+      }
+    }
+  });
+  await Promise.all(workers);
+}
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -177,114 +215,173 @@ export async function GET(request: Request) {
       useHelloWorld,
     });
 
+    // Step 1: bulk-mark any pending rows that have exceeded MAX_RETRIES as
+    // failed. Without this they sit pending forever and the campaign never
+    // reaches "completed".
+    await supabase
+      .from("whatsapp_campaign_recipients")
+      .update({ status: "failed", error_code: "max_retries_exceeded", updated_at: new Date().toISOString() })
+      .eq("campaign_id", campaign.id)
+      .eq("status", "pending")
+      .gte("retry_count", MAX_RETRIES);
+
+    // Step 2: pick the next batch. Only rows that haven't exhausted retries.
+    // (Postgres `<` against NULL is NULL/false, so we have to OR in IS NULL.)
     const { data: recipients } = await supabase
       .from("whatsapp_campaign_recipients")
       .select("id, contact_id, retry_count")
       .eq("campaign_id", campaign.id)
       .eq("status", "pending")
+      .or(`retry_count.is.null,retry_count.lt.${MAX_RETRIES}`)
       .limit(BATCH_SIZE);
 
     const list = recipients ?? [];
 
-    for (const rec of list) {
-      const { data: contact } = await supabase
+    if (list.length === 0) {
+      // No work for this campaign; let the completion check below run.
+    } else {
+      // ----------------------------------------------------------------------
+      // Bulk-fetch every contact in this batch up front. Replaces 500 sequential
+      // SELECTs with 1, which alone saves ~10s per batch.
+      // ----------------------------------------------------------------------
+      const contactIds = list.map((r) => r.contact_id);
+      const { data: contactRows } = await supabase
         .from("whatsapp_contacts")
-        .select("phone, name, email, custom_fields, opt_out")
-        .eq("id", rec.contact_id)
-        .single();
-      const phone = contact?.phone;
-      const nextRetryCount = (rec.retry_count ?? 0) + 1;
-      if (!phone) {
-        await supabase
-          .from("whatsapp_campaign_recipients")
-          .update({ status: "failed", error_code: "no_phone", retry_count: nextRetryCount })
-          .eq("id", rec.id);
-        totalFailed++;
-        continue;
-      }
-      if (!isValidPhone(phone)) {
-        await supabase
-          .from("whatsapp_campaign_recipients")
-          .update({ status: "failed", error_code: "invalid_phone", retry_count: nextRetryCount })
-          .eq("id", rec.id);
-        totalFailed++;
-        continue;
-      }
-      if (contact?.opt_out && respectOptOut) {
-        await supabase
-          .from("whatsapp_campaign_recipients")
-          .update({ status: "failed", error_code: "opt_out", retry_count: nextRetryCount })
-          .eq("id", rec.id);
-        totalFailed++;
-        continue;
-      }
-
-      const variableValues = hasVariables
-        ? getVariableValuesForContact(
-            { name: contact?.name, email: contact?.email, phone: contact?.phone, custom_fields: contact?.custom_fields },
-            mapping,
-            fallbackVariables
-          )
-        : undefined;
-
-      const balanceAfter = await deductCredits({
-        client: supabase,
-        projectId: campaign.project_id,
-        amount: waCredits,
-        reason: "whatsapp_send",
-        refType: "whatsapp_campaign_recipient",
-        refId: rec.id,
-        metadata: { campaign_id: campaign.id, message_type: waMessageType },
-      });
-      if (balanceAfter === null) {
-        await supabase
-          .from("whatsapp_campaign_recipients")
-          .update({
-            status: "failed",
-            error_code: "insufficient_credits",
-            retry_count: nextRetryCount,
-          })
-          .eq("id", rec.id);
-        totalFailed++;
-        continue;
-      }
-
-      const result = await sendTemplateMessage(
-        creds.access_token,
-        creds.phone_number_id,
-        phone,
-        templateName,
-        templateLanguage,
-        {
-          ...(variableValues && variableValues.length > 0 ? { variableValues } : {}),
-          ...(headerMedia ? { headerMedia } : {}),
-          wabaId: creds.waba_id,
+        .select("id, phone, name, email, custom_fields, opt_out")
+        .in("id", contactIds);
+      const contactMap = new Map<
+        string,
+        { phone: string | null; name: string | null; email: string | null; custom_fields: Record<string, unknown> | null; opt_out: boolean | null }
+      >();
+      for (const c of contactRows ?? []) {
+        if (typeof c.id === "string") {
+          contactMap.set(c.id, {
+            phone: (c as { phone?: string | null }).phone ?? null,
+            name: (c as { name?: string | null }).name ?? null,
+            email: (c as { email?: string | null }).email ?? null,
+            custom_fields: (c as { custom_fields?: Record<string, unknown> | null }).custom_fields ?? null,
+            opt_out: (c as { opt_out?: boolean | null }).opt_out ?? null,
+          });
         }
-      );
+      }
 
-      if ("error" in result) {
-        await supabase
+      let batchSent = 0;
+      let batchFailed = 0;
+
+      await runInPool(list, CONCURRENCY, async (rec) => {
+        const contact = contactMap.get(rec.contact_id) ?? null;
+        const phone = contact?.phone ?? null;
+        const prevRetryCount = rec.retry_count ?? 0;
+        const nextRetryCount = prevRetryCount + 1;
+
+        // Atomic claim: bump retry_count only if the row is still pending and
+        // retry_count is still what we read. If 0 rows match, another worker
+        // or an overlapping cron tick already grabbed this row — skip.
+        // This also guarantees retry_count is incremented even if the worker
+        // crashes mid-flight, so consistent transient errors can't loop.
+        const claimQuery = supabase
           .from("whatsapp_campaign_recipients")
-          .update({
-            status: "failed",
-            error_code: String(result.error.code ?? result.error.message?.slice(0, 100)),
-            retry_count: nextRetryCount,
-          })
-          .eq("id", rec.id);
-        // Refund credits — user shouldn't pay for a provider-side failure.
-        await grantCredits({
+          .update({ retry_count: nextRetryCount, updated_at: new Date().toISOString() })
+          .eq("id", rec.id)
+          .eq("status", "pending");
+        const { data: claimed } =
+          prevRetryCount === 0
+            ? await claimQuery.is("retry_count", null).select("id")
+            : await claimQuery.eq("retry_count", prevRetryCount).select("id");
+        if (!claimed || claimed.length === 0) return;
+
+        if (!phone) {
+          await supabase
+            .from("whatsapp_campaign_recipients")
+            .update({ status: "failed", error_code: "no_phone", retry_count: nextRetryCount })
+            .eq("id", rec.id);
+          batchFailed++;
+          return;
+        }
+        if (!isValidPhone(phone)) {
+          await supabase
+            .from("whatsapp_campaign_recipients")
+            .update({ status: "failed", error_code: "invalid_phone", retry_count: nextRetryCount })
+            .eq("id", rec.id);
+          batchFailed++;
+          return;
+        }
+        if (contact?.opt_out && respectOptOut) {
+          await supabase
+            .from("whatsapp_campaign_recipients")
+            .update({ status: "failed", error_code: "opt_out", retry_count: nextRetryCount })
+            .eq("id", rec.id);
+          batchFailed++;
+          return;
+        }
+
+        const variableValues = hasVariables
+          ? getVariableValuesForContact(
+              { name: contact?.name, email: contact?.email, phone: contact?.phone, custom_fields: contact?.custom_fields },
+              mapping,
+              fallbackVariables
+            )
+          : undefined;
+
+        const balanceAfter = await deductCredits({
           client: supabase,
           projectId: campaign.project_id,
           amount: waCredits,
-          reason: "refund",
+          reason: "whatsapp_send",
           refType: "whatsapp_campaign_recipient",
           refId: rec.id,
-          metadata: { reason: "send_failed" },
+          metadata: { campaign_id: campaign.id, message_type: waMessageType },
         });
-        totalFailed++;
-      } else {
+        if (balanceAfter === null) {
+          await supabase
+            .from("whatsapp_campaign_recipients")
+            .update({
+              status: "failed",
+              error_code: "insufficient_credits",
+              retry_count: nextRetryCount,
+            })
+            .eq("id", rec.id);
+          batchFailed++;
+          return;
+        }
+
+        const result = await sendTemplateMessage(
+          creds.access_token,
+          creds.phone_number_id,
+          phone,
+          templateName,
+          templateLanguage,
+          {
+            ...(variableValues && variableValues.length > 0 ? { variableValues } : {}),
+            ...(headerMedia ? { headerMedia } : {}),
+            wabaId: creds.waba_id,
+          }
+        );
+
+        if ("error" in result) {
+          await supabase
+            .from("whatsapp_campaign_recipients")
+            .update({
+              status: "failed",
+              error_code: String(result.error.code ?? result.error.message?.slice(0, 100)),
+              retry_count: nextRetryCount,
+            })
+            .eq("id", rec.id);
+          // Refund credits — user shouldn't pay for a provider-side failure.
+          await grantCredits({
+            client: supabase,
+            projectId: campaign.project_id,
+            amount: waCredits,
+            reason: "refund",
+            refType: "whatsapp_campaign_recipient",
+            refId: rec.id,
+            metadata: { reason: "send_failed" },
+          });
+          batchFailed++;
+          return;
+        }
+
         const nowIso = new Date().toISOString();
-        // Recipient status is the critical write — do it first and fail the send if it errors.
         const { error: recipientUpdateError } = await supabase
           .from("whatsapp_campaign_recipients")
           .update({
@@ -337,40 +434,46 @@ export async function GET(request: Request) {
             console.error("[whatsapp-send] auxiliary write failed", { recipientId: rec.id, reason: r.reason });
           }
         }
-        totalSent++;
-      }
+        batchSent++;
+      });
 
-      await new Promise((r) => setTimeout(r, THROTTLE_MS));
+      totalSent += batchSent;
+      totalFailed += batchFailed;
     }
 
-    const { count: pendingCount } = await supabase
-      .from("whatsapp_campaign_recipients")
-      .select("id", { count: "exact", head: true })
-      .eq("campaign_id", campaign.id)
-      .eq("status", "pending");
-    if ((pendingCount ?? 0) === 0) {
-      const [{ count: sentCount }, { count: failedCount }] = await Promise.all([
-        supabase
-          .from("whatsapp_campaign_recipients")
-          .select("id", { count: "exact", head: true })
-          .eq("campaign_id", campaign.id)
-          .in("status", ["sent", "delivered", "read"]),
-        supabase
-          .from("whatsapp_campaign_recipients")
-          .select("id", { count: "exact", head: true })
-          .eq("campaign_id", campaign.id)
-          .eq("status", "failed"),
-      ]);
-      // Only mark as "failed" if every single recipient failed (none sent)
-      const finalStatus = (sentCount ?? 0) === 0 && (failedCount ?? 0) > 0 ? "failed" : "completed";
-      await supabase
-        .from("whatsapp_campaigns")
-        .update({
-          status: finalStatus,
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", campaign.id);
+    // Only run the (somewhat expensive) completion-check COUNT queries when
+    // the batch wasn't full — a full batch means there's almost certainly
+    // more pending work, no need to ask the DB.
+    if (list.length < BATCH_SIZE) {
+      const { count: pendingCount } = await supabase
+        .from("whatsapp_campaign_recipients")
+        .select("id", { count: "exact", head: true })
+        .eq("campaign_id", campaign.id)
+        .eq("status", "pending");
+      if ((pendingCount ?? 0) === 0) {
+        const [{ count: sentCount }, { count: failedCount }] = await Promise.all([
+          supabase
+            .from("whatsapp_campaign_recipients")
+            .select("id", { count: "exact", head: true })
+            .eq("campaign_id", campaign.id)
+            .in("status", ["sent", "delivered", "read"]),
+          supabase
+            .from("whatsapp_campaign_recipients")
+            .select("id", { count: "exact", head: true })
+            .eq("campaign_id", campaign.id)
+            .eq("status", "failed"),
+        ]);
+        // Only mark as "failed" if every single recipient failed (none sent)
+        const finalStatus = (sentCount ?? 0) === 0 && (failedCount ?? 0) > 0 ? "failed" : "completed";
+        await supabase
+          .from("whatsapp_campaigns")
+          .update({
+            status: finalStatus,
+            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", campaign.id);
+      }
     }
   }
 
@@ -378,5 +481,7 @@ export async function GET(request: Request) {
     processed: totalSent + totalFailed,
     sent: totalSent,
     failed: totalFailed,
+    batch_size: BATCH_SIZE,
+    concurrency: CONCURRENCY,
   });
 }
