@@ -95,6 +95,71 @@ export async function getInviteByToken(
   };
 }
 
+export interface PendingInvite {
+  id: string;
+  project_id: string;
+  project_name: string;
+  role: ProjectRole;
+  email: string;
+  token: string;
+  expires_at: string;
+  created_at: string;
+  inviter_name: string;
+  inviter_email: string | null;
+}
+
+export async function getMyPendingInvites(
+  supabase: SupabaseClient
+): Promise<SupabaseResult<PendingInvite[]>> {
+  const { data, error } = await supabase.rpc("get_my_pending_invites");
+
+  if (error) {
+    return { data: [], error: error.message };
+  }
+
+  const rows = (data ?? []) as {
+    id: string;
+    project_id: string;
+    project_name: string;
+    role: string;
+    email: string;
+    token: string;
+    expires_at: string;
+    created_at: string;
+    inviter_name: string | null;
+    inviter_email: string | null;
+  }[];
+
+  return {
+    data: rows.map((r) => ({
+      id: r.id,
+      project_id: r.project_id,
+      project_name: r.project_name,
+      role: r.role as ProjectRole,
+      email: r.email,
+      token: r.token,
+      expires_at: r.expires_at,
+      created_at: r.created_at,
+      inviter_name: r.inviter_name ?? "A team member",
+      inviter_email: r.inviter_email ?? null,
+    })),
+    error: null,
+  };
+}
+
+export async function declineInviteRpc(
+  supabase: SupabaseClient,
+  token: string
+): Promise<SupabaseResult<boolean>> {
+  const { data, error } = await supabase.rpc("decline_project_invite", { invite_token: token });
+
+  if (error) {
+    return { data: null, error: error.message };
+  }
+
+  return { data: Boolean(data), error: null };
+}
+
 export async function acceptInviteRpc(supabase: SupabaseClient, token: string): Promise<SupabaseResult<{ project_id: string }>> {
   const { data, error } = await supabase.rpc("accept_project_invite", { invite_token: token });
 
