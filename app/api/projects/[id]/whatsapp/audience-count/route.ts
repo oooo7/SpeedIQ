@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
+import {
+  filterOptedInContacts,
+  getContactIdsForTags,
+} from "@/lib/whatsapp/audience";
 
 /**
  * GET ?tag_ids=id1,id2
@@ -41,14 +45,17 @@ export async function GET(
     ? contactIdsParam.split(",").map((id) => id.trim()).filter(Boolean)
     : [];
 
-  let uniqueContactIds = new Set<string>();
+  const uniqueContactIds = new Set<string>();
   if (tagIds.length > 0) {
-    const { data: links } = await supabase
-      .from("whatsapp_contact_tags")
-      .select("contact_id")
-      .in("tag_id", tagIds);
-    for (const r of links ?? []) {
-      uniqueContactIds.add((r as { contact_id: string }).contact_id);
+    try {
+      for (const id of await getContactIdsForTags(supabase, tagIds)) {
+        uniqueContactIds.add(id);
+      }
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Failed to resolve tag audience" },
+        { status: 500 }
+      );
     }
   }
   if (contactIdsFromParam.length > 0) {
@@ -66,13 +73,15 @@ export async function GET(
     .maybeSingle();
 
   if (settingsRow?.respect_opt_out_for_campaigns) {
-    const { data: allowed } = await supabase
-      .from("whatsapp_contacts")
-      .select("id")
-      .eq("project_id", projectId)
-      .in("id", [...uniqueContactIds])
-      .or("opt_out.eq.false,opt_out.is.null");
-    return NextResponse.json({ count: (allowed ?? []).length });
+    try {
+      const allowed = await filterOptedInContacts(supabase, projectId, [...uniqueContactIds]);
+      return NextResponse.json({ count: allowed.length });
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Failed to filter opted-out contacts" },
+        { status: 500 }
+      );
+    }
   }
 
   return NextResponse.json({ count: uniqueContactIds.size });
