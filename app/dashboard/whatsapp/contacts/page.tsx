@@ -83,6 +83,13 @@ function detectColumns(header: string[]): { phone: number; name: number; email: 
   };
 }
 
+function rowsToCsv(rows: string[][]): string {
+  // Quote any cell containing comma, quote, or newline; double-up embedded quotes.
+  const escapeCell = (v: string) =>
+    /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+  return rows.map((r) => r.map(escapeCell).join(",")).join("\n");
+}
+
 function parseTagsCell(cell: string | undefined): string[] {
   if (!cell) return [];
   return cell
@@ -124,6 +131,8 @@ export default function WhatsAppContactsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [editContact, setEditContact] = useState<WhatsAppContact | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  // Progress for chunked imports — null = idle, { current, total } while running.
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number; imported: number; skipped: number } | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [importMode, setImportMode] = useState<"file" | "paste">("file");
@@ -520,8 +529,13 @@ export default function WhatsAppContactsPage() {
     e.preventDefault();
     if (!activeProject?.id) return;
 
-    let text: string;
+    // Chunk size: keep each request well under any Vercel function timeout.
+    // 1000 rows per request × ~3 DB round trips = ~150ms server-side.
+    const CHUNK_SIZE = 1000;
+
+    let allRows: string[][];
     let columnMap: { phone: number; name?: number; email?: number; tags?: number } | undefined;
+
     if (importMode === "file") {
       if (!importFile) {
         toast.error("Select a CSV file");
@@ -531,7 +545,8 @@ export default function WhatsAppContactsPage() {
         toast.error(csvError);
         return;
       }
-      text = await importFile.text();
+      // Reuse csvRows from the preview parse instead of re-reading the file.
+      allRows = csvRows.length > 0 ? csvRows : parseCsvText((await importFile.text()).trim());
       columnMap = {
         phone: csvColumns.phone,
         ...(csvColumns.name >= 0 ? { name: csvColumns.name } : {}),
@@ -543,31 +558,76 @@ export default function WhatsAppContactsPage() {
         toast.error("Paste at least one phone number");
         return;
       }
-      text = ["phone", ...parsedPasteNumbers].join("\n");
+      allRows = [["phone"], ...parsedPasteNumbers.map((p) => [p])];
     }
 
+    if (allRows.length < 2) {
+      toast.error("CSV needs a header row and at least one data row");
+      return;
+    }
+
+    const header = allRows[0];
+    const dataRows = allRows.slice(1);
+    const total = dataRows.length;
+
     setImporting(true);
+    setImportProgress({ current: 0, total, imported: 0, skipped: 0 });
+
+    let importedTotal = 0;
+    let skippedTotal = 0;
+    let firstError: string | null = null;
+
     try {
-      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/contacts/import`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ csv: text, ...(columnMap ? { columnMap } : {}) }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Import failed");
-      const imported = data.imported ?? 0;
-      const skipped = data.skipped ?? 0;
-      if (imported > 0) toast.success(`Imported ${imported} contact${imported === 1 ? "" : "s"}`);
-      if (skipped > 0) toast.warning(`Skipped ${skipped} row${skipped === 1 ? "" : "s"} (invalid or duplicate)`);
-      if (imported === 0 && skipped === 0) toast.info("Nothing to import");
-      setImportOpen(false);
-      setImportFile(null);
-      setPasteText("");
-      fetchContacts();
+      for (let offset = 0; offset < dataRows.length; offset += CHUNK_SIZE) {
+        const chunk = [header, ...dataRows.slice(offset, offset + CHUNK_SIZE)];
+        const csv = rowsToCsv(chunk);
+
+        const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/contacts/import`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ csv, ...(columnMap ? { columnMap } : {}) }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          if (!firstError) firstError = data.error ?? "Import failed";
+          // Stop on first error so we don't keep firing failing requests.
+          break;
+        }
+        importedTotal += data.imported ?? 0;
+        skippedTotal += data.skipped ?? 0;
+        setImportProgress({
+          current: Math.min(offset + CHUNK_SIZE, total),
+          total,
+          imported: importedTotal,
+          skipped: skippedTotal,
+        });
+      }
+
+      if (firstError) {
+        toast.error(`${firstError} (imported ${importedTotal} before failure)`);
+      } else if (importedTotal > 0) {
+        toast.success(
+          `Imported ${importedTotal.toLocaleString()} contact${importedTotal === 1 ? "" : "s"}${
+            skippedTotal > 0 ? ` · Skipped ${skippedTotal.toLocaleString()}` : ""
+          }`
+        );
+      } else if (skippedTotal > 0) {
+        toast.warning(`Skipped ${skippedTotal.toLocaleString()} row${skippedTotal === 1 ? "" : "s"} (invalid or duplicate)`);
+      } else {
+        toast.info("Nothing to import");
+      }
+
+      if (importedTotal > 0 || skippedTotal === 0) {
+        setImportOpen(false);
+        setImportFile(null);
+        setPasteText("");
+        fetchContacts();
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not import");
     } finally {
       setImporting(false);
+      setImportProgress(null);
     }
   };
 
@@ -1304,8 +1364,31 @@ export default function WhatsAppContactsPage() {
                 </p>
               </div>
             )}
+
+            {importProgress && (
+              <div className="space-y-2 border border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20 p-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium">
+                    Importing {importProgress.current.toLocaleString()} / {importProgress.total.toLocaleString()}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {importProgress.imported.toLocaleString()} added
+                    {importProgress.skipped > 0 && ` · ${importProgress.skipped.toLocaleString()} skipped`}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden bg-blue-100 dark:bg-blue-950">
+                  <div
+                    className="h-full bg-blue-600 dark:bg-blue-500 transition-[width] duration-200"
+                    style={{
+                      width: `${Math.min(100, Math.round((importProgress.current / Math.max(1, importProgress.total)) * 100))}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setImportOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setImportOpen(false)} disabled={importing}>
                 Cancel
               </Button>
               <Button
@@ -1323,7 +1406,7 @@ export default function WhatsAppContactsPage() {
                     Importing…
                   </>
                 ) : importMode === "file" && csvDataRowCount > 0 ? (
-                  `Import ${csvDataRowCount}`
+                  `Import ${csvDataRowCount.toLocaleString()}`
                 ) : (
                   "Import"
                 )}

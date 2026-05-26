@@ -3,6 +3,13 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
 
+// Per-request hard cap. Bigger imports must be split into chunks client-side
+// (the contacts page does this automatically with a progress bar). Each
+// chunk does at most 3 round trips: tag defs, contact upsert, junction
+// upsert — so even at the cap a chunk finishes well under the Vercel
+// function timeout.
+const MAX_ROWS_PER_REQUEST = 5000;
+
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let current: string[] = [];
@@ -45,11 +52,6 @@ function parseCsv(text: string): string[][] {
   return rows;
 }
 
-/**
- * Split a tags cell into individual tag names.
- * Accepts comma, semicolon, or pipe separators (since users export from
- * different tools). Tags are trimmed; blanks are dropped.
- */
 function parseTagsCell(cell: string | undefined): string[] {
   if (!cell) return [];
   return cell
@@ -63,6 +65,13 @@ interface ColumnMap {
   name?: number;
   email?: number;
   tags?: number;
+}
+
+interface ValidRow {
+  phone: string;
+  name: string | null;
+  email: string | null;
+  tagNames: string[];
 }
 
 export async function POST(
@@ -125,21 +134,73 @@ export async function POST(
     return NextResponse.json({ error: "A phone column is required" }, { status: 400 });
   }
 
-  const maxRows = 2000;
-
-  // Pre-pass: collect every unique tag name across the import so we can
-  // upsert tag definitions in a single round trip instead of per-row.
-  const allTagNames = new Set<string>();
-  if (tagsIdx != null && tagsIdx >= 0) {
-    for (let i = 1; i < rows.length && i - 1 < maxRows; i++) {
-      for (const name of parseTagsCell(rows[i][tagsIdx])) allTagNames.add(name);
-    }
+  if (rows.length - 1 > MAX_ROWS_PER_REQUEST) {
+    return NextResponse.json(
+      {
+        error: `Too many rows (${rows.length - 1}). Maximum ${MAX_ROWS_PER_REQUEST} per request — split into chunks.`,
+      },
+      { status: 413 }
+    );
   }
+
+  const { normalizePhone, validatePhone } = await import("@/lib/whatsapp/phone");
+
+  // --------------------------------------------------------------------------
+  // Phase 1 — Parse + validate + dedupe entirely in JS (no DB calls).
+  // We end up with `validRows` (ready to bulk-insert) and `skipped` (per-row
+  // reasons to surface back to the user).
+  // --------------------------------------------------------------------------
+  const validRows: ValidRow[] = [];
+  const skipped: { row: number; reason: string }[] = [];
+  const seenPhones = new Set<string>();
+
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const rowNumber = i + 1; // header was row 1
+
+    const rawPhone = row[phoneIdx]?.trim().replace(/\s+/g, "");
+    if (!rawPhone) {
+      skipped.push({ row: rowNumber, reason: "empty phone" });
+      continue;
+    }
+    const phone = normalizePhone(rawPhone);
+    const phoneCheck = validatePhone(phone);
+    if (!phoneCheck.valid) {
+      skipped.push({ row: rowNumber, reason: `invalid phone "${rawPhone}": ${phoneCheck.reason}` });
+      continue;
+    }
+    if (seenPhones.has(phone)) {
+      skipped.push({ row: rowNumber, reason: `duplicate phone in this chunk: ${phone}` });
+      continue;
+    }
+    seenPhones.add(phone);
+
+    const name = nameIdx != null && nameIdx >= 0 ? row[nameIdx]?.trim() || null : null;
+    const email = emailIdx != null && emailIdx >= 0 ? row[emailIdx]?.trim() || null : null;
+    const tagNames =
+      tagsIdx != null && tagsIdx >= 0 ? parseTagsCell(row[tagsIdx]) : [];
+
+    validRows.push({ phone, name, email, tagNames });
+  }
+
+  if (validRows.length === 0) {
+    return NextResponse.json({
+      imported: 0,
+      skipped: skipped.length,
+      total: rows.length - 1,
+      skipped_details: skipped.slice(0, 100),
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // Phase 2 — Bulk upsert / lookup tag definitions in one round trip.
+  // --------------------------------------------------------------------------
+  const allTagNames = new Set<string>();
+  for (const r of validRows) for (const t of r.tagNames) allTagNames.add(t);
 
   const tagIdByName = new Map<string, string>();
   if (allTagNames.size > 0) {
     const tagPayload = [...allTagNames].map((name) => ({ project_id: projectId, name }));
-    // ignoreDuplicates so existing tag definitions aren't churned (no updated_at to bump).
     await supabase
       .from("whatsapp_tag_definitions")
       .upsert(tagPayload, { onConflict: "project_id,name", ignoreDuplicates: true });
@@ -154,83 +215,81 @@ export async function POST(
     }
   }
 
-  const inserted: { phone: string; name?: string; email?: string; tags?: string[] }[] = [];
-  const skipped: { row: number; reason: string }[] = [];
+  // --------------------------------------------------------------------------
+  // Phase 3 — Bulk upsert every contact in ONE call, then map phone → id.
+  // This replaces N sequential round trips with exactly 1.
+  // --------------------------------------------------------------------------
+  const contactPayload = validRows.map((r) => ({
+    project_id: projectId,
+    phone: r.phone,
+    name: r.name,
+    email: r.email,
+    source: "import",
+  }));
 
-  const { normalizePhone, validatePhone } = await import("@/lib/whatsapp/phone");
+  const { data: upserted, error: upsertErr } = await supabase
+    .from("whatsapp_contacts")
+    .upsert(contactPayload, { onConflict: "project_id,phone", ignoreDuplicates: false })
+    .select("id, phone");
 
-  for (let i = 1; i < rows.length && inserted.length + skipped.length < maxRows; i++) {
-    const row = rows[i];
-    const rawPhone = row[phoneIdx]?.trim().replace(/\s+/g, "");
-    if (!rawPhone) {
-      skipped.push({ row: i + 1, reason: "empty phone" });
-      continue;
+  if (upsertErr) {
+    return NextResponse.json(
+      { error: `Bulk contact upsert failed: ${upsertErr.message}` },
+      { status: 500 }
+    );
+  }
+
+  const phoneToId = new Map<string, string>();
+  for (const c of upserted ?? []) {
+    if (typeof c.id === "string" && typeof c.phone === "string") {
+      phoneToId.set(c.phone, c.id);
     }
-    const phone = normalizePhone(rawPhone);
-    const phoneCheck = validatePhone(phone);
-    if (!phoneCheck.valid) {
-      skipped.push({ row: i + 1, reason: `invalid phone "${rawPhone}": ${phoneCheck.reason}` });
-      continue;
+  }
+
+  // --------------------------------------------------------------------------
+  // Phase 4 — Bulk insert junction rows in ONE call.
+  // --------------------------------------------------------------------------
+  const junctionRows: Array<{ contact_id: string; tag_id: string }> = [];
+  for (const r of validRows) {
+    if (r.tagNames.length === 0) continue;
+    const contactId = phoneToId.get(r.phone);
+    if (!contactId) continue;
+    for (const tagName of r.tagNames) {
+      const tagId = tagIdByName.get(tagName);
+      if (tagId) junctionRows.push({ contact_id: contactId, tag_id: tagId });
     }
-    const name = nameIdx != null && nameIdx >= 0 ? row[nameIdx]?.trim() : undefined;
-    const email = emailIdx != null && emailIdx >= 0 ? row[emailIdx]?.trim() : undefined;
-    const rowTagNames =
-      tagsIdx != null && tagsIdx >= 0 ? parseTagsCell(row[tagsIdx]) : [];
+  }
 
-    // Upsert the contact and capture its id so we can attach tags afterwards.
-    // We deliberately don't write `tags` or `custom_fields` here so re-imports
-    // don't wipe values set elsewhere — junction table is the source of truth.
-    const { data: upserted, error } = await supabase
-      .from("whatsapp_contacts")
-      .upsert(
-        {
-          project_id: projectId,
-          phone,
-          name: name || null,
-          email: email || null,
-          source: "import",
-        },
-        { onConflict: "project_id,phone", ignoreDuplicates: false }
-      )
-      .select("id")
-      .single();
+  // Dedupe within batch so a single failed row doesn't cascade.
+  const seenLinks = new Set<string>();
+  const uniqueLinks = junctionRows.filter((l) => {
+    const key = `${l.contact_id}:${l.tag_id}`;
+    if (seenLinks.has(key)) return false;
+    seenLinks.add(key);
+    return true;
+  });
 
-    if (error || !upserted) {
-      skipped.push({ row: i + 1, reason: error?.message ?? "upsert failed" });
-      continue;
+  if (uniqueLinks.length > 0) {
+    const { error: linkErr } = await supabase
+      .from("whatsapp_contact_tags")
+      .upsert(uniqueLinks, { onConflict: "contact_id,tag_id", ignoreDuplicates: true });
+    if (linkErr) {
+      // Contacts are already saved; report the tag-link failure but don't
+      // unwind the import.
+      return NextResponse.json({
+        imported: phoneToId.size,
+        skipped: skipped.length,
+        total: rows.length - 1,
+        tag_link_error: linkErr.message,
+        skipped_details: skipped.slice(0, 100),
+      });
     }
-
-    if (rowTagNames.length > 0) {
-      const junctionRows = rowTagNames
-        .map((name) => {
-          const tagId = tagIdByName.get(name);
-          return tagId ? { contact_id: upserted.id, tag_id: tagId } : null;
-        })
-        .filter((r): r is { contact_id: string; tag_id: string } => r !== null);
-
-      if (junctionRows.length > 0) {
-        // ignoreDuplicates so re-importing the same contact+tag is idempotent.
-        const { error: tagError } = await supabase
-          .from("whatsapp_contact_tags")
-          .upsert(junctionRows, {
-            onConflict: "contact_id,tag_id",
-            ignoreDuplicates: true,
-          });
-        if (tagError) {
-          // Contact already saved; surface the tag failure but don't undo the contact.
-          skipped.push({ row: i + 1, reason: `contact imported but tag link failed: ${tagError.message}` });
-          continue;
-        }
-      }
-    }
-
-    inserted.push({ phone, name, email, tags: rowTagNames });
   }
 
   return NextResponse.json({
-    imported: inserted.length,
+    imported: phoneToId.size,
     skipped: skipped.length,
     total: rows.length - 1,
-    skipped_details: skipped.slice(0, 50),
+    skipped_details: skipped.slice(0, 100),
   });
 }
