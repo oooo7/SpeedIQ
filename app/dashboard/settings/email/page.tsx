@@ -1,8 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { Check, Copy, Loader2, Mail, RefreshCw } from "lucide-react";
+import { Check, Copy, Loader2, Mail, RefreshCw, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -47,6 +46,8 @@ export default function EmailSettingsPage() {
   const [copiedValue, setCopiedValue] = useState<string | null>(null);
   const [fallbackDomain, setFallbackDomain] = useState("send.habiv.com");
   const [refreshingVerification, setRefreshingVerification] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
+  const [testRecipient, setTestRecipient] = useState("");
 
   const fetchSettings = useCallback(async () => {
     if (!activeProject?.id) return;
@@ -200,6 +201,32 @@ export default function EmailSettingsPage() {
     setTimeout(() => setCopiedValue(null), 2000);
   };
 
+  const handleSendTest = async () => {
+    if (!activeProject?.id) return;
+    setSendingTest(true);
+    try {
+      const res = await fetch(`/api/projects/${activeProject.id}/email/test-send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(testRecipient.trim() ? { to: testRecipient.trim() } : {}),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Could not send test email");
+        return;
+      }
+      if (data.success) {
+        toast.success(`Test email sent from ${data.from} to ${data.to}. Check your inbox (and spam).`);
+      } else {
+        toast.error(`Send failed: ${data.error ?? "unknown error"}`);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not send test email");
+    } finally {
+      setSendingTest(false);
+    }
+  };
+
   if (!activeProject) {
     return (
       <div className="flex flex-col gap-10">
@@ -251,6 +278,51 @@ export default function EmailSettingsPage() {
               My domain
             </button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-white dark:bg-gray-900">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Send className="h-4 w-4" />
+            Send a test email
+          </CardTitle>
+          <CardDescription>
+            Send a sample email through your current configuration to confirm it works. Leave blank to use your account email.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-center gap-2 max-w-xl">
+            <Input
+              type="email"
+              value={testRecipient}
+              onChange={(e) => setTestRecipient(e.target.value)}
+              placeholder="recipient@example.com (optional)"
+              className="flex-1 min-w-[220px]"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={sendingTest}
+              onClick={handleSendTest}
+              className="gap-2"
+            >
+              {sendingTest ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Sending…
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  Send test
+                </>
+              )}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            If you don&apos;t see it in your inbox within a minute, check spam. A bounce usually means DNS records aren&apos;t propagated yet.
+          </p>
         </CardContent>
       </Card>
 

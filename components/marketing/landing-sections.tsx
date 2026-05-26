@@ -18,65 +18,7 @@ import {
   ProductPanel,
   type ProductPanelVariant,
 } from "@/components/marketing/product-panels";
-
-// ─── Trust strip: real platforms we build on ──────────────────────────────
-export function LogoBar() {
-  const platforms = [
-    { name: "WhatsApp Cloud API", sub: "Meta" },
-    { name: "Resend", sub: "Email delivery" },
-    { name: "Twilio", sub: "SMS carrier" },
-    { name: "Stripe", sub: "Billing" },
-    { name: "Supabase", sub: "Data & auth" },
-  ];
-  return (
-    <section style={{ paddingBottom: 88 }}>
-      <Container>
-        <div
-          style={{
-            textAlign: "center",
-            marginBottom: 28,
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            letterSpacing: ".08em",
-            textTransform: "uppercase",
-            color: "var(--fg-3)",
-          }}
-        >
-          Built on infrastructure you already trust
-        </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(${platforms.length}, minmax(0, 1fr))`,
-            alignItems: "center",
-            gap: 28,
-          }}
-        >
-          {platforms.map((p, i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 4,
-                color: "var(--fg-2)",
-                opacity: 0.85,
-              }}
-            >
-              <span style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 500, letterSpacing: "-0.01em" }}>
-                {p.name}
-              </span>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--fg-3)", letterSpacing: ".04em" }}>
-                {p.sub}
-              </span>
-            </div>
-          ))}
-        </div>
-      </Container>
-    </section>
-  );
-}
+import { PLANS as LIB_PLANS } from "@/lib/marketing/plans";
 
 // ─── Channels overview ────────────────────────────────────────────────────
 function ChannelPreview({ ch }: { ch: "wa" | "em" | "sm" }) {
@@ -84,7 +26,7 @@ function ChannelPreview({ ch }: { ch: "wa" | "em" | "sm" }) {
     return (
       <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start" }}>
         <div style={{ background: "#fff", borderRadius: 10, padding: "8px 12px", fontSize: 12, color: "#111", maxWidth: "80%", boxShadow: "0 4px 12px rgba(0,0,0,.08)" }}>
-          Hi Aarav, your order #4821 ships today 📦
+          Hi Ava, your order #4821 ships today 📦
         </div>
         <div style={{ background: "#DCF8C6", borderRadius: 10, padding: "8px 12px", fontSize: 12, color: "#111", alignSelf: "flex-end", maxWidth: "70%", boxShadow: "0 4px 12px rgba(0,0,0,.08)" }}>
           Awesome, thanks!
@@ -115,7 +57,7 @@ function ChannelPreview({ ch }: { ch: "wa" | "em" | "sm" }) {
         Your OTP is <strong>739 204</strong>. Valid 5 min.
       </div>
       <div style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, color: "rgba(255,255,255,.9)", alignSelf: "flex-start" }}>
-        DLT · TRANSACTIONAL · 99.99% delivery
+        10DLC · TRANSACTIONAL · 99.99% delivery
       </div>
     </div>
   );
@@ -156,13 +98,13 @@ export function Channels() {
     {
       ch: "sm",
       title: "SMS",
-      tag: "India + global · DLT-compliant",
+      tag: "US/Canada + global · carrier-compliant",
       grad: "linear-gradient(135deg, #4c1d95 0%, #a855f7 55%, #e7d3ff 100%)",
       bullets: [
-        "Approved DLT templates ready",
-        "Send in India or worldwide",
+        "10DLC-compliant for US sends",
+        "Send in US/Canada or worldwide",
         "OTPs and transactional alerts",
-        "Auto-fallback from WhatsApp",
+        "STOP / HELP keywords handled",
       ],
     },
   ];
@@ -432,7 +374,7 @@ export function Features() {
               "Four roles — Owner, Admin, Editor, Viewer",
               "Every credit charge logged forever",
               "Buy top-up packs or auto-recharge",
-              "Pay in INR or USD via Stripe",
+              "Pay in USD via Stripe",
             ]}
             panelVariant="team"
           />
@@ -483,7 +425,7 @@ export function LiveDemo() {
   return (
     <section style={{ paddingTop: "var(--section-y)", paddingBottom: "var(--section-y)", background: "var(--bg-sunken)" }}>
       <Container>
-        <SectionHead eyebrow="PRODUCT TOUR" title="*See* the actual product." align="center" />
+        <SectionHead eyebrow="PRODUCT TOUR" title="A quick *look inside.*" align="center" />
         <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 36, marginBottom: 28 }}>
           {tabs.map((t) => (
             <button
@@ -515,66 +457,22 @@ export function LiveDemo() {
 }
 
 // ─── Pricing ──────────────────────────────────────────────────────────────
-const PLANS = [
-  {
-    id: "starter",
-    name: "Starter",
-    inrM: 999,
-    inrY: 9590,
-    usdM: 12,
-    usdY: 115,
-    credits: "5,000",
-    contacts: "5,000",
-    seats: "3",
-    pitch: "For solo founders and small teams getting started.",
-    features: ["WhatsApp Cloud API broadcasts", "Email + SMS campaigns", "Live inbox (3 seats)", "Basic automations", "CSV import & tagging"],
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    popular: true,
-    inrM: 2499,
-    inrY: 23990,
-    usdM: 29,
-    usdY: 278,
-    credits: "15,000",
-    contacts: "25,000",
-    seats: "10",
-    pitch: "For growing teams running real campaigns.",
-    features: [
-      "Everything in Starter",
-      "Full automations + sequences",
-      "A/B testing on campaigns",
-      "Custom email domain",
-      "10 seats, role permissions",
-      "7-day Pro trial · 200 credits",
-    ],
-  },
-  {
-    id: "business",
-    name: "Business",
-    inrM: 6999,
-    inrY: 67190,
-    usdM: 79,
-    usdY: 759,
-    credits: "50,000",
-    contacts: "100,000",
-    seats: "∞",
-    pitch: "For agencies and high-volume senders.",
-    features: [
-      "Everything in Pro",
-      "Branching automations",
-      "Unlimited seats",
-      "Priority WhatsApp template review",
-      "Dedicated success manager",
-      "SLA & audit log",
-    ],
-  },
-] as const;
+const PLANS = LIB_PLANS.map((p) => ({
+  id: p.id,
+  name: p.name,
+  popular: p.highlight === true,
+  usdM: p.monthly.usd,
+  usdY: p.yearly.usd,
+  credits: p.credits.toLocaleString(),
+  contacts: p.contacts.toLocaleString(),
+  seats: p.seats === null ? "∞" : String(p.seats),
+  pitch: p.blurb,
+  features: p.features,
+}));
 
-function PricingCard({ plan, currency, cycle }: { plan: (typeof PLANS)[number]; currency: "INR" | "USD"; cycle: "m" | "y" }) {
-  const price = cycle === "m" ? (currency === "INR" ? plan.inrM : plan.usdM) : currency === "INR" ? plan.inrY : plan.usdY;
-  const symbol = currency === "INR" ? "₹" : "$";
+function PricingCard({ plan, cycle }: { plan: (typeof PLANS)[number]; cycle: "m" | "y" }) {
+  const price = cycle === "m" ? plan.usdM : plan.usdY;
+  const symbol = "$";
   const period = cycle === "m" ? "/mo" : "/yr";
   const popular = "popular" in plan && plan.popular;
   return (
@@ -618,7 +516,7 @@ function PricingCard({ plan, currency, cycle }: { plan: (typeof PLANS)[number]; 
       <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
         <span style={{ fontFamily: "var(--font-display)", fontSize: 48, fontWeight: 500, letterSpacing: "-0.03em", lineHeight: 1 }}>
           {symbol}
-          {price.toLocaleString("en-IN")}
+          {price.toLocaleString("en-US")}
         </span>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: popular ? "var(--on-fg-muted)" : "var(--fg-3)" }}>{period}</span>
       </div>
@@ -660,8 +558,7 @@ function PricingCard({ plan, currency, cycle }: { plan: (typeof PLANS)[number]; 
   );
 }
 
-export function Pricing({ defaultCurrency = "INR" }: { defaultCurrency?: "INR" | "USD" }) {
-  const [currency, setCurrency] = useState<"INR" | "USD">(defaultCurrency);
+export function Pricing() {
   const [cycle, setCycle] = useState<"m" | "y">("m");
   return (
     <section id="pricing" style={{ paddingTop: "var(--section-y)", paddingBottom: "var(--section-y)" }}>
@@ -673,28 +570,6 @@ export function Pricing({ defaultCurrency = "INR" }: { defaultCurrency?: "INR" |
           align="center"
         />
         <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 36, marginBottom: 48, flexWrap: "wrap" }}>
-          <div style={{ display: "inline-flex", background: "var(--bg-sunken)", border: "1px solid var(--line)", borderRadius: 99, padding: 3 }}>
-            {(["INR", "USD"] as const).map((c) => (
-              <button
-                key={c}
-                onClick={() => setCurrency(c)}
-                style={{
-                  padding: "7px 18px",
-                  borderRadius: 99,
-                  border: "none",
-                  background: currency === c ? "var(--fg)" : "transparent",
-                  color: currency === c ? "var(--bg)" : "var(--fg-3)",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 12,
-                  letterSpacing: ".04em",
-                  cursor: "pointer",
-                  fontWeight: 500,
-                }}
-              >
-                {c === "INR" ? "₹ INR" : "$ USD"}
-              </button>
-            ))}
-          </div>
           <div style={{ display: "inline-flex", background: "var(--bg-sunken)", border: "1px solid var(--line)", borderRadius: 99, padding: 3 }}>
             {([
               ["m", "Monthly"],
@@ -722,11 +597,11 @@ export function Pricing({ defaultCurrency = "INR" }: { defaultCurrency?: "INR" |
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16, alignItems: "stretch" }}>
           {PLANS.map((p) => (
-            <PricingCard key={p.id} plan={p} currency={currency} cycle={cycle} />
+            <PricingCard key={p.id} plan={p} cycle={cycle} />
           ))}
         </div>
         <div style={{ marginTop: 28, textAlign: "center", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--fg-3)" }}>
-          Every plan includes the inbox, contacts and Stripe billing in INR or USD.
+          Every plan includes the inbox, contacts and Stripe billing in USD.
         </div>
       </Container>
     </section>
@@ -891,7 +766,7 @@ export function CreditCalc() {
             <CreditSlider color="#3b82f6" step={100} label="Email sends" sub="Newsletters, transactional" value={v.email} onChange={(x) => setV({ ...v, email: Math.round(x) })} max={50000} weight={CREDIT_WEIGHTS.email} />
             <CreditSlider color="#25D366" step={50} label="WhatsApp utility" sub="OTPs, order updates" value={v.waUtility} onChange={(x) => setV({ ...v, waUtility: Math.round(x) })} max={10000} weight={CREDIT_WEIGHTS.waUtility} />
             <CreditSlider color="#0a9d4a" step={50} label="WhatsApp marketing" sub="Broadcasts, promos" value={v.waMarketing} onChange={(x) => setV({ ...v, waMarketing: Math.round(x) })} max={10000} weight={CREDIT_WEIGHTS.waMarketing} />
-            <CreditSlider color="#a855f7" step={25} label="SMS (domestic)" sub="India routes" value={v.smsDomestic} onChange={(x) => setV({ ...v, smsDomestic: Math.round(x) })} max={5000} weight={CREDIT_WEIGHTS.smsDomestic} />
+            <CreditSlider color="#a855f7" step={25} label="SMS (domestic)" sub="US/Canada routes" value={v.smsDomestic} onChange={(x) => setV({ ...v, smsDomestic: Math.round(x) })} max={5000} weight={CREDIT_WEIGHTS.smsDomestic} />
           </div>
           <div style={{ background: "var(--fg)", color: "var(--bg)", borderRadius: "var(--radius-lg)", padding: 32, display: "flex", flexDirection: "column", gap: 22, justifyContent: "space-between" }}>
             <div>
@@ -1006,7 +881,7 @@ export function UseCasesGrid() {
     },
     {
       tag: "Fintech",
-      title: "OTPs, KYC reminders and payment nudges. DLT compliant.",
+      title: "OTPs, KYC reminders and payment nudges. 10DLC compliant.",
       examples: ["OTP via WhatsApp Auth", "Balance alert SMS", "Audit log"],
     },
     {
@@ -1107,11 +982,11 @@ export function FAQ() {
     },
     {
       q: "How does credit pricing work?",
-      a: "Each plan includes monthly credits. Each message deducts credits by type: email = 1, WhatsApp session = 2, WhatsApp utility template = 3, WhatsApp marketing template = 5, SMS domestic (India) = 5, SMS international = 15. Top-up packs are available any time.",
+      a: "Each plan includes monthly credits. Each message deducts credits by type: email = 1, WhatsApp session = 2, WhatsApp utility / auth template = 3, WhatsApp marketing template = 5, SMS domestic (US/Canada) = 5, MMS = 8, SMS international = 15. Top-up packs are available any time.",
     },
     {
-      q: "Does SpeedIQ support DLT for SMS in India?",
-      a: "Yes. SMS uses Twilio. We surface principal entity, content template ID and sender ID configuration so India sends can be routed through DLT-compliant carriers.",
+      q: "Does SpeedIQ support 10DLC for SMS in the US?",
+      a: "Yes. SMS uses Twilio. We surface brand registration, campaign approval and sender ID configuration so US sends are routed through 10DLC-compliant carriers. Canadian routes follow CRTC guidelines.",
     },
     {
       q: "Can I import contacts from another tool?",
@@ -1123,7 +998,7 @@ export function FAQ() {
     },
     {
       q: "Do you offer yearly billing?",
-      a: "Yes. Yearly plans are roughly 20% off the monthly rate. Billing runs on Stripe and supports INR and USD pricing.",
+      a: "Yes. Yearly plans are roughly 20% off the monthly rate. Billing runs on Stripe in USD.",
     },
   ];
   return (

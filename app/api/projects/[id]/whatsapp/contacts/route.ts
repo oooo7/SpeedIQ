@@ -32,6 +32,11 @@ export async function GET(
   const source = searchParams.get("source")?.trim();
   const limit = Math.min(Math.max(parseInt(searchParams.get("limit") ?? "50", 10), 1), 200);
   const offset = Math.max(parseInt(searchParams.get("offset") ?? "0", 10), 0);
+  // all=1: return up to 5000 rows in a single response for the "Select all
+  // matching" UX. Skips tag enrichment + per-page limit cap. Keeps the same
+  // select columns so supabase-js types stay statically inferable.
+  const allMode = searchParams.get("all") === "1";
+  const ALL_CAP = 5000;
 
   let query = supabase
     .from("whatsapp_contacts")
@@ -66,15 +71,26 @@ export async function GET(
     query = query.eq("source", source);
   }
 
-  const { data: contacts, error, count } = await query.range(offset, offset + limit - 1);
+  const effectiveLimit = allMode ? ALL_CAP : limit;
+  const effectiveOffset = allMode ? 0 : offset;
+  const { data: contacts, error, count } = await query.range(
+    effectiveOffset,
+    effectiveOffset + effectiveLimit - 1
+  );
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   const list = contacts ?? [];
+
+  // all-mode skips tag enrichment — caller only needs id/phone/name for
+  // building selection sets.
+  if (allMode) {
+    return NextResponse.json({ contacts: list, total: count ?? 0 });
+  }
   const contactIds = list.map((c: { id: string }) => c.id);
-  let tagsByContactId: Record<string, Array<{ id: string; name: string }>> = {};
+  const tagsByContactId: Record<string, Array<{ id: string; name: string }>> = {};
   if (contactIds.length > 0) {
     const { data: links } = await supabase
       .from("whatsapp_contact_tags")

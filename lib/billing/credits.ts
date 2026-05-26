@@ -1,6 +1,8 @@
 import { BILLING_ENABLED } from "@/lib/features";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+import { maybeTriggerAutoRecharge } from "./auto-recharge";
+
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -59,6 +61,14 @@ export async function deductCredits(params: {
 
   const newBalance = typeof data === "number" ? data : Number(data);
   if (newBalance < 0) return null;
+
+  // Best-effort: trigger auto-recharge if the new balance is at or below the
+  // user's configured threshold. We don't await this to avoid slowing the send;
+  // the helper has its own stampede guard and dedupe.
+  void maybeTriggerAutoRecharge({ projectId: params.projectId, newBalance }).catch((err) => {
+    console.error("[credits] auto-recharge hook failed", err);
+  });
+
   return newBalance;
 }
 

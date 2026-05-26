@@ -9,17 +9,15 @@ import {
   FinalCTA,
   HowItWorks,
   LiveDemo,
-  LogoBar,
   Pricing,
   UseCasesGrid,
   WhyChooseUs,
 } from "@/components/marketing/landing-sections";
-import { detectCurrency } from "@/lib/marketing/currency";
 
 export const metadata: Metadata = {
   title: "SpeedIQ — One inbox for WhatsApp, Email & SMS",
   description:
-    "Campaigns, conversations and everything between. SpeedIQ brings WhatsApp, Email, SMS and Calls into one workspace with one bill.",
+    "Campaigns, conversations and everything between. SpeedIQ brings WhatsApp, Email and SMS into one workspace with one bill.",
   alternates: { canonical: "/" },
   openGraph: {
     title: "SpeedIQ — One inbox for WhatsApp, Email & SMS",
@@ -37,19 +35,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function LandingPage() {
-  const currencyContext = await detectCurrency();
-  const defaultCurrency: "INR" | "USD" = currencyContext.currency === "inr" ? "INR" : "USD";
-
+export default function LandingPage() {
   return (
     <>
       <Hero />
-      <LogoBar />
       <Channels />
       <Features />
       <HowItWorks />
       <LiveDemo />
-      <Pricing defaultCurrency={defaultCurrency} />
+      <Pricing />
       <CreditCalc />
       <WhyChooseUs />
       <UseCasesGrid />

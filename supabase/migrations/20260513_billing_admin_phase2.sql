@@ -27,10 +27,12 @@ $$;
 grant execute on function public.is_platform_admin() to authenticated;
 
 -- Allow platform admins to read/write any profile (for the admin users page).
+drop policy if exists "Platform admins can view all profiles" on public.profiles;
 create policy "Platform admins can view all profiles"
   on public.profiles for select
   using (public.is_platform_admin());
 
+drop policy if exists "Platform admins can update any profile" on public.profiles;
 create policy "Platform admins can update any profile"
   on public.profiles for update
   using (public.is_platform_admin())
@@ -66,6 +68,7 @@ where p.stripe_price_id_monthly_inr is not null
    or p.stripe_price_id_yearly_usd  is not null;
 
 -- Platform admin can edit plans.
+drop policy if exists "Platform admins can write plans" on public.subscription_plans;
 create policy "Platform admins can write plans"
   on public.subscription_plans for all
   using (public.is_platform_admin())
@@ -104,10 +107,12 @@ create table if not exists public.platform_settings (
 
 alter table public.platform_settings enable row level security;
 
+drop policy if exists "Settings readable by anyone authenticated" on public.platform_settings;
 create policy "Settings readable by anyone authenticated"
   on public.platform_settings for select
   using (auth.role() = 'authenticated');
 
+drop policy if exists "Platform admins can write settings" on public.platform_settings;
 create policy "Platform admins can write settings"
   on public.platform_settings for all
   using (public.is_platform_admin())
@@ -150,10 +155,12 @@ create table if not exists public.credit_weights (
 
 alter table public.credit_weights enable row level security;
 
+drop policy if exists "Credit weights readable by anyone authenticated" on public.credit_weights;
 create policy "Credit weights readable by anyone authenticated"
   on public.credit_weights for select
   using (auth.role() = 'authenticated');
 
+drop policy if exists "Platform admins can write credit weights" on public.credit_weights;
 create policy "Platform admins can write credit weights"
   on public.credit_weights for all
   using (public.is_platform_admin())
@@ -197,10 +204,12 @@ create table if not exists public.credit_packs (
 
 alter table public.credit_packs enable row level security;
 
+drop policy if exists "Credit packs readable by anyone authenticated" on public.credit_packs;
 create policy "Credit packs readable by anyone authenticated"
   on public.credit_packs for select
   using (auth.role() = 'authenticated');
 
+drop policy if exists "Platform admins can write credit packs" on public.credit_packs;
 create policy "Platform admins can write credit packs"
   on public.credit_packs for all
   using (public.is_platform_admin())
@@ -241,6 +250,7 @@ create index if not exists idx_admin_audit_log_target
 
 alter table public.admin_audit_log enable row level security;
 
+drop policy if exists "Audit log readable by platform admins" on public.admin_audit_log;
 create policy "Audit log readable by platform admins"
   on public.admin_audit_log for select
   using (public.is_platform_admin());

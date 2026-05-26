@@ -95,6 +95,15 @@ export async function PUT(
   const from_email = typeof body.from_email === "string" ? body.from_email.trim() || null : null;
   const use_custom_from = body.use_custom_from === true || body.use_custom_from === "true";
 
+  // Reject obviously malformed addresses. We can't block free providers from
+  // server-side regex alone, but we can catch typos before talking to Resend.
+  if (from_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(from_email)) {
+    return NextResponse.json(
+      { error: "From email is not a valid address" },
+      { status: 400 }
+    );
+  }
+
   let fallback_local_part: string | null = null;
   if (typeof body.fallback_local_part === "string") {
     const raw = body.fallback_local_part.trim().toLowerCase();

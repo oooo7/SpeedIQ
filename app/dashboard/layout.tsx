@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 import { AppSidebar } from "@/components/sidebar/app-sidebar";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { isCallerPlatformAdmin } from "@/lib/billing/admin";
 import { BreadcrumbOverrideProvider } from "@/lib/breadcrumb-override-context";
 import { ProjectProvider } from "@/lib/projects/project-context";
 import { loadProjectsForUser } from "@/lib/projects/server";
@@ -34,6 +35,8 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
     redirect("/projects");
   }
 
+  const isPlatformAdmin = await isCallerPlatformAdmin();
+
   const headerList = await headers();
   const pathname = headerList.get("x-pathname") ?? "";
   const isWhatsAppLiveChat = pathname.startsWith("/dashboard/whatsapp/live-chat");
@@ -54,6 +57,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
         <AppSidebar
           variant="sidebar"
           collapsible="icon"
+          isPlatformAdmin={isPlatformAdmin}
           user={{
             name: userData.name,
             email: userData.email,

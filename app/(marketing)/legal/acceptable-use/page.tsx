@@ -27,9 +27,10 @@ export default function AupPage() {
         </p>
         <ul className="ml-5 list-disc space-y-2">
           <li><strong>WhatsApp:</strong> Have explicit opt-in following Meta&apos;s Business Messaging Policy. Marketing messages require opt-in with a clear description of what the recipient will receive.</li>
-          <li><strong>Email:</strong> Comply with CAN-SPAM, GDPR, CASL, and India&apos;s DPDP Act — only send to recipients who explicitly subscribed and from whom you can document consent.</li>
-          <li><strong>SMS (India):</strong> Comply with DLT (Distributed Ledger Technology) regulations — register your principal entity, content templates, and headers with TRAI-recognized authority before sending.</li>
-          <li><strong>SMS (international):</strong> Comply with the local laws of the recipient&apos;s country (TCPA in the US, PECR in the UK, etc.) and respect opt-out requests.</li>
+          <li><strong>Email:</strong> Comply with CAN-SPAM (US), CASL (Canada), GDPR (EU/UK), and equivalent laws — only send to recipients who explicitly subscribed and from whom you can document consent.</li>
+          <li><strong>SMS (US):</strong> Comply with 10DLC (A2P messaging) and TCPA requirements — register your brand and campaigns with The Campaign Registry and obtain documented consent before sending.</li>
+          <li><strong>SMS (Canada):</strong> Comply with CRTC and CWTA Common Short Code Application Guidelines — keep records of consent, identify the sender, and honor unsubscribe requests promptly.</li>
+          <li><strong>SMS (international):</strong> Comply with the local laws of the recipient&apos;s country (PECR in the UK, GDPR in the EU, etc.) and respect opt-out requests.</li>
         </ul>
         <p>
           You must keep evidence of consent and provide it to us within 7 days
@@ -76,7 +77,7 @@ export default function AupPage() {
           <li>Honor opt-outs within 24 hours of receipt. STOP / UNSUBSCRIBE keywords are processed automatically — do not override them.</li>
           <li>Identify yourself as the sender in every message (organization name, contact method).</li>
           <li>Provide an easy unsubscribe mechanism in all marketing messages.</li>
-          <li>Do not send messages between 9 PM and 9 AM in the recipient&apos;s local time zone (for India per TRAI guidelines and similar laws elsewhere) unless transactional or expressly consented.</li>
+          <li>Do not send messages between 9 PM and 8 AM in the recipient&apos;s local time zone (per TCPA quiet hours in the US, CRTC guidelines in Canada, and similar laws elsewhere) unless transactional or expressly consented.</li>
           <li>Keep WhatsApp quality rating above Yellow; persistently Red-rated numbers may be suspended to protect platform health.</li>
         </ul>
       </LegalSection>
@@ -90,7 +91,7 @@ export default function AupPage() {
         </p>
         <ul className="ml-5 list-disc space-y-2">
           <li>Financial services — must comply with disclosures and consumer protection rules.</li>
-          <li>Healthcare — must comply with HIPAA (US), DPDP (India), and equivalent privacy frameworks.</li>
+          <li>Healthcare — must comply with HIPAA (US), PIPEDA / PHIPA (Canada), and equivalent privacy frameworks.</li>
           <li>Cryptocurrency — restricted on WhatsApp marketing in many jurisdictions; check Meta&apos;s policies.</li>
           <li>Cannabis / CBD — heavily restricted; not permitted via SMS in the US per carrier rules.</li>
         </ul>

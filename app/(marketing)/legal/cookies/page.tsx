@@ -84,10 +84,10 @@ export default function CookiesPage() {
 
       <LegalSection title="3. Geolocation by IP">
         <p>
-          On marketing pages, we read your country code from a server-provided
-          header (e.g., Vercel&apos;s geo header) to display prices in the
-          appropriate currency (₹ for India, $ elsewhere). This is a one-shot
-          read at request time and is not stored as a cookie.
+          On marketing pages, we may read your country code from a
+          server-provided header (e.g., Vercel&apos;s geo header) to tailor
+          regional content such as compliance notes. This is a one-shot read at
+          request time and is not stored as a cookie.
         </p>
       </LegalSection>
 

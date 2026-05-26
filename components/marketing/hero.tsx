@@ -119,7 +119,7 @@ function HeroCopy({ align = "left" }: { align?: "left" | "center" }) {
           textWrap: "pretty",
         }}
       >
-        SpeedIQ brings broadcasts, templates, segments, the live inbox and analytics across WhatsApp, Email, SMS and Calls into one workspace with one bill.
+        SpeedIQ brings broadcasts, templates, segments, the live inbox and analytics across WhatsApp, Email and SMS into one workspace with one bill — with Calls coming soon.
       </p>
       <ChannelStrip center={center} />
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: center ? "center" : "flex-start" }}>
@@ -168,17 +168,17 @@ function HeroDashboard() {
   const replies = 891 + Math.floor(pulse / 2);
 
   const campaigns = [
-    { name: "Diwali Sale · 30% off", ch: "wa", pct: Math.min(38, 26 + pulse), status: "sending" },
+    { name: "Black Friday · 30% off", ch: "wa", pct: Math.min(38, 26 + pulse), status: "sending" },
     { name: "Sept newsletter", ch: "em", pct: 100, status: "completed" },
     { name: "Cart recovery automation", ch: "wa", pct: Math.min(72, 64 + pulse), status: "sending" },
   ];
 
   const activity = [
-    { ch: "wa", who: "Aarav Kapoor", what: "replied to Diwali Sale", when: "2s ago" },
-    { ch: "em", who: "maya@kettle.in", what: "opened Sept newsletter", when: "14s ago" },
-    { ch: "wa", who: "Priya Nair", what: "matched welcome_flow_v3", when: "38s ago" },
-    { ch: "sm", who: "+91 98214…", what: "OTP delivered", when: "1m ago" },
-    { ch: "em", who: "kunal@northbeam", what: "clicked CTA in newsletter", when: "1m ago" },
+    { ch: "wa", who: "Ava Carter", what: "replied to Black Friday", when: "2s ago" },
+    { ch: "em", who: "maya@northbeam.com", what: "opened Sept newsletter", when: "14s ago" },
+    { ch: "wa", who: "Liam Bennett", what: "matched welcome_flow_v3", when: "38s ago" },
+    { ch: "sm", who: "+1 415-555…", what: "OTP delivered", when: "1m ago" },
+    { ch: "em", who: "kunal@northbeam.com", what: "clicked CTA in newsletter", when: "1m ago" },
   ];
 
   return (
@@ -207,7 +207,7 @@ function HeroDashboard() {
           <span style={{ width: 9, height: 9, borderRadius: 99, background: "#ffbd2e" }} />
           <span style={{ width: 9, height: 9, borderRadius: 99, background: "#27c93f" }} />
         </div>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-3)" }}>app.speediq.in / dashboard</span>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-3)" }}>app.speediq.app / dashboard</span>
         <div style={{ flex: 1 }} />
         <span
           style={{

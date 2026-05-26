@@ -1,4 +1,5 @@
 import {
+  Inbox,
   LayoutDashboard,
   MessageSquare,
   MessageSquareText,
@@ -146,6 +147,11 @@ export const sidebarItems: NavGroup[] = [
         icon: CreditCard,
         requiresProject: true,
         locked: !BILLING_ENABLED,
+      },
+      {
+        title: "Invitations",
+        url: "/invitations",
+        icon: Inbox,
       },
     ],
   },

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 
 import { CREDIT_PACKS, PLANS } from "@/lib/billing/config";
+import { suggestedCurrencyFromHeaders } from "@/lib/billing/geo";
 import { getActivePlanForProject } from "@/lib/billing/subscription";
 import { BILLING_ENABLED } from "@/lib/features";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   if (!BILLING_ENABLED) {
@@ -32,7 +33,7 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const [{ subscription, plan }, wallet, ledger, plans, campaignsThisMonth] = await Promise.all([
+  const [{ subscription, plan }, wallet, ledger, plans, packs, campaignsThisMonth] = await Promise.all([
     getActivePlanForProject(supabase, projectId),
     supabase.from("credit_wallets").select("balance, auto_recharge_enabled, auto_recharge_threshold, auto_recharge_pack_id").eq("project_id", projectId).maybeSingle(),
     supabase
@@ -41,13 +42,16 @@ export async function GET(
       .eq("project_id", projectId)
       .order("created_at", { ascending: false })
       .limit(20),
-    supabase.from("subscription_plans").select("*").order("sort_order"),
+    supabase.from("subscription_plans").select("*").eq("active", true).order("sort_order"),
+    supabase.from("credit_packs").select("*").eq("active", true).order("sort_order"),
     supabase
       .from("project_campaign_counts_current_month")
       .select("campaigns_this_month")
       .eq("project_id", projectId)
       .maybeSingle(),
   ]);
+
+  const geo = suggestedCurrencyFromHeaders(request.headers);
 
   return NextResponse.json({
     subscription,
@@ -57,7 +61,9 @@ export async function GET(
     plans: plans.data ?? [],
     role,
     campaigns_this_month: campaignsThisMonth.data?.campaigns_this_month ?? 0,
-    credit_packs: CREDIT_PACKS,
+    credit_packs: packs.data ?? CREDIT_PACKS,
     plan_catalog: PLANS,
+    suggested_currency: geo.currency,
+    detected_country: geo.country,
   });
 }

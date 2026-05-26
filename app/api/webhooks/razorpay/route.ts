@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 
 import { NextResponse } from "next/server";
 
+import { sendBillingEmail } from "@/lib/billing/billing-emails";
 import { CREDIT_PACKS, TRIAL_CREDITS } from "@/lib/billing/config";
 import { grantCredits } from "@/lib/billing/credits";
 import { upsertProjectSubscription } from "@/lib/billing/subscription";
@@ -283,6 +284,39 @@ async function handleSubscriptionCharged(
   await upsertProjectSubscription(projectId, {
     last_credit_grant_at: new Date().toISOString(),
   });
+
+  const ownerEmail = await getOwnerEmail(projectId);
+  if (ownerEmail) {
+    const { data: planRow } = await admin
+      .from("subscription_plans")
+      .select("name")
+      .eq("id", planSlug)
+      .maybeSingle();
+    await sendBillingEmail({
+      kind: "plan_grant_receipt",
+      projectId,
+      to: ownerEmail,
+      refId,
+      data: {
+        planName: planRow?.name ?? planSlug,
+        credits,
+        amount: payment?.amount != null ? payment.amount / 100 : undefined,
+        currency: "inr",
+      },
+    });
+  }
+}
+
+async function getOwnerEmail(projectId: string): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data: project } = await admin
+    .from("projects")
+    .select("owner_id")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (!project?.owner_id) return null;
+  const { data } = await admin.auth.admin.getUserById(project.owner_id as string);
+  return data?.user?.email ?? null;
 }
 
 async function handleSubscriptionEnded(
@@ -297,6 +331,21 @@ async function handleSubscriptionEnded(
     canceled_at: new Date().toISOString(),
     cancel_at_period_end: sub.cancel_at_cycle_end === 1,
   });
+
+  const ownerEmail = await getOwnerEmail(projectId);
+  if (ownerEmail) {
+    await sendBillingEmail({
+      kind: "subscription_canceled",
+      projectId,
+      to: ownerEmail,
+      refId: sub.id,
+      data: {
+        endDate: sub.current_end
+          ? new Date(sub.current_end * 1000).toLocaleDateString()
+          : undefined,
+      },
+    });
+  }
 }
 
 async function handleSubscriptionHalted(sub: RazorpaySubscriptionEntity | undefined): Promise<void> {
@@ -337,4 +386,20 @@ async function handlePaymentLinkPaid(link: RazorpayPaymentLinkEntity | undefined
     refId: link.id,
     metadata: { pack_id: pack.id, currency: link.currency.toLowerCase() },
   });
+
+  const ownerEmail = await getOwnerEmail(projectId);
+  if (ownerEmail) {
+    await sendBillingEmail({
+      kind: "top_up_receipt",
+      projectId,
+      to: ownerEmail,
+      refId: link.id,
+      data: {
+        packName: pack.name,
+        credits: pack.credits,
+        amount: link.amount / 100,
+        currency: link.currency.toLowerCase(),
+      },
+    });
+  }
 }

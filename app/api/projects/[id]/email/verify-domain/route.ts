@@ -6,6 +6,7 @@ import { getProjectRole } from "@/lib/team";
 import {
   addDomain,
   getDomain,
+  verifyDomain,
   extractDomainFromEmail,
 } from "@/lib/email/resend-domains";
 
@@ -137,14 +138,19 @@ export async function POST(
     );
   }
 
+  const admin = createAdminClient();
+
+  // If we've already registered with Resend, just refresh status. Also kick
+  // off an explicit verify so Resend re-checks DNS instead of waiting for
+  // its background poll.
   if (row.resend_domain_id) {
+    await verifyDomain(row.resend_domain_id).catch(() => undefined);
     const result = await getDomain(row.resend_domain_id);
     if ("error" in result) {
       return NextResponse.json({ error: result.error }, { status: 500 });
     }
     const isVerified = result.status === "verified";
     if (isVerified) {
-      const admin = createAdminClient();
       await admin
         .from("project_email_settings")
         .update({
@@ -160,12 +166,32 @@ export async function POST(
     });
   }
 
+  // Prevent the same domain from being registered for two projects: Resend
+  // rejects duplicates, and even when it wouldn't, two projects sharing a
+  // sending domain would have surprising bounce/complaint routing.
+  const { data: existingDomainOwner } = await admin
+    .from("project_email_settings")
+    .select("project_id, from_email")
+    .neq("project_id", projectId)
+    .ilike("from_email", `%@${domain}`)
+    .not("resend_domain_id", "is", null)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingDomainOwner) {
+    return NextResponse.json(
+      {
+        error: `Domain "${domain}" is already registered to another project. Each domain can only be verified in one project.`,
+      },
+      { status: 409 }
+    );
+  }
+
   const addResult = await addDomain(domain);
   if ("error" in addResult) {
     return NextResponse.json({ error: addResult.error }, { status: 500 });
   }
 
-  const admin = createAdminClient();
   await admin
     .from("project_email_settings")
     .update({
@@ -173,6 +199,10 @@ export async function POST(
       updated_at: new Date().toISOString(),
     })
     .eq("project_id", projectId);
+
+  // Immediately ask Resend to verify. If user pre-added DNS, this can flip
+  // to "verified" right away; otherwise it stays "pending".
+  await verifyDomain(addResult.id).catch(() => undefined);
 
   const isVerified = addResult.status === "verified";
   if (isVerified) {

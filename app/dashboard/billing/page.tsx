@@ -5,9 +5,11 @@ import {
   Check,
   CreditCard,
   ExternalLink,
+  Globe,
   Loader2,
   Sparkles,
   Wallet,
+  XCircle,
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -21,11 +23,15 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { BILLING_ENABLED } from "@/lib/features";
 import { useProjectContext } from "@/lib/projects/project-context";
 
@@ -41,6 +47,7 @@ interface SubscriptionDTO {
   current_period_end: string | null;
   trial_ends_at: string | null;
   cancel_at_period_end: boolean;
+  provider: "stripe" | "razorpay" | null;
 }
 
 interface PlanDTO {
@@ -62,6 +69,8 @@ interface PlanDTO {
 interface WalletDTO {
   balance: number;
   auto_recharge_enabled: boolean;
+  auto_recharge_threshold?: number | null;
+  auto_recharge_pack_id?: string | null;
 }
 
 interface LedgerEntry {
@@ -88,6 +97,8 @@ interface BillingData {
   campaigns_this_month: number;
   credit_packs: CreditPackDTO[];
   role: "owner" | "admin" | "editor" | "viewer";
+  suggested_currency: Currency;
+  detected_country: string | null;
 }
 
 const STATUS_LABEL: Record<string, { label: string; tone: "default" | "warn" | "good" | "bad" }> = {
@@ -146,6 +157,14 @@ export default function BillingPage() {
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [autoRechargeOpen, setAutoRechargeOpen] = useState(false);
+  const [autoRechargeSaving, setAutoRechargeSaving] = useState(false);
+  const [arEnabled, setArEnabled] = useState(false);
+  const [arThreshold, setArThreshold] = useState("1000");
+  const [arPackId, setArPackId] = useState("");
+  const [currencyAutoPicked, setCurrencyAutoPicked] = useState(false);
 
   const fetchBilling = useCallback(async () => {
     if (!BILLING_ENABLED) return;
@@ -156,13 +175,23 @@ export default function BillingPage() {
       if (!res.ok) throw new Error(await res.text());
       const json = (await res.json()) as BillingData;
       setData(json);
-      if (json.subscription?.currency) setCurrency(json.subscription.currency);
+      if (json.subscription?.currency) {
+        setCurrency(json.subscription.currency);
+      } else if (json.suggested_currency && !currencyAutoPicked) {
+        setCurrency(json.suggested_currency);
+        setCurrencyAutoPicked(true);
+      }
       if (json.subscription?.billing_cycle) setCycle(json.subscription.billing_cycle);
+      setArEnabled(Boolean(json.wallet.auto_recharge_enabled));
+      setArThreshold(json.wallet.auto_recharge_threshold?.toString() ?? "1000");
+      setArPackId(json.wallet.auto_recharge_pack_id ?? json.credit_packs[0]?.id ?? "");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load billing");
     } finally {
       setLoading(false);
     }
+    // currencyAutoPicked is intentionally not a dep — it's a one-shot guard.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   useEffect(() => {
@@ -199,7 +228,16 @@ export default function BillingPage() {
         method: "POST",
         credentials: "include",
       });
-      if (!res.ok) throw new Error((await res.json()).error ?? "Portal failed");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        // Razorpay has no hosted portal — fall back to in-app cancel.
+        if (body?.code === "portal_not_supported") {
+          setPortalLoading(false);
+          setCancelOpen(true);
+          return;
+        }
+        throw new Error(body?.error ?? "Portal failed");
+      }
       const { url } = (await res.json()) as { url: string };
       window.location.href = url;
     } catch (err) {
@@ -207,6 +245,55 @@ export default function BillingPage() {
       setPortalLoading(false);
     }
   }, [projectId]);
+
+  const handleCancel = useCallback(
+    async (cancelAtPeriodEnd: boolean) => {
+      if (!projectId) return;
+      setCancelLoading(true);
+      try {
+        const res = await fetch(`/api/projects/${projectId}/billing/cancel`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ cancel_at_period_end: cancelAtPeriodEnd }),
+        });
+        if (!res.ok) throw new Error((await res.json()).error ?? "Cancel failed");
+        toast.success(cancelAtPeriodEnd ? "Subscription will end at period end" : "Subscription canceled");
+        setCancelOpen(false);
+        await fetchBilling();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Cancel failed");
+      } finally {
+        setCancelLoading(false);
+      }
+    },
+    [projectId, fetchBilling],
+  );
+
+  const handleSaveAutoRecharge = useCallback(async () => {
+    if (!projectId) return;
+    setAutoRechargeSaving(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/billing/wallet`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          auto_recharge_enabled: arEnabled,
+          auto_recharge_threshold: arEnabled ? Number(arThreshold) || null : null,
+          auto_recharge_pack_id: arEnabled ? arPackId || null : null,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Save failed");
+      toast.success("Auto-recharge updated");
+      setAutoRechargeOpen(false);
+      await fetchBilling();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setAutoRechargeSaving(false);
+    }
+  }, [projectId, arEnabled, arThreshold, arPackId, fetchBilling]);
 
   const handleTopUp = useCallback(
     async (packId: string) => {
@@ -325,6 +412,13 @@ export default function BillingPage() {
                 USD $
               </Button>
             </div>
+            {data?.detected_country && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <Globe className="h-3 w-3" />
+                Showing {currency.toUpperCase()} based on your location ({data.detected_country}) ·{" "}
+                {currency === "inr" ? "Razorpay" : "Stripe"} checkout
+              </span>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -435,16 +529,25 @@ export default function BillingPage() {
                   </p>
                 </div>
               </div>
-              <Button variant="outline" size="sm" onClick={handleOpenPortal} disabled={portalLoading}>
-                {portalLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+              <div className="flex items-center gap-2">
+                {data.subscription?.provider === "razorpay" ? (
+                  <Button variant="outline" size="sm" onClick={() => setCancelOpen(true)}>
+                    <XCircle className="h-4 w-4" />
+                    Cancel
+                  </Button>
                 ) : (
-                  <>
-                    <ExternalLink className="h-4 w-4" />
-                    Manage in Stripe
-                  </>
+                  <Button variant="outline" size="sm" onClick={handleOpenPortal} disabled={portalLoading}>
+                    {portalLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <ExternalLink className="h-4 w-4" />
+                        Manage in Stripe
+                      </>
+                    )}
+                  </Button>
                 )}
-              </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -461,10 +564,15 @@ export default function BillingPage() {
                     <p className="text-2xl font-semibold">{balance.toLocaleString()} credits</p>
                   </div>
                 </div>
-                <Button size="sm" onClick={() => setTopUpOpen(true)}>
-                  <Zap className="h-4 w-4" />
-                  Top up
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setAutoRechargeOpen(true)}>
+                    Auto-recharge {data.wallet.auto_recharge_enabled ? "· On" : "· Off"}
+                  </Button>
+                  <Button size="sm" onClick={() => setTopUpOpen(true)}>
+                    <Zap className="h-4 w-4" />
+                    Top up
+                  </Button>
+                </div>
               </div>
               {includedCredits > 0 && (
                 <>
@@ -542,6 +650,87 @@ export default function BillingPage() {
           </Card>
         </div>
       )}
+
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel subscription?</DialogTitle>
+            <DialogDescription>
+              You can cancel at period end (you keep access until{" "}
+              {fmtDate(data?.subscription?.current_period_end ?? null)}) or cancel immediately.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setCancelOpen(false)} disabled={cancelLoading}>
+              Keep subscription
+            </Button>
+            <Button variant="outline" onClick={() => handleCancel(true)} disabled={cancelLoading}>
+              {cancelLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Cancel at period end
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => handleCancel(false)}
+              disabled={cancelLoading}
+            >
+              Cancel immediately
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={autoRechargeOpen} onOpenChange={setAutoRechargeOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Auto-recharge</DialogTitle>
+            <DialogDescription>
+              When your balance drops at or below the threshold, we&apos;ll start a top-up checkout
+              and email you a payment link. You still confirm the payment.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <Switch checked={arEnabled} onCheckedChange={setArEnabled} id="ar-enabled" />
+              <Label htmlFor="ar-enabled" className="text-sm">
+                Enable auto-recharge
+              </Label>
+            </div>
+            <div>
+              <Label className="text-xs">Trigger when balance drops to or below</Label>
+              <Input
+                type="number"
+                value={arThreshold}
+                onChange={(e) => setArThreshold(e.target.value)}
+                disabled={!arEnabled}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Top-up pack to purchase</Label>
+              <select
+                value={arPackId}
+                onChange={(e) => setArPackId(e.target.value)}
+                disabled={!arEnabled}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              >
+                {(data?.credit_packs ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.credits.toLocaleString()} credits · {fmtMoney(currency === "inr" ? p.price_inr : p.price_usd, currency)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAutoRechargeOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveAutoRecharge} disabled={autoRechargeSaving}>
+              {autoRechargeSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={topUpOpen} onOpenChange={setTopUpOpen}>
         <DialogContent className="sm:max-w-md">

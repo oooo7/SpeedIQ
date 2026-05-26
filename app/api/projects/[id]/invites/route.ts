@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { sendTeamInviteEmail } from "@/lib/email/send-team-invite";
 import { createProjectInvite, getProjectRole } from "@/lib/team";
 
 const ROLES = ["admin", "editor", "viewer"] as const;
@@ -59,10 +61,30 @@ export async function POST(
   const baseUrl = origin.startsWith("http") ? origin : `https://${origin}`;
   const inviteUrl = `${baseUrl}/invite/${data.token}`;
 
+  // Lookup project name + inviter name for the email; admin client because we
+  // need fields the caller may not have RLS access to on every row.
+  const admin = createAdminClient();
+  const [{ data: project }, { data: inviter }] = await Promise.all([
+    admin.from("projects").select("name").eq("id", projectId).maybeSingle(),
+    admin.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
+  ]);
+
+  // Best-effort send. We still return the invite_url even on failure so the
+  // inviter can copy/share it manually.
+  const emailResult = await sendTeamInviteEmail({
+    to: email,
+    inviteUrl,
+    projectName: project?.name ?? "your project",
+    inviterName: inviter?.full_name ?? null,
+    role: roleName,
+  });
+
   return NextResponse.json({
     id: data.id,
     token: data.token,
     expires_at: data.expires_at,
     invite_url: inviteUrl,
+    email_sent: emailResult.success,
+    email_error: emailResult.success ? undefined : emailResult.error,
   });
 }

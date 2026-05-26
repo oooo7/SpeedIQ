@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Calendar, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, FileText, LayoutTemplate, Loader2, Megaphone, Pencil, Plus, Send, Trash2, Users } from "lucide-react";
+import { Calendar, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, FileText, LayoutTemplate, Loader2, Megaphone, Pencil, Plus, Search, Send, Trash2, Users, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -108,6 +108,18 @@ export default function WhatsAppCampaignsPage() {
   const [scheduleOption, setScheduleOption] = useState<"schedule" | "draft">("draft");
   const [scheduledAt, setScheduledAt] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [audienceSearch, setAudienceSearch] = useState("");
+  const [audienceSearchInput, setAudienceSearchInput] = useState("");
+  const [audiencePage, setAudiencePage] = useState(0);
+  const [audienceTotal, setAudienceTotal] = useState(0);
+  const [audienceLoading, setAudienceLoading] = useState(false);
+  const [audienceSelectingAll, setAudienceSelectingAll] = useState(false);
+  // Per-page size: 25 (default), 100, or "all" (up to 5000 in one shot).
+  const [audiencePageSize, setAudiencePageSize] = useState<25 | 100 | "all">(25);
+  // Keep id → display info for *every* selected contact, even ones not on the
+  // current page. Lets the Review step show names for selections made via
+  // "Select all matching" across pages.
+  const [selectedContactsMeta, setSelectedContactsMeta] = useState<Record<string, { phone: string; name: string | null }>>({});
   const [templates, setTemplates] = useState<Template[]>([]);
   const [tagDefinitions, setTagDefinitions] = useState<TagDefinition[]>([]);
   const [tagAudienceCount, setTagAudienceCount] = useState<number | null>(null);
@@ -136,19 +148,50 @@ export default function WhatsAppCampaignsPage() {
     fetchCampaigns();
   }, [fetchCampaigns]);
 
+  // Tag definitions only need to load once when the wizard opens.
   useEffect(() => {
     if (!activeProject?.id || !wizardOpen) return;
-    (async () => {
-      const [contactsRes, tagsRes] = await Promise.all([
-        fetch(`/api/projects/${activeProject.id}/whatsapp/contacts?limit=500`),
-        fetch(`/api/projects/${activeProject.id}/whatsapp/tag-definitions`),
-      ]);
-      const contactsData = await contactsRes.json();
-      const tagsData = await tagsRes.json();
-      setContacts(contactsData.contacts ?? []);
-      setTagDefinitions(tagsData.tags ?? []);
-    })();
+    fetch(`/api/projects/${activeProject.id}/whatsapp/tag-definitions`)
+      .then((res) => res.json())
+      .then((data) => setTagDefinitions(data.tags ?? []))
+      .catch(() => setTagDefinitions([]));
   }, [activeProject?.id, wizardOpen]);
+
+  // Debounce search → reset page → trigger refetch.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (audienceSearch !== audienceSearchInput) {
+        setAudienceSearch(audienceSearchInput);
+        setAudiencePage(0);
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [audienceSearchInput, audienceSearch]);
+
+  // Paginated contacts fetch for the audience step.
+  useEffect(() => {
+    if (!activeProject?.id || !wizardOpen) return;
+    setAudienceLoading(true);
+    const params = new URLSearchParams();
+    if (audiencePageSize === "all") {
+      params.set("all", "1");
+    } else {
+      params.set("limit", String(audiencePageSize));
+      params.set("offset", String(audiencePage * audiencePageSize));
+    }
+    if (audienceSearch.trim()) params.set("search", audienceSearch.trim());
+    fetch(`/api/projects/${activeProject.id}/whatsapp/contacts?${params}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setContacts(data.contacts ?? []);
+        setAudienceTotal(data.total ?? 0);
+      })
+      .catch(() => {
+        setContacts([]);
+        setAudienceTotal(0);
+      })
+      .finally(() => setAudienceLoading(false));
+  }, [activeProject?.id, wizardOpen, audiencePage, audiencePageSize, audienceSearch]);
 
   useEffect(() => {
     if (!activeProject?.id || selectedTagIds.length === 0) {
@@ -185,6 +228,11 @@ export default function WhatsAppCampaignsPage() {
     setDescription("");
     setAudienceType("contacts");
     setSelectedContactIds([]);
+    setSelectedContactsMeta({});
+    setAudienceSearch("");
+    setAudienceSearchInput("");
+    setAudiencePage(0);
+    setAudienceTotal(0);
     setSelectedTagIds([]);
     setTemplateId("");
     setScheduleOption("draft");
@@ -249,14 +297,67 @@ export default function WhatsAppCampaignsPage() {
     setSelectedContactIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
+    const contact = contacts.find((c) => c.id === id);
+    if (contact) {
+      setSelectedContactsMeta((prev) => {
+        if (prev[id]) {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        }
+        return { ...prev, [id]: { phone: contact.phone, name: contact.name } };
+      });
+    }
   };
 
-  const recipientCount =
-    audienceType === "tags" && selectedTagIds.length > 0
-      ? `${selectedTagIds.length} tag(s)`
-      : audienceType === "contacts"
-        ? selectedContactIds.length
-        : 0;
+  const selectAllOnPage = () => {
+    if (contacts.length === 0) return;
+    const pageIds = contacts.map((c) => c.id);
+    const allOnPageSelected = pageIds.every((id) => selectedContactIds.includes(id));
+    if (allOnPageSelected) {
+      setSelectedContactIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+      setSelectedContactsMeta((prev) => {
+        const next = { ...prev };
+        for (const id of pageIds) delete next[id];
+        return next;
+      });
+    } else {
+      setSelectedContactIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+      setSelectedContactsMeta((prev) => {
+        const next = { ...prev };
+        for (const c of contacts) next[c.id] = { phone: c.phone, name: c.name };
+        return next;
+      });
+    }
+  };
+
+  const selectAllMatching = async () => {
+    if (!activeProject?.id || audienceTotal === 0) return;
+    setAudienceSelectingAll(true);
+    try {
+      const params = new URLSearchParams({ all: "1" });
+      if (audienceSearch.trim()) params.set("search", audienceSearch.trim());
+      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/contacts?${params}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load all contacts");
+      const all = (data.contacts ?? []) as Array<{ id: string; phone: string; name: string | null }>;
+      setSelectedContactIds(all.map((c) => c.id));
+      const meta: Record<string, { phone: string; name: string | null }> = {};
+      for (const c of all) meta[c.id] = { phone: c.phone, name: c.name };
+      setSelectedContactsMeta(meta);
+      toast.success(`${all.length} contact${all.length === 1 ? "" : "s"} selected.`);
+      if (fieldErrors.audience) setFieldErrors((prev) => ({ ...prev, audience: "" }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not select all");
+    } finally {
+      setAudienceSelectingAll(false);
+    }
+  };
+
+  const clearAudienceSelection = () => {
+    setSelectedContactIds([]);
+    setSelectedContactsMeta({});
+  };
 
   const handleSendNow = async (c: Campaign) => {
     if (!activeProject?.id || c.status !== "draft") return;
@@ -523,7 +624,7 @@ export default function WhatsAppCampaignsPage() {
       )}
 
       <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
-        <DialogContent className="sm:max-w-4xl p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-5xl p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
           <div className="flex flex-col sm:flex-row flex-1 min-h-[520px]">
             {/* Left: minimal vertical stepper */}
             <div className="sm:w-40 shrink-0 border-b sm:border-b-0 sm:border-r border-gray-100 dark:border-gray-800/80 py-8 pl-5 pr-4 sm:pl-6 sm:pr-5 relative">
@@ -704,33 +805,191 @@ export default function WhatsAppCampaignsPage() {
                 </div>
               )}
               {audienceType === "contacts" && (
-                <div className="space-y-2">
-                  <Label>
-                    Contacts {!isDraft && <span className="text-red-600 dark:text-red-400">*</span>}
-                  </Label>
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-end justify-between gap-3">
+                    <Label>
+                      Contacts {!isDraft && <span className="text-red-600 dark:text-red-400">*</span>}
+                    </Label>
+                    <div className="text-sm text-muted-foreground">
+                      <strong className="text-foreground">{selectedContactIds.length}</strong> selected
+                      {audienceTotal > 0 && (
+                        <>
+                          {" "}of <strong className="text-foreground">{audienceTotal}</strong>
+                          {audienceSearch && " matching"}
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input
+                      type="search"
+                      value={audienceSearchInput}
+                      onChange={(e) => setAudienceSearchInput(e.target.value)}
+                      placeholder="Search by phone, name, or email…"
+                      className="flex h-9 w-full border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 pl-9 pr-9 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
+                    {audienceSearchInput && (
+                      <button
+                        type="button"
+                        onClick={() => setAudienceSearchInput("")}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+                        aria-label="Clear search"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={selectAllOnPage}
+                        disabled={contacts.length === 0 || audienceLoading}
+                      >
+                        {contacts.every((c) => selectedContactIds.includes(c.id)) && contacts.length > 0
+                          ? audiencePageSize === "all"
+                            ? "Unselect all"
+                            : "Unselect page"
+                          : audiencePageSize === "all"
+                            ? "Select all visible"
+                            : "Select page"}
+                      </Button>
+                      {audiencePageSize !== "all" && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={selectAllMatching}
+                          disabled={audienceTotal === 0 || audienceSelectingAll}
+                          className="gap-1"
+                        >
+                          {audienceSelectingAll && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                          Select all {audienceSearch ? `matching (${audienceTotal})` : `(${audienceTotal})`}
+                        </Button>
+                      )}
+                      {selectedContactIds.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearAudienceSelection}
+                          className="text-muted-foreground"
+                        >
+                          Clear selection
+                        </Button>
+                      )}
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      Show
+                      <select
+                        value={String(audiencePageSize)}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setAudiencePage(0);
+                          setAudiencePageSize(v === "all" ? "all" : (Number(v) as 25 | 100));
+                        }}
+                        className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      >
+                        <option value="25">25 per page</option>
+                        <option value="100">100 per page</option>
+                        <option value="all">Show all</option>
+                      </select>
+                    </label>
+                  </div>
+
                   <div
-                    className={`max-h-52 overflow-y-auto space-y-2 border p-3 bg-white dark:bg-gray-900 ${
+                    className={`border bg-white dark:bg-gray-900 ${
                       fieldErrors.audience ? "border-red-500 dark:border-red-500" : "border-gray-200 dark:border-gray-800"
                     }`}
                   >
-                    {contacts.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No contacts. Add contacts first.</p>
-                    ) : (
-                      contacts.slice(0, 100).map((contact) => (
-                        <label key={contact.id} className="flex items-center gap-3 text-sm cursor-pointer py-1.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                          <Checkbox
-                            checked={selectedContactIds.includes(contact.id)}
-                            onCheckedChange={() => {
-                              toggleContact(contact.id);
-                              if (fieldErrors.audience) setFieldErrors((prev) => ({ ...prev, audience: "" }));
-                            }}
-                          />
-                          {contact.name || contact.phone} ({contact.phone})
-                        </label>
-                      ))
+                    <div className="max-h-80 overflow-y-auto">
+                      {audienceLoading ? (
+                        <div className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading…
+                        </div>
+                      ) : contacts.length === 0 ? (
+                        <p className="text-sm text-muted-foreground p-6 text-center">
+                          {audienceSearch ? "No contacts match this search." : "No contacts. Add contacts first."}
+                        </p>
+                      ) : (
+                        <ul className="divide-y divide-gray-100 dark:divide-gray-800/50">
+                          {contacts.map((contact) => (
+                            <li key={contact.id}>
+                              <label className="flex items-center gap-3 text-sm cursor-pointer py-2 px-3 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                <Checkbox
+                                  checked={selectedContactIds.includes(contact.id)}
+                                  onCheckedChange={() => {
+                                    toggleContact(contact.id);
+                                    if (fieldErrors.audience) setFieldErrors((prev) => ({ ...prev, audience: "" }));
+                                  }}
+                                />
+                                <span className="flex-1 truncate">
+                                  {contact.name ? (
+                                    <>
+                                      <span className="font-medium">{contact.name}</span>
+                                      <span className="text-muted-foreground"> · {contact.phone}</span>
+                                    </>
+                                  ) : (
+                                    <span className="font-mono">{contact.phone}</span>
+                                  )}
+                                </span>
+                              </label>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    {audiencePageSize !== "all" && audienceTotal > audiencePageSize && (
+                      <div className="flex items-center justify-between gap-3 border-t border-gray-200 dark:border-gray-800 px-3 py-2 text-xs">
+                        <span className="text-muted-foreground">
+                          {audienceTotal === 0
+                            ? "0 results"
+                            : `${audiencePage * audiencePageSize + 1}–${Math.min(
+                                (audiencePage + 1) * audiencePageSize,
+                                audienceTotal
+                              )} of ${audienceTotal}`}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAudiencePage((p) => Math.max(0, p - 1))}
+                            disabled={audiencePage === 0 || audienceLoading}
+                            className="h-7 px-2"
+                          >
+                            <ChevronLeft className="h-3.5 w-3.5" />
+                          </Button>
+                          <span className="text-muted-foreground px-2">
+                            Page {audiencePage + 1} of {Math.max(1, Math.ceil(audienceTotal / audiencePageSize))}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAudiencePage((p) => p + 1)}
+                            disabled={
+                              audienceLoading ||
+                              (audiencePage + 1) * audiencePageSize >= audienceTotal
+                            }
+                            className="h-7 px-2"
+                          >
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
                     )}
-                    {contacts.length > 100 && (
-                      <p className="text-xs text-muted-foreground pt-2">Showing first 100. Use tags to target more contacts.</p>
+                    {audiencePageSize === "all" && audienceTotal >= 5000 && (
+                      <div className="border-t border-gray-200 dark:border-gray-800 px-3 py-2 text-xs text-muted-foreground">
+                        Showing first 5,000 results. Narrow with search to see more.
+                      </div>
                     )}
                   </div>
                 </div>
@@ -933,8 +1192,14 @@ export default function WhatsAppCampaignsPage() {
                     ) : selectedContactIds.length > 0 ? (
                       <ul className="max-h-32 overflow-y-auto list-disc list-inside space-y-0.5">
                         {selectedContactIds.slice(0, 50).map((id) => {
-                          const c = contacts.find((x) => x.id === id);
-                          return <li key={id}>{c ? (c.name || c.phone) : id}</li>;
+                          const meta = selectedContactsMeta[id];
+                          const fromPage = !meta ? contacts.find((x) => x.id === id) : null;
+                          const label = meta
+                            ? meta.name || meta.phone
+                            : fromPage
+                              ? fromPage.name || fromPage.phone
+                              : id;
+                          return <li key={id}>{label}</li>;
                         })}
                         {selectedContactIds.length > 50 && (
                           <li className="text-muted-foreground">… and {selectedContactIds.length - 50} more</li>

@@ -1,8 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { AlertTriangle, ClipboardPaste, Download, Loader2, MoreVertical, Plus, Trash2, Upload, Users, X } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, ClipboardPaste, Download, Loader2, MoreVertical, Pencil, Plus, Trash2, Upload, Users, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -80,16 +79,16 @@ function detectColumns(header: string[]): { phone: number; name: number; email: 
     phone,
     name: findIdx(/name|full.?name/),
     email: findIdx(/email/),
-    tags: findIdx(/^(tags?|labels?)$/),
+    tags: findIdx(/^tags?$|labels?/),
   };
 }
 
-function parseTagCell(value: string | undefined): string[] {
-  if (!value) return [];
-  return value
+function parseTagsCell(cell: string | undefined): string[] {
+  if (!cell) return [];
+  return cell
     .split(/[,;|]/)
     .map((t) => t.trim())
-    .filter(Boolean);
+    .filter((t) => t.length > 0);
 }
 
 interface ContactTag {
@@ -119,6 +118,9 @@ export default function WhatsAppContactsPage() {
   const [search, setSearch] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState<25 | 50 | 100 | "all">(50);
+  const [selectingAllMatching, setSelectingAllMatching] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editContact, setEditContact] = useState<WhatsAppContact | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -185,6 +187,12 @@ export default function WhatsAppContactsPage() {
   const [updatingTagsContactId, setUpdatingTagsContactId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [bulkEditing, setBulkEditing] = useState(false);
+  const [bulkAddTagIds, setBulkAddTagIds] = useState<string[]>([]);
+  const [bulkRemoveTagIds, setBulkRemoveTagIds] = useState<string[]>([]);
+  const [bulkApplySource, setBulkApplySource] = useState(false);
+  const [bulkSource, setBulkSource] = useState("");
 
   const visibleIds = useMemo(() => contacts.map((c) => c.id), [contacts]);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
@@ -213,6 +221,29 @@ export default function WhatsAppContactsPage() {
 
   const clearSelection = () => setSelectedIds(new Set());
 
+  // Fetch every id matching the current search/filter and add them all to the
+  // selection. Used for "Apply to all 1,234 matching contacts" workflows.
+  const selectAllMatching = async () => {
+    if (!activeProject?.id) return;
+    setSelectingAllMatching(true);
+    try {
+      const params = new URLSearchParams({ all: "1" });
+      if (search) params.set("search", search);
+      if (sourceFilter) params.set("source", sourceFilter);
+      if (tagFilter) params.set("tag", tagFilter);
+      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/contacts?${params}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load all");
+      const ids = (data.contacts ?? []).map((c: { id: string }) => c.id);
+      setSelectedIds(new Set(ids));
+      toast.success(`${ids.length} contact${ids.length === 1 ? "" : "s"} selected.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not select all");
+    } finally {
+      setSelectingAllMatching(false);
+    }
+  };
+
   const handleBulkDelete = async () => {
     if (!activeProject?.id || selectedIds.size === 0) return;
     if (!window.confirm(`Delete ${selectedIds.size} selected contact${selectedIds.size === 1 ? "" : "s"}?`)) return;
@@ -237,11 +268,64 @@ export default function WhatsAppContactsPage() {
     fetchContacts();
   };
 
+  const openBulkEdit = () => {
+    if (selectedIds.size === 0) return;
+    setBulkAddTagIds([]);
+    setBulkRemoveTagIds([]);
+    setBulkApplySource(false);
+    setBulkSource("");
+    setBulkEditOpen(true);
+  };
+
+  const handleBulkEdit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!activeProject?.id || selectedIds.size === 0) return;
+
+    if (bulkAddTagIds.length === 0 && bulkRemoveTagIds.length === 0 && !bulkApplySource) {
+      toast.error("Pick at least one change to apply.");
+      return;
+    }
+
+    const payload: Record<string, unknown> = { ids: Array.from(selectedIds) };
+    if (bulkAddTagIds.length > 0) payload.add_tag_ids = bulkAddTagIds;
+    if (bulkRemoveTagIds.length > 0) payload.remove_tag_ids = bulkRemoveTagIds;
+    if (bulkApplySource) payload.set_source = bulkSource.trim() || null;
+
+    setBulkEditing(true);
+    try {
+      const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/contacts/bulk-update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Bulk update failed");
+
+      const parts: string[] = [];
+      if (data.updated) parts.push(`${data.updated} contact${data.updated === 1 ? "" : "s"} updated`);
+      if (data.tags_added) parts.push(`${data.tags_added} tag${data.tags_added === 1 ? "" : "s"} added`);
+      if (data.tags_removed) parts.push(`${data.tags_removed} tag link${data.tags_removed === 1 ? "" : "s"} removed`);
+      toast.success(parts.join(" · ") || "Bulk update complete");
+
+      if (Array.isArray(data.errors) && data.errors.length > 0) {
+        toast.error(data.errors.join(" · "));
+      }
+
+      setBulkEditOpen(false);
+      clearSelection();
+      fetchContacts();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Bulk update failed");
+    } finally {
+      setBulkEditing(false);
+    }
+  };
+
   const downloadSampleCsv = () => {
     const csv =
       "phone,name,email,tags\n" +
-      "+14155552671,Jane Doe,jane@example.com,\"vip,customer\"\n" +
-      "+919876543210,John Smith,john@example.com,lead\n";
+      '+14155552671,Jane Doe,jane@example.com,"vip,customer"\n' +
+      "+919876543210,John Smith,john@example.com,prospect\n";
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -261,6 +345,12 @@ export default function WhatsAppContactsPage() {
       if (search) params.set("search", search);
       if (sourceFilter) params.set("source", sourceFilter);
       if (tagFilter) params.set("tag", tagFilter);
+      if (pageSize === "all") {
+        params.set("all", "1");
+      } else {
+        params.set("limit", String(pageSize));
+        params.set("offset", String(page * pageSize));
+      }
       const res = await fetch(`/api/projects/${activeProject.id}/whatsapp/contacts?${params}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load");
@@ -271,15 +361,17 @@ export default function WhatsAppContactsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeProject?.id, search, sourceFilter, tagFilter]);
+  }, [activeProject?.id, search, sourceFilter, tagFilter, page, pageSize]);
 
   useEffect(() => {
     fetchContacts();
   }, [fetchContacts]);
 
+  // Reset to page 0 when filters/search change, but not when paging itself.
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [search, sourceFilter, tagFilter]);
+    setPage(0);
+  }, [search, sourceFilter, tagFilter, pageSize]);
 
   const fetchTagDefinitions = useCallback(async () => {
     if (!activeProject?.id) return;
@@ -508,19 +600,47 @@ export default function WhatsAppContactsPage() {
 
       {selectedIds.size > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 px-4 py-2.5">
-          <p className="text-sm font-medium">
-            {selectedIds.size} selected
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm font-medium">
+              {selectedIds.size} selected
+            </p>
+            {/* Offer "Select all matching" when the current selection is bounded by what's visible. */}
+            {selectedIds.size < total && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={selectAllMatching}
+                disabled={selectingAllMatching || bulkDeleting || bulkEditing}
+                className="text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-200 h-7"
+              >
+                {selectingAllMatching ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                ) : null}
+                Select all {total} {search || sourceFilter || tagFilter ? "matching" : ""}
+              </Button>
+            )}
+          </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={clearSelection} disabled={bulkDeleting}>
+            <Button variant="ghost" size="sm" onClick={clearSelection} disabled={bulkDeleting || bulkEditing}>
               Clear
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              onClick={openBulkEdit}
+              disabled={bulkDeleting || bulkEditing}
+            >
+              <Pencil className="h-4 w-4" />
+              Edit selected
             </Button>
             <Button
               variant="destructive"
               size="sm"
               className="gap-1"
               onClick={handleBulkDelete}
-              disabled={bulkDeleting}
+              disabled={bulkDeleting || bulkEditing}
             >
               {bulkDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
               Delete selected
@@ -726,11 +846,60 @@ export default function WhatsAppContactsPage() {
               </tbody>
             </table>
           </div>
-          {total > contacts.length && (
-            <p className="text-xs text-muted-foreground p-4 border-t border-gray-100 dark:border-gray-800/80">
-              Showing {contacts.length} of {total}
-            </p>
-          )}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 dark:border-gray-800/80 px-4 py-3 text-xs">
+            <div className="text-muted-foreground">
+              {total === 0
+                ? "No contacts"
+                : pageSize === "all"
+                  ? `Showing ${contacts.length} of ${total}${total >= 5000 ? " (capped at 5,000 — narrow with search)" : ""}`
+                  : `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, total)} of ${total}`}
+            </div>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-muted-foreground">
+                Show
+                <select
+                  value={String(pageSize)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setPageSize(v === "all" ? "all" : (Number(v) as 25 | 50 | 100));
+                  }}
+                  className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                >
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="all">All</option>
+                </select>
+              </label>
+              {pageSize !== "all" && total > pageSize && (
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={page === 0 || loading}
+                    className="h-7 px-2"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </Button>
+                  <span className="text-muted-foreground px-2">
+                    Page {page + 1} of {Math.max(1, Math.ceil(total / pageSize))}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={loading || (page + 1) * pageSize >= total}
+                    className="h-7 px-2"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -829,6 +998,110 @@ export default function WhatsAppContactsPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={bulkEditOpen} onOpenChange={(open) => !bulkEditing && setBulkEditOpen(open)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit {selectedIds.size} contact{selectedIds.size === 1 ? "" : "s"}</DialogTitle>
+            <DialogDescription>
+              Tag changes add or remove tags without replacing the rest. Source overwrites the existing value.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleBulkEdit} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Add tags</Label>
+              {tagDefinitions.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No tags yet. Create some in Settings → Tags.</p>
+              ) : (
+                <div className="flex flex-wrap gap-3 border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 min-h-[44px]">
+                  {tagDefinitions.map((t) => (
+                    <label key={`add-${t.id}`} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={bulkAddTagIds.includes(t.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setBulkAddTagIds((prev) => [...prev, t.id]);
+                            // mutually exclusive with remove
+                            setBulkRemoveTagIds((prev) => prev.filter((id) => id !== t.id));
+                          } else {
+                            setBulkAddTagIds((prev) => prev.filter((id) => id !== t.id));
+                          }
+                        }}
+                        className="border-gray-300"
+                      />
+                      <span className="text-sm">{t.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Remove tags</Label>
+              {tagDefinitions.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Nothing to remove.</p>
+              ) : (
+                <div className="flex flex-wrap gap-3 border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 min-h-[44px]">
+                  {tagDefinitions.map((t) => (
+                    <label key={`rm-${t.id}`} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={bulkRemoveTagIds.includes(t.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setBulkRemoveTagIds((prev) => [...prev, t.id]);
+                            setBulkAddTagIds((prev) => prev.filter((id) => id !== t.id));
+                          } else {
+                            setBulkRemoveTagIds((prev) => prev.filter((id) => id !== t.id));
+                          }
+                        }}
+                        className="border-gray-300"
+                      />
+                      <span className="text-sm">{t.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={bulkApplySource}
+                  onChange={(e) => setBulkApplySource(e.target.checked)}
+                  className="border-gray-300"
+                />
+                <span className="text-sm font-medium">Set source</span>
+              </label>
+              <Input
+                value={bulkSource}
+                onChange={(e) => setBulkSource(e.target.value)}
+                placeholder="e.g. manual, import, ads"
+                disabled={!bulkApplySource}
+              />
+              <p className="text-xs text-muted-foreground">Leave blank with the box ticked to clear the source.</p>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setBulkEditOpen(false)} disabled={bulkEditing}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={bulkEditing}>
+                {bulkEditing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Applying…
+                  </>
+                ) : (
+                  `Apply to ${selectedIds.size}`
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <Dialog
         open={importOpen}
         onOpenChange={(open) => {
@@ -901,7 +1174,7 @@ export default function WhatsAppContactsPage() {
                     onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Columns: phone (required), name, email, tags. First row is treated as header. Use comma, semicolon or pipe to separate multiple tags in one cell (e.g. <span className="font-mono">&quot;vip,customer&quot;</span>). Missing tags are created automatically.
+                    Columns: phone (required), name, email, tags. First row is treated as header. Wrap multi-value tags in quotes, e.g. <code className="font-mono">&quot;vip,customer&quot;</code>.
                   </p>
                 </div>
 
@@ -962,7 +1235,7 @@ export default function WhatsAppContactsPage() {
                             const phone = row[csvColumns.phone]?.trim() ?? "";
                             const name = csvColumns.name >= 0 ? row[csvColumns.name]?.trim() ?? "" : "";
                             const email = csvColumns.email >= 0 ? row[csvColumns.email]?.trim() ?? "" : "";
-                            const tags = csvColumns.tags >= 0 ? parseTagCell(row[csvColumns.tags]) : [];
+                            const tags = csvColumns.tags >= 0 ? parseTagsCell(row[csvColumns.tags]) : [];
                             const phoneValid = !!phone && isValidPhone(phone);
                             return (
                               <tr key={idx} className="border-t border-gray-100 dark:border-gray-800/50">
@@ -984,8 +1257,8 @@ export default function WhatsAppContactsPage() {
                                 <td className="p-2">
                                   {tags.length > 0 ? (
                                     <div className="flex flex-wrap gap-1">
-                                      {tags.map((t) => (
-                                        <Badge key={t} variant="secondary" className="text-[10px] py-0 px-1.5 rounded-full">
+                                      {tags.map((t, i) => (
+                                        <Badge key={i} variant="secondary" className="text-[10px] font-normal">
                                           {t}
                                         </Badge>
                                       ))}

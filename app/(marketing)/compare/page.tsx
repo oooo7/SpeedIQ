@@ -25,7 +25,7 @@ const PILLARS = [
     points: [
       "WhatsApp Cloud API via Meta",
       "Email via Resend, with your own domain",
-      "SMS via Twilio, DLT-ready for India",
+      "SMS via Twilio, 10DLC-ready for US/Canada",
     ],
   },
   {
@@ -57,15 +57,15 @@ const CONTRAST = [
   },
   {
     title: "Compliance where it matters",
-    body: "WhatsApp templates submit through Meta's official flow. SMS surfaces DLT principal entity, content template and sender ID configuration for India sends. Email supports one-click unsubscribe with token-verified links.",
+    body: "WhatsApp templates submit through Meta's official flow. SMS surfaces 10DLC brand and campaign registration plus sender ID configuration for US/Canada sends. Email supports one-click unsubscribe with token-verified links.",
   },
   {
     title: "Your data, your channels",
     body: "Your WhatsApp Business account, your sending domain and your Twilio account stay yours. SpeedIQ is the workspace on top — not a shared sender.",
   },
   {
-    title: "Stripe billing, INR or USD",
-    body: "Subscriptions and top-ups run on Stripe with multi-currency pricing. Yearly plans save about 20%.",
+    title: "Stripe billing in USD",
+    body: "Subscriptions and top-ups run on Stripe. Yearly plans save about 20%.",
   },
 ];
 

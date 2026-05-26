@@ -111,9 +111,9 @@ export default function RefundPage() {
       <LegalSection title="8. Taxes">
         <p>
           Refunds, where issued, are net of any non-recoverable taxes (such as
-          GST, VAT, or sales tax) that we are required to remit to the
-          applicable tax authority. We refund the original amount you paid
-          minus any non-recoverable tax components.
+          US state sales tax, Canadian GST/HST/PST, or VAT) that we are
+          required to remit to the applicable tax authority. We refund the
+          original amount you paid minus any non-recoverable tax components.
         </p>
       </LegalSection>
 

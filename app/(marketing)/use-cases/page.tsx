@@ -57,10 +57,10 @@ const PLAYBOOKS = [
   {
     industry: "Fintech",
     accent: "#a855f7",
-    body: "OTPs and balance alerts via WhatsApp or DLT-compliant SMS. Product launch emails. Audit logs to keep regulators happy.",
+    body: "OTPs and balance alerts via WhatsApp or 10DLC-compliant SMS. Product launch emails. Audit logs to keep regulators happy.",
     items: [
       "OTP via WhatsApp Auth template",
-      "Balance alert SMS (DLT)",
+      "Balance alert SMS (10DLC)",
       "Product launch email",
       "Audit log + custom roles",
     ],
