@@ -7,22 +7,57 @@ import {
   getVariableValuesForContact,
   getWhatsAppAccountToken,
   resolveHeaderMediaForSend,
+  resolveTemplateLanguageForSend,
   sendTemplateMessage,
+  toMetaLanguageCode,
   type TemplateHeaderMedia,
 } from "@/lib/whatsapp/api";
 import { isValidPhone } from "@/lib/whatsapp/phone";
 
+/**
+ * Meta error codes that are recipient-terminal — retrying the same number
+ * will NEVER succeed (number not on WhatsApp, template missing, etc.). We
+ * mark these as `failed` immediately instead of retrying up to MAX_RETRIES,
+ * which saves ~80% of the wasted work on bad imported lists and stops the
+ * campaign from chewing into Meta's quality rating on cascading retries.
+ */
+const TERMINAL_META_CODES = new Set<string>([
+  "131026", // Message undeliverable — receiver can't receive
+  "131047", // Template not approved / doesn't exist
+  "131048", // Spam rate limit / recipient can't receive
+  "131051", // Message type currently unsupported
+  "no_phone",
+  "invalid_phone",
+  "opt_out",
+]);
+
+/**
+ * Auto-stop a campaign when it's clearly burning credits on a bad list.
+ * Threshold tuned for early detection without killing legitimate low-engagement
+ * campaigns: needs at least MIN_ATTEMPTS to avoid stopping on small batches,
+ * and a failure ratio high enough that the rest is almost certainly bad data.
+ */
+const AUTO_STOP_MIN_ATTEMPTS = 100;
+const AUTO_STOP_FAILURE_RATIO = 0.8;
+
 const CRON_SECRET = process.env.CRON_SECRET;
 
-// Tunable per deployment. Defaults chosen to safely fit inside Vercel's 60s
-// function timeout while staying well under Meta's 80 sends/sec/phone limit:
-//   BATCH_SIZE × ~latency / CONCURRENCY ≪ 60s
-//   500 × 0.5s / 20 = 12.5s of API work per batch
-const BATCH_SIZE = Number(process.env.WHATSAPP_SEND_BATCH_SIZE) || 500;
-const CONCURRENCY = Number(process.env.WHATSAPP_SEND_CONCURRENCY) || 20;
-// After this many attempts a stuck-pending row gets marked failed so the
-// campaign can eventually complete. Caps the cost of consistent transient
-// errors (e.g., bad phone normalizer, Meta-side outage on a single number).
+// Tunable per deployment.
+//
+// Meta's per-second rate limit is 80/sec for standard WABAs, but their quality
+// protection is more aggressive than the documented limit — bursts of 20+
+// concurrent requests reliably trip 131026 / 131049 errors on marketing
+// templates even when the WABA tier allows higher throughput. We default to
+// CONCURRENCY=10 + 75ms inter-send delay per worker → ~10 sends/sec sustained,
+// well under Meta's quality threshold while still ~5× faster than the old
+// sequential code.
+//
+// At BATCH_SIZE=300 with these defaults, each batch takes ~30s = fits inside
+// the Vercel 60s function timeout. For higher throughput (Tier 3+ WABAs),
+// raise WHATSAPP_SEND_CONCURRENCY but watch for 131026 errors in logs.
+const BATCH_SIZE = Number(process.env.WHATSAPP_SEND_BATCH_SIZE) || 300;
+const CONCURRENCY = Number(process.env.WHATSAPP_SEND_CONCURRENCY) || 10;
+const PER_WORKER_DELAY_MS = Number(process.env.WHATSAPP_SEND_DELAY_MS) || 75;
 const MAX_RETRIES = 5;
 
 export const dynamic = "force-dynamic";
@@ -215,6 +250,56 @@ export async function GET(request: Request) {
       useHelloWorld,
     });
 
+    // Resolve the exact approved language ONCE per cron tick for this campaign.
+    // Previously sendTemplateMessage called Meta to do this per recipient, which
+    // doubled API traffic and contributed to quality-protection 131026 errors
+    // on big batches.
+    const fallbackLanguageCode =
+      templateName === "hello_world" ? "en" : toMetaLanguageCode(templateLanguage);
+    let resolvedLanguageCode = fallbackLanguageCode;
+    try {
+      resolvedLanguageCode = await resolveTemplateLanguageForSend(
+        creds.access_token,
+        creds.waba_id,
+        templateName,
+        fallbackLanguageCode
+      );
+    } catch (err) {
+      console.error("[whatsapp-send] language resolution failed; using fallback", err);
+    }
+
+    // Auto-stop guard: if this campaign has already burned credits on a high
+    // failure rate (most likely a bad imported list or WABA tier limit), mark
+    // it failed and skip — don't keep processing 15,000 more known-bad sends.
+    const [{ count: prevSent }, { count: prevFailed }] = await Promise.all([
+      supabase
+        .from("whatsapp_campaign_recipients")
+        .select("id", { count: "exact", head: true })
+        .eq("campaign_id", campaign.id)
+        .in("status", ["sent", "delivered", "read"]),
+      supabase
+        .from("whatsapp_campaign_recipients")
+        .select("id", { count: "exact", head: true })
+        .eq("campaign_id", campaign.id)
+        .eq("status", "failed"),
+    ]);
+    const attempts = (prevSent ?? 0) + (prevFailed ?? 0);
+    const failureRatio = attempts > 0 ? (prevFailed ?? 0) / attempts : 0;
+    if (attempts >= AUTO_STOP_MIN_ATTEMPTS && failureRatio >= AUTO_STOP_FAILURE_RATIO) {
+      console.warn(
+        `[whatsapp-send] auto-stopping campaign ${campaign.id}: ${prevFailed}/${attempts} failed (${(failureRatio * 100).toFixed(0)}%)`
+      );
+      await supabase
+        .from("whatsapp_campaigns")
+        .update({
+          status: "failed",
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", campaign.id);
+      continue;
+    }
+
     // Step 1: bulk-mark any pending rows that have exceeded MAX_RETRIES as
     // failed. Without this they sit pending forever and the campaign never
     // reaches "completed".
@@ -279,15 +364,20 @@ export async function GET(request: Request) {
         // or an overlapping cron tick already grabbed this row — skip.
         // This also guarantees retry_count is incremented even if the worker
         // crashes mid-flight, so consistent transient errors can't loop.
+        //
+        // IMPORTANT: the schema declares `retry_count integer NOT NULL DEFAULT 0`,
+        // so a freshly inserted row has retry_count = 0 (not NULL). Compare on
+        // `rec.retry_count == null` (DB null) instead of `prevRetryCount === 0`
+        // (which would force an IS NULL filter that never matches a 0-valued row).
         const claimQuery = supabase
           .from("whatsapp_campaign_recipients")
           .update({ retry_count: nextRetryCount, updated_at: new Date().toISOString() })
           .eq("id", rec.id)
           .eq("status", "pending");
         const { data: claimed } =
-          prevRetryCount === 0
+          rec.retry_count == null
             ? await claimQuery.is("retry_count", null).select("id")
-            : await claimQuery.eq("retry_count", prevRetryCount).select("id");
+            : await claimQuery.eq("retry_count", rec.retry_count).select("id");
         if (!claimed || claimed.length === 0) return;
 
         if (!phone) {
@@ -355,16 +445,22 @@ export async function GET(request: Request) {
             ...(variableValues && variableValues.length > 0 ? { variableValues } : {}),
             ...(headerMedia ? { headerMedia } : {}),
             wabaId: creds.waba_id,
+            preResolvedLanguageCode: resolvedLanguageCode,
           }
         );
 
         if ("error" in result) {
+          const errorCode = String(result.error.code ?? result.error.message?.slice(0, 100));
+          // Terminal recipient errors (number not on WhatsApp, etc.) will NEVER
+          // succeed on retry — burn the retry budget so the row drops out of
+          // the pending queue immediately.
+          const isTerminal = TERMINAL_META_CODES.has(errorCode);
           await supabase
             .from("whatsapp_campaign_recipients")
             .update({
               status: "failed",
-              error_code: String(result.error.code ?? result.error.message?.slice(0, 100)),
-              retry_count: nextRetryCount,
+              error_code: errorCode,
+              retry_count: isTerminal ? MAX_RETRIES : nextRetryCount,
             })
             .eq("id", rec.id);
           // Refund credits — user shouldn't pay for a provider-side failure.
@@ -435,6 +531,13 @@ export async function GET(request: Request) {
           }
         }
         batchSent++;
+
+        // Per-worker pause spreads sends across time even with CONCURRENCY > 1.
+        // Critical for marketing templates — Meta's quality protection trips
+        // on tight bursts even within the documented per-second rate limit.
+        if (PER_WORKER_DELAY_MS > 0) {
+          await new Promise((r) => setTimeout(r, PER_WORKER_DELAY_MS));
+        }
       });
 
       totalSent += batchSent;

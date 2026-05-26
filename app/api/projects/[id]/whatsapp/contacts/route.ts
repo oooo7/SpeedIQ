@@ -32,22 +32,18 @@ export async function GET(
   const source = searchParams.get("source")?.trim();
   const limit = Math.min(Math.max(parseInt(searchParams.get("limit") ?? "50", 10), 1), 200);
   const offset = Math.max(parseInt(searchParams.get("offset") ?? "0", 10), 0);
-  // all=1: return up to 5000 rows in a single response for the "Select all
-  // matching" UX. Skips tag enrichment + per-page limit cap. Keeps the same
-  // select columns so supabase-js types stay statically inferable.
+  // all=1: return up to ALL_CAP rows for the "Select all matching" UX.
+  // Supabase / PostgREST caps any single response at 1000 rows regardless
+  // of the requested range, so we have to loop and accumulate.
+  // Payload is slimmed to {id, phone, name} so 25k rows ≈ 1.75MB — fits
+  // comfortably under Vercel's 4.5MB response limit even on Hobby tier.
   const allMode = searchParams.get("all") === "1";
-  const ALL_CAP = 5000;
+  const ALL_CAP = 25000;
+  const PAGE = 1000;
 
-  let query = supabase
-    .from("whatsapp_contacts")
-    .select("id, project_id, phone, name, email, custom_fields, source, last_inbound_at, created_at, updated_at", { count: "exact" })
-    .eq("project_id", projectId)
-    .order("created_at", { ascending: false });
-
-  if (search) {
-    const term = `%${search}%`;
-    query = query.or(`phone.ilike.${term},name.ilike.${term},email.ilike.${term}`);
-  }
+  // Resolve the tag filter once (it requires its own queries — would be a
+  // waste to redo per page). Same special-case for "tag doesn't exist".
+  let tagFilteredIds: string[] | null = null;
   if (tag) {
     const { data: tagRow } = await supabase
       .from("whatsapp_tag_definitions")
@@ -56,39 +52,90 @@ export async function GET(
       .eq("name", tag)
       .single();
     if (tagRow?.id) {
-      const { data: contactIds } = await supabase
-        .from("whatsapp_contact_tags")
-        .select("contact_id")
-        .eq("tag_id", tagRow.id);
-      const ids = (contactIds ?? []).map((r: { contact_id: string }) => r.contact_id);
-      if (ids.length > 0) query = query.in("id", ids);
-      else query = query.eq("id", "00000000-0000-0000-0000-000000000000");
+      // The contact_tags lookup can itself exceed 1000 — page through.
+      const ids: string[] = [];
+      let from = 0;
+      while (from < ALL_CAP) {
+        const { data: chunk } = await supabase
+          .from("whatsapp_contact_tags")
+          .select("contact_id")
+          .eq("tag_id", tagRow.id)
+          .order("contact_id")
+          .range(from, from + PAGE - 1);
+        const rows = (chunk ?? []) as Array<{ contact_id: string }>;
+        if (rows.length === 0) break;
+        for (const r of rows) ids.push(r.contact_id);
+        if (rows.length < PAGE) break;
+        from += PAGE;
+      }
+      tagFilteredIds = ids.length > 0 ? ids : ["00000000-0000-0000-0000-000000000000"];
     } else {
-      query = query.eq("id", "00000000-0000-0000-0000-000000000000");
+      tagFilteredIds = ["00000000-0000-0000-0000-000000000000"];
     }
   }
-  if (source) {
-    query = query.eq("source", source);
+
+  // Factory: fresh query for each page (supabase-js builders aren't reusable
+  // after .range()).
+  const buildQuery = (withCount: boolean) => {
+    let q = supabase
+      .from("whatsapp_contacts")
+      .select(
+        "id, project_id, phone, name, email, custom_fields, source, last_inbound_at, created_at, updated_at",
+        withCount ? { count: "exact" } : {}
+      )
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false }); // stable tiebreaker for pagination
+    if (search) {
+      const term = `%${search}%`;
+      q = q.or(`phone.ilike.${term},name.ilike.${term},email.ilike.${term}`);
+    }
+    if (tagFilteredIds) q = q.in("id", tagFilteredIds);
+    if (source) q = q.eq("source", source);
+    return q;
+  };
+
+  let list: Array<{ id: string; [k: string]: unknown }> = [];
+  let count: number | null = null;
+
+  if (allMode) {
+    // Loop through pages until we hit the end or the cap.
+    let from = 0;
+    let first = true;
+    while (from < ALL_CAP) {
+      const { data, error, count: c } = await buildQuery(first).range(from, from + PAGE - 1);
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      const page = (data ?? []) as Array<{ id: string; [k: string]: unknown }>;
+      if (first) count = c ?? null;
+      list = list.concat(page);
+      first = false;
+      if (page.length < PAGE) break;
+      from += PAGE;
+    }
+    // all-mode skips tag enrichment + trims to id/phone/name only — callers
+    // only need those for building selection sets, and trimming keeps the
+    // response well under the function response-size limit at 10k rows.
+    const slim = list.map((c) => ({
+      id: c.id,
+      phone: (c as { phone?: string | null }).phone ?? null,
+      name: (c as { name?: string | null }).name ?? null,
+    }));
+    return NextResponse.json({
+      contacts: slim,
+      total: count ?? slim.length,
+      capped: slim.length >= ALL_CAP,
+    });
   }
 
-  const effectiveLimit = allMode ? ALL_CAP : limit;
-  const effectiveOffset = allMode ? 0 : offset;
-  const { data: contacts, error, count } = await query.range(
-    effectiveOffset,
-    effectiveOffset + effectiveLimit - 1
-  );
-
+  // Single-page (regular pagination) path.
+  const { data: pageData, error, count: pageCount } = await buildQuery(true).range(offset, offset + limit - 1);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  const list = contacts ?? [];
-
-  // all-mode skips tag enrichment — caller only needs id/phone/name for
-  // building selection sets.
-  if (allMode) {
-    return NextResponse.json({ contacts: list, total: count ?? 0 });
-  }
+  list = (pageData ?? []) as Array<{ id: string; [k: string]: unknown }>;
+  count = pageCount ?? null;
   const contactIds = list.map((c: { id: string }) => c.id);
   const tagsByContactId: Record<string, Array<{ id: string; name: string }>> = {};
   if (contactIds.length > 0) {

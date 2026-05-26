@@ -5,6 +5,7 @@ import { getProjectRole } from "@/lib/team";
 import {
   filterOptedInContacts,
   getContactIdsForTags,
+  withFetchRetry,
 } from "@/lib/whatsapp/audience";
 
 // A 30k bulk insert risks the Vercel function timeout because Supabase
@@ -117,6 +118,25 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
+    return await campaignCreateImpl(request, params);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[campaigns POST] uncaught error:", err);
+    if (msg.includes("fetch failed") || msg.includes("ECONNRESET") || msg.includes("socket hang up")) {
+      return NextResponse.json(
+        { error: "Network error talking to the database. Please try again in a moment." },
+        { status: 503 }
+      );
+    }
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+async function campaignCreateImpl(
+  request: Request,
+  params: Promise<{ id: string }>
+) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -205,19 +225,21 @@ export async function POST(
   }
 
   const status = send_now ? "sending" : save_as_draft || !scheduled_at ? "draft" : "scheduled";
-  const { data: campaign, error: campaignError } = await supabase
-    .from("whatsapp_campaigns")
-    .insert({
-      project_id: projectId,
-      name,
-      description,
-      template_id: use_hello_world ? null : (template_id || null),
-      use_hello_world,
-      status,
-      scheduled_at: scheduled_at || null,
-    })
-    .select("id, project_id, name, description, template_id, use_hello_world, status, scheduled_at, created_at, updated_at")
-    .single();
+  const { data: campaign, error: campaignError } = await withFetchRetry(async () =>
+    supabase
+      .from("whatsapp_campaigns")
+      .insert({
+        project_id: projectId,
+        name,
+        description,
+        template_id: use_hello_world ? null : (template_id || null),
+        use_hello_world,
+        status,
+        scheduled_at: scheduled_at || null,
+      })
+      .select("id, project_id, name, description, template_id, use_hello_world, status, scheduled_at, created_at, updated_at")
+      .single()
+  );
 
   if (campaignError || !campaign) {
     return NextResponse.json({ error: campaignError?.message ?? "Failed to create campaign" }, { status: 500 });
@@ -235,19 +257,33 @@ export async function POST(
         status: "pending",
       }));
 
-      const { error: recipientsError } = await supabase
-        .from("whatsapp_campaign_recipients")
-        .insert(recipients);
-
-      if (recipientsError) {
-        // Cleanup: drop the half-built campaign + any recipients we managed to
-        // insert (FK cascade handles the recipients).
-        await supabase.from("whatsapp_campaigns").delete().eq("id", campaign.id);
+      try {
+        const { error: recipientsError } = await withFetchRetry(async () =>
+          supabase.from("whatsapp_campaign_recipients").insert(recipients)
+        );
+        if (recipientsError) {
+          await withFetchRetry(async () =>
+            supabase.from("whatsapp_campaigns").delete().eq("id", campaign.id)
+          ).catch(() => undefined);
+          return NextResponse.json(
+            {
+              error: `Recipient insert failed at row ${offset + 1}/${contactIdList.length}: ${recipientsError.message}`,
+            },
+            { status: 500 }
+          );
+        }
+      } catch (err) {
+        // Transient retries exhausted — clean up best-effort and surface
+        // a clear error instead of letting "TypeError: fetch failed" bubble.
+        await withFetchRetry(async () =>
+          supabase.from("whatsapp_campaigns").delete().eq("id", campaign.id)
+        ).catch(() => undefined);
+        const msg = err instanceof Error ? err.message : String(err);
         return NextResponse.json(
           {
-            error: `Recipient insert failed at row ${offset + 1}/${contactIdList.length}: ${recipientsError.message}`,
+            error: `Network error inserting recipients (${offset + 1}–${Math.min(offset + RECIPIENT_INSERT_CHUNK, contactIdList.length)} of ${contactIdList.length}). Try again: ${msg}`,
           },
-          { status: 500 }
+          { status: 503 }
         );
       }
     }

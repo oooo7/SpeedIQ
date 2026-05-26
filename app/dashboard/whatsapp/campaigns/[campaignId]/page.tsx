@@ -370,20 +370,30 @@ export default function CampaignDetailPage() {
   const canSendOrSchedule = campaign.status === "draft" || campaign.status === "scheduled";
   const canCancel = campaign.status === "sending" || campaign.status === "scheduled";
   const hasTemplate = campaign.use_hello_world || campaign.template_id;
-  const isStuckSending = (() => {
-    if (campaign.status !== "sending") return false;
-    if (stats.pending === 0) return false;
+  // Compute send progress + ETA. With per-worker pacing on the cron, large
+  // campaigns can legitimately take 30+ minutes; we no longer flag those as
+  // "stuck". Truly stuck = elapsed > 1 hour AND almost nothing has sent
+  // (cron itself is broken or the WABA is blocked).
+  const sendProgress = (() => {
+    if (campaign.status !== "sending") return null;
     const sinceIso = campaign.started_at ?? campaign.updated_at;
-    if (!sinceIso) return false;
+    if (!sinceIso) return null;
     const ageMs = Date.now() - new Date(sinceIso).getTime();
-    return ageMs > 5 * 60 * 1000;
+    const completed = stats.sent + stats.delivered + stats.read + stats.failed;
+    const ratePerMin = ageMs > 0 ? (completed / ageMs) * 60_000 : 0;
+    const etaMs = ratePerMin > 0 ? (stats.pending / ratePerMin) * 60_000 : null;
+    const truelyStuck = ageMs > 60 * 60 * 1000 && completed < 50;
+    return { ageMs, completed, ratePerMin, etaMs, truelyStuck };
   })();
+  const isStuckSending = sendProgress?.truelyStuck ?? false;
+  const isSendingInProgress = campaign.status === "sending" && stats.pending > 0 && !isStuckSending;
   const hasAlerts =
     (canSendOrSchedule && !hasTemplate) ||
     (canSendOrSchedule && hasTemplate && stats.total === 0) ||
     (!campaign.use_hello_world && template?.status !== "approved") ||
     stats.failed > 0 ||
     isStuckSending ||
+    isSendingInProgress ||
     debugResult;
 
   return (
@@ -466,16 +476,59 @@ export default function CampaignDetailPage() {
       {/* Alerts: template approval, missing template/recipients, send results */}
       {hasAlerts && (
         <section className="space-y-3">
+          {isSendingInProgress && sendProgress && (
+            <div className="border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/30 px-4 py-3 text-sm text-blue-900 dark:text-blue-200">
+              <div className="flex items-start gap-2">
+                <Loader2 className="h-4 w-4 mt-0.5 shrink-0 animate-spin" />
+                <div className="flex-1 space-y-2">
+                  <p className="font-medium">
+                    Sending in progress —{" "}
+                    <strong>{sendProgress.completed.toLocaleString()}</strong> of{" "}
+                    <strong>{stats.total.toLocaleString()}</strong> processed
+                    {sendProgress.etaMs != null && sendProgress.etaMs > 0 && (
+                      <>
+                        {" "}· est.{" "}
+                        <strong>
+                          {sendProgress.etaMs < 60_000
+                            ? "less than a minute"
+                            : sendProgress.etaMs < 60 * 60_000
+                              ? `${Math.ceil(sendProgress.etaMs / 60_000)} min`
+                              : `${(sendProgress.etaMs / 3_600_000).toFixed(1)} hr`}{" "}
+                          remaining
+                        </strong>
+                      </>
+                    )}
+                    {sendProgress.ratePerMin > 0 && (
+                      <span className="text-blue-700 dark:text-blue-300">
+                        {" "}({sendProgress.ratePerMin.toFixed(0)} / min)
+                      </span>
+                    )}
+                  </p>
+                  <div className="h-1.5 w-full overflow-hidden bg-blue-100 dark:bg-blue-950">
+                    <div
+                      className="h-full bg-blue-600 dark:bg-blue-500 transition-[width] duration-200"
+                      style={{
+                        width: `${Math.min(100, Math.round((sendProgress.completed / Math.max(1, stats.total)) * 100))}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    Cron processes a batch every minute. Refresh to see updates. You can keep this page closed — sending continues in the background.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           {isStuckSending && (
             <div className="border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                 <div className="space-y-1">
                   <p className="font-medium">
-                    This campaign is taking longer than usual — {stats.pending} recipient{stats.pending === 1 ? "" : "s"} still pending after 5 minutes.
+                    Cron may not be running — only {sendProgress?.completed ?? 0} sent in the last hour with {stats.pending} still pending.
                   </p>
                   <p>
-                    Click &quot;Cancel send&quot; above to move it back to draft, or contact support if the issue persists.
+                    Check that the WhatsApp send cron is firing (Supabase pg_cron). You can also click &quot;Cancel send&quot; above to move this back to draft.
                   </p>
                 </div>
               </div>

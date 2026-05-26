@@ -2,6 +2,16 @@ import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { getProjectRole } from "@/lib/team";
+import {
+  filterOptedInContacts,
+  getContactIdsForTags,
+} from "@/lib/whatsapp/audience";
+
+// PostgREST default response cap. Recipients query needs to page past 1000.
+const RECIPIENT_PAGE = 1000;
+// `.in("id", [N uuids])` becomes a URL parameter — keep N small enough to
+// stay under HTTP URL length limits.
+const CONTACT_FETCH_CHUNK = 500;
 
 export async function GET(
   _request: Request,
@@ -37,26 +47,53 @@ export async function GET(
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   }
 
-  const { data: recipients, error: recError } = await supabase
-    .from("whatsapp_campaign_recipients")
-    .select("id, contact_id, status, sent_at, error_code, retry_count, created_at")
-    .eq("campaign_id", campaignId)
-    .order("created_at", { ascending: true });
-
-  if (recError) {
-    return NextResponse.json({ error: recError.message }, { status: 500 });
+  // Page through recipients — at 30k campaigns we'd otherwise silently get
+  // only the first 1000 (PostgREST default response cap).
+  const recList: Array<{
+    id: string;
+    contact_id: string;
+    status: string;
+    sent_at: string | null;
+    error_code: string | null;
+    retry_count: number | null;
+    created_at: string;
+    meta_message_id?: string | null;
+  }> = [];
+  {
+    let from = 0;
+    while (true) {
+      const { data, error: recError } = await supabase
+        .from("whatsapp_campaign_recipients")
+        .select("id, contact_id, status, sent_at, error_code, retry_count, created_at")
+        .eq("campaign_id", campaignId)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + RECIPIENT_PAGE - 1);
+      if (recError) {
+        return NextResponse.json({ error: recError.message }, { status: 500 });
+      }
+      const rows = (data ?? []) as typeof recList;
+      if (rows.length === 0) break;
+      recList.push(...rows);
+      if (rows.length < RECIPIENT_PAGE) break;
+      from += RECIPIENT_PAGE;
+    }
   }
 
-  const recList = recipients ?? [];
-  const contactIds = [...new Set(recList.map((r: { contact_id: string }) => r.contact_id))];
-  let contactsMap: Record<string, { phone: string; name: string | null }> = {};
+  const contactIds = [...new Set(recList.map((r) => r.contact_id))];
+  const contactsMap: Record<string, { phone: string; name: string | null }> = {};
   if (contactIds.length > 0) {
-    const { data: contacts } = await supabase
-      .from("whatsapp_contacts")
-      .select("id, phone, name")
-      .in("id", contactIds);
-    for (const c of contacts ?? []) {
-      contactsMap[c.id] = { phone: c.phone, name: c.name };
+    // Chunk the IN filter — 30k UUIDs in a single URL = ~1MB and would
+    // silently fail at typical URL length limits.
+    for (let i = 0; i < contactIds.length; i += CONTACT_FETCH_CHUNK) {
+      const chunk = contactIds.slice(i, i + CONTACT_FETCH_CHUNK);
+      const { data: contacts } = await supabase
+        .from("whatsapp_contacts")
+        .select("id, phone, name")
+        .in("id", chunk);
+      for (const c of (contacts ?? []) as Array<{ id: string; phone: string; name: string | null }>) {
+        contactsMap[c.id] = { phone: c.phone, name: c.name };
+      }
     }
   }
 
@@ -158,12 +195,15 @@ export async function PATCH(
     }
     const contactIdSet = new Set<string>();
     if (tagIds && tagIds.length > 0) {
-      const { data: links } = await supabase
-        .from("whatsapp_contact_tags")
-        .select("contact_id")
-        .in("tag_id", tagIds);
-      for (const r of links ?? []) {
-        contactIdSet.add((r as { contact_id: string }).contact_id);
+      try {
+        for (const id of await getContactIdsForTags(supabase, tagIds)) {
+          contactIdSet.add(id);
+        }
+      } catch (err) {
+        return NextResponse.json(
+          { error: err instanceof Error ? err.message : "Failed to resolve tag audience" },
+          { status: 500 }
+        );
       }
     }
     if (contactIds && contactIds.length > 0) {
@@ -175,26 +215,33 @@ export async function PATCH(
       .select("respect_opt_out_for_campaigns")
       .eq("project_id", projectId)
       .maybeSingle();
-    if (settingsRow?.respect_opt_out_for_campaigns && contactIdList.length > 0) {
-      const { data: allowed } = await supabase
-        .from("whatsapp_contacts")
-        .select("id")
-        .eq("project_id", projectId)
-        .in("id", contactIdList)
-        .or("opt_out.eq.false,opt_out.is.null");
-      contactIdList = (allowed ?? []).map((r: { id: string }) => r.id);
+    const respectOptOut = settingsRow?.respect_opt_out_for_campaigns !== false;
+    if (respectOptOut && contactIdList.length > 0) {
+      try {
+        contactIdList = await filterOptedInContacts(supabase, projectId, contactIdList);
+      } catch (err) {
+        return NextResponse.json(
+          { error: err instanceof Error ? err.message : "Failed to filter opted-out contacts" },
+          { status: 500 }
+        );
+      }
     }
     if (contactIdList.length > 0) {
-      const recipients = contactIdList.map((contact_id: string) => ({
-        campaign_id: campaignId,
-        contact_id,
-        status: "pending",
-      }));
-      const { error: insErr } = await supabase
-        .from("whatsapp_campaign_recipients")
-        .insert(recipients);
-      if (insErr) {
-        return NextResponse.json({ error: insErr.message }, { status: 500 });
+      // Chunk inserts so a 30k rebuild doesn't hit the function timeout.
+      const INSERT_CHUNK = 1000;
+      for (let i = 0; i < contactIdList.length; i += INSERT_CHUNK) {
+        const chunk = contactIdList.slice(i, i + INSERT_CHUNK);
+        const recipients = chunk.map((contact_id: string) => ({
+          campaign_id: campaignId,
+          contact_id,
+          status: "pending",
+        }));
+        const { error: insErr } = await supabase
+          .from("whatsapp_campaign_recipients")
+          .insert(recipients);
+        if (insErr) {
+          return NextResponse.json({ error: insErr.message }, { status: 500 });
+        }
       }
     }
   }

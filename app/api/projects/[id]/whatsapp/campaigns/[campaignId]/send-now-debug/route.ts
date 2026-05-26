@@ -7,7 +7,9 @@ import {
   getVariableValuesForContact,
   getWhatsAppAccountToken,
   resolveHeaderMediaForSend,
+  resolveTemplateLanguageForSend,
   sendTemplateMessage,
+  toMetaLanguageCode,
   type TemplateHeaderMedia,
 } from "@/lib/whatsapp/api";
 import { isValidPhone } from "@/lib/whatsapp/phone";
@@ -16,9 +18,35 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 // Cap synchronous batch so we don't hit Vercel's 60s function limit on big campaigns.
-// At ~200ms per WhatsApp API call + ~3 DB writes, 50 recipients leaves headroom.
+// With CONCURRENCY=5 and ~500ms per send, 50 recipients fits in well under 60s.
 // Anything beyond this stays as "pending" and the cron picks them up within ~1 minute.
 const SYNC_BATCH_LIMIT = 50;
+const SYNC_CONCURRENCY = 5;
+
+// Same terminal-error set as the cron — see app/api/cron/whatsapp-send/route.ts.
+// Marking these as failed with retry_count = MAX_RETRIES stops the cron from
+// re-attempting numbers that can never succeed.
+const TERMINAL_META_CODES = new Set<string>([
+  "131026", "131047", "131048", "131051",
+  "no_phone", "invalid_phone", "opt_out",
+]);
+const MAX_RETRIES = 5;
+
+async function runInPool<T>(items: T[], limit: number, worker: (item: T) => Promise<void>): Promise<void> {
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const idx = cursor++;
+      if (idx >= items.length) return;
+      try {
+        await worker(items[idx]);
+      } catch (err) {
+        console.error("[send-now-debug] worker error", err);
+      }
+    }
+  });
+  await Promise.all(workers);
+}
 
 /**
  * Run send for this campaign synchronously and return sent/failed/errors.
@@ -159,41 +187,77 @@ export async function POST(
   let sent = 0;
   let failed = 0;
 
-  for (const rec of list) {
-    const { data: contact } = await admin
+  // Bulk-fetch contacts up front instead of one SELECT per recipient.
+  const contactIds = list.map((r) => r.contact_id);
+  const contactMap = new Map<string, { phone: string | null; name: string | null; email: string | null; custom_fields: Record<string, unknown> | null; opt_out: boolean | null }>();
+  if (contactIds.length > 0) {
+    const { data: contactRows } = await admin
       .from("whatsapp_contacts")
-      .select("phone, name, email, custom_fields, opt_out")
-      .eq("id", rec.contact_id)
-      .single();
+      .select("id, phone, name, email, custom_fields, opt_out")
+      .in("id", contactIds);
+    for (const c of contactRows ?? []) {
+      if (typeof (c as { id?: unknown }).id === "string") {
+        const row = c as { id: string; phone?: string | null; name?: string | null; email?: string | null; custom_fields?: Record<string, unknown> | null; opt_out?: boolean | null };
+        contactMap.set(row.id, {
+          phone: row.phone ?? null,
+          name: row.name ?? null,
+          email: row.email ?? null,
+          custom_fields: row.custom_fields ?? null,
+          opt_out: row.opt_out ?? null,
+        });
+      }
+    }
+  }
 
+  // Resolve template language ONCE for the whole batch — avoids 50 redundant
+  // Meta API calls (one per send) that would otherwise contribute to rate
+  // pressure and quality-protection 131026 errors.
+  const fallbackLanguageCode = templateName === "hello_world" ? "en" : toMetaLanguageCode(templateLanguage);
+  let resolvedLanguageCode = fallbackLanguageCode;
+  try {
+    resolvedLanguageCode = await resolveTemplateLanguageForSend(
+      creds.access_token,
+      creds.waba_id,
+      templateName,
+      fallbackLanguageCode
+    );
+  } catch (err) {
+    console.error("[send-now-debug] language resolution failed; using fallback", err);
+  }
+
+  // Run sends in parallel with bounded concurrency. The previous sequential
+  // for-loop hit Vercel's 60s timeout around recipient #39 when failures were
+  // slow.
+  await runInPool(list, SYNC_CONCURRENCY, async (rec) => {
+    const contact = contactMap.get(rec.contact_id) ?? null;
     const phone = contact?.phone ?? "(no phone)";
     const nextRetryCount = (rec.retry_count ?? 0) + 1;
     if (!contact?.phone) {
       await admin
         .from("whatsapp_campaign_recipients")
-        .update({ status: "failed", error_code: "no_phone", retry_count: nextRetryCount })
+        .update({ status: "failed", error_code: "no_phone", retry_count: MAX_RETRIES })
         .eq("id", rec.id);
       failed++;
       errors.push({ phone, error: "Contact has no phone number" });
-      continue;
+      return;
     }
     if (contact.opt_out && respectOptOut) {
       await admin
         .from("whatsapp_campaign_recipients")
-        .update({ status: "failed", error_code: "opt_out", retry_count: nextRetryCount })
+        .update({ status: "failed", error_code: "opt_out", retry_count: MAX_RETRIES })
         .eq("id", rec.id);
       failed++;
       errors.push({ phone: contact.phone, error: "Contact has opted out" });
-      continue;
+      return;
     }
     if (!isValidPhone(contact.phone)) {
       await admin
         .from("whatsapp_campaign_recipients")
-        .update({ status: "failed", error_code: "invalid_phone", retry_count: nextRetryCount })
+        .update({ status: "failed", error_code: "invalid_phone", retry_count: MAX_RETRIES })
         .eq("id", rec.id);
       failed++;
       errors.push({ phone: contact.phone, error: "Invalid phone number — missing country code or wrong format" });
-      continue;
+      return;
     }
 
     const variableValues = hasVariables
@@ -214,17 +278,20 @@ export async function POST(
         ...(variableValues && variableValues.length > 0 ? { variableValues } : {}),
         ...(headerMedia ? { headerMedia } : {}),
         wabaId: creds.waba_id,
+        preResolvedLanguageCode: resolvedLanguageCode,
       }
     );
 
     if ("error" in result) {
       const errMsg = result.error.message ?? String(result.error.code);
+      const errorCode = String(result.error.code ?? errMsg.slice(0, 100));
+      const isTerminal = TERMINAL_META_CODES.has(errorCode);
       await admin
         .from("whatsapp_campaign_recipients")
         .update({
           status: "failed",
-          error_code: String(result.error.code ?? errMsg.slice(0, 100)),
-          retry_count: nextRetryCount,
+          error_code: errorCode,
+          retry_count: isTerminal ? MAX_RETRIES : nextRetryCount,
         })
         .eq("id", rec.id);
       failed++;
@@ -273,7 +340,7 @@ export async function POST(
       }
       sent++;
     }
-  }
+  });
 
   const { count: remainingPending } = await admin
     .from("whatsapp_campaign_recipients")

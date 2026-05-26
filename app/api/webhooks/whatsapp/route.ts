@@ -405,6 +405,17 @@ export async function POST(request: Request) {
       }
 
       if (value.statuses) {
+        // Status progression: sent → delivered → read. Webhooks can arrive
+        // out-of-order; we only ever move forward, never backward. "failed"
+        // can come at any point and is always final.
+        const STATUS_RANK: Record<string, number> = {
+          pending: 0,
+          sent: 1,
+          delivered: 2,
+          read: 3,
+          failed: 4,
+        };
+
         for (const status of value.statuses) {
           const isFailed = status.status === "failed";
           const firstError = status.errors?.[0];
@@ -422,8 +433,22 @@ export async function POST(request: Request) {
             .update(messageUpdate)
             .eq("meta_message_id", status.id);
 
-          // 2. Mirror status onto campaign recipients so the campaign UI doesn't
-          // show "sent" for a message Meta later marked as delivered/read/failed.
+          // 2. Mirror status onto campaign recipients. Guard against backward
+          // transitions: a delayed "sent" webhook should not undo a row that
+          // we've already moved to "delivered" or "read" via a later webhook.
+          // "failed" always wins regardless of current state.
+          const { data: existing } = await supabase
+            .from("whatsapp_campaign_recipients")
+            .select("status")
+            .eq("meta_message_id", status.id)
+            .maybeSingle();
+
+          if (!existing) continue;
+
+          const incomingRank = STATUS_RANK[status.status] ?? -1;
+          const currentRank = STATUS_RANK[existing.status as string] ?? -1;
+          if (!isFailed && incomingRank <= currentRank) continue;
+
           const recipientUpdate: Record<string, unknown> = { status: status.status };
           if (isFailed) {
             recipientUpdate.error_code = errorCode ?? errorTitle ?? "delivery_failed";

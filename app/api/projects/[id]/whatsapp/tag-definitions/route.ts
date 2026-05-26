@@ -38,17 +38,21 @@ export async function GET(
 
   const list = tags ?? [];
   const tagIds = list.map((t: { id: string }) => t.id);
-  let contactCountByTagId: Record<string, number> = {};
+  const contactCountByTagId: Record<string, number> = {};
   if (tagIds.length > 0) {
-    const { data: counts } = await supabase
-      .from("whatsapp_contact_tags")
-      .select("tag_id");
-    const map: Record<string, number> = {};
-    for (const row of counts ?? []) {
-      const tid = (row as { tag_id: string }).tag_id;
-      map[tid] = (map[tid] ?? 0) + 1;
-    }
-    contactCountByTagId = map;
+    // Per-tag COUNT queries in parallel. Previous code fetched every link row
+    // and counted in JS, which silently truncated at PostgREST's 1000-row cap
+    // (a tag with 16k contacts would show "1000 contacts").
+    const results = await Promise.all(
+      tagIds.map(async (id: string) => {
+        const { count } = await supabase
+          .from("whatsapp_contact_tags")
+          .select("contact_id", { count: "exact", head: true })
+          .eq("tag_id", id);
+        return [id, count ?? 0] as const;
+      })
+    );
+    for (const [id, count] of results) contactCountByTagId[id] = count;
   }
 
   const tagsWithCount = list.map((t: { id: string; [k: string]: unknown }) => ({
