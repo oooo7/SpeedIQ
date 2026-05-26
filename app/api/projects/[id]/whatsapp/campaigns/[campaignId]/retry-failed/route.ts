@@ -58,6 +58,9 @@ async function handlePost(
 
   // Reset every failed recipient. select+head gives us the count for the
   // response toast without fetching the whole list.
+  // NOTE: this table has no `updated_at` column — writing one returns PGRST204
+  // and the entire UPDATE is rejected, which used to make Retry Failed appear
+  // to do nothing.
   const { error: updateError, count: retried } = await admin
     .from("whatsapp_campaign_recipients")
     .update(
@@ -65,7 +68,6 @@ async function handlePost(
         status: "pending",
         retry_count: 0,
         error_code: null,
-        updated_at: new Date().toISOString(),
       },
       { count: "exact" }
     )

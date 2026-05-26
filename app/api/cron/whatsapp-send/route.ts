@@ -303,12 +303,18 @@ export async function GET(request: Request) {
     // Step 1: bulk-mark any pending rows that have exceeded MAX_RETRIES as
     // failed. Without this they sit pending forever and the campaign never
     // reaches "completed".
-    await supabase
+    // NOTE: whatsapp_campaign_recipients has no `updated_at` column (see
+    // supabase/whatsapp.sql) — writing one returns PGRST204 and the whole
+    // UPDATE is rejected, which previously left max-retry rows stuck pending.
+    const { error: bulkFailError } = await supabase
       .from("whatsapp_campaign_recipients")
-      .update({ status: "failed", error_code: "max_retries_exceeded", updated_at: new Date().toISOString() })
+      .update({ status: "failed", error_code: "max_retries_exceeded" })
       .eq("campaign_id", campaign.id)
       .eq("status", "pending")
       .gte("retry_count", MAX_RETRIES);
+    if (bulkFailError) {
+      console.error(`[whatsapp-send] campaign ${campaign.id} bulk max-retry mark failed:`, bulkFailError);
+    }
 
     // Step 2: pick the next batch. Schema is `retry_count integer NOT NULL
     // DEFAULT 0`, so no row has a null retry_count and the previous OR-with-IS-NULL
@@ -374,19 +380,28 @@ export async function GET(request: Request) {
         // This also guarantees retry_count is incremented even if the worker
         // crashes mid-flight, so consistent transient errors can't loop.
         //
-        // IMPORTANT: the schema declares `retry_count integer NOT NULL DEFAULT 0`,
-        // so a freshly inserted row has retry_count = 0 (not NULL). Compare on
+        // The schema declares `retry_count integer NOT NULL DEFAULT 0`, so a
+        // freshly inserted row has retry_count = 0 (not NULL). Compare on
         // `rec.retry_count == null` (DB null) instead of `prevRetryCount === 0`
         // (which would force an IS NULL filter that never matches a 0-valued row).
+        //
+        // Do NOT write `updated_at` here — the recipients table has no such
+        // column (see supabase/whatsapp.sql). PostgREST rejects the whole UPDATE
+        // with PGRST204 when an unknown column is set, which silently broke
+        // every claim and stalled the cron at processed:0 after the first batch.
         const claimQuery = supabase
           .from("whatsapp_campaign_recipients")
-          .update({ retry_count: nextRetryCount, updated_at: new Date().toISOString() })
+          .update({ retry_count: nextRetryCount })
           .eq("id", rec.id)
           .eq("status", "pending");
-        const { data: claimed } =
+        const { data: claimed, error: claimError } =
           rec.retry_count == null
             ? await claimQuery.is("retry_count", null).select("id")
             : await claimQuery.eq("retry_count", rec.retry_count).select("id");
+        if (claimError) {
+          console.error(`[whatsapp-send] claim failed recipient=${rec.id}:`, claimError);
+          return;
+        }
         if (!claimed || claimed.length === 0) return;
 
         if (!phone) {
