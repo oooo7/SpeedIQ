@@ -191,7 +191,13 @@ export async function PATCH(
     .eq("id", campaignId)
     .single();
 
-  const wantsRecipientUpdate = tagIds !== undefined || contactIds !== undefined;
+  // Only touch recipients when the client explicitly says the picker was
+  // changed. The legacy "any tag_ids/contact_ids present in body" trigger
+  // caused every save of the edit modal to wipe + reinsert recipients
+  // (resetting sent/delivered/read rows back to pending), which is how the
+  // same contact got the template re-sent on every restart.
+  const recipientsTouched = body.recipients_touched === true;
+  const wantsRecipientUpdate = recipientsTouched && (tagIds !== undefined || contactIds !== undefined);
   if (wantsRecipientUpdate && existingCampaign) {
     const allowed = ["draft", "scheduled", "failed"].includes(existingCampaign.status);
     if (!allowed) {
@@ -200,13 +206,8 @@ export async function PATCH(
         { status: 400 }
       );
     }
-    const { error: delErr } = await supabase
-      .from("whatsapp_campaign_recipients")
-      .delete()
-      .eq("campaign_id", campaignId);
-    if (delErr) {
-      return NextResponse.json({ error: delErr.message }, { status: 500 });
-    }
+
+    // Resolve the new desired contact set from tag_ids + contact_ids.
     const contactIdSet = new Set<string>();
     if (tagIds && tagIds.length > 0) {
       try {
@@ -223,16 +224,16 @@ export async function PATCH(
     if (contactIds && contactIds.length > 0) {
       for (const id of contactIds) contactIdSet.add(id);
     }
-    let contactIdList = [...contactIdSet];
+    let desiredContactIds = [...contactIdSet];
     const { data: settingsRow } = await supabase
       .from("whatsapp_account_settings")
       .select("respect_opt_out_for_campaigns")
       .eq("project_id", projectId)
       .maybeSingle();
     const respectOptOut = settingsRow?.respect_opt_out_for_campaigns !== false;
-    if (respectOptOut && contactIdList.length > 0) {
+    if (respectOptOut && desiredContactIds.length > 0) {
       try {
-        contactIdList = await filterOptedInContacts(supabase, projectId, contactIdList);
+        desiredContactIds = await filterOptedInContacts(supabase, projectId, desiredContactIds);
       } catch (err) {
         return NextResponse.json(
           { error: err instanceof Error ? err.message : "Failed to filter opted-out contacts" },
@@ -240,11 +241,45 @@ export async function PATCH(
         );
       }
     }
-    if (contactIdList.length > 0) {
-      // Chunk inserts so a 30k rebuild doesn't hit the function timeout.
+
+    // Diff against existing recipients instead of DELETE+INSERT. Existing
+    // rows that survive the diff keep their status (sent/delivered/read/
+    // failed) so a recipient that already received the template doesn't get
+    // it again on the next cron tick.
+    const desiredSet = new Set(desiredContactIds);
+    const { data: existingRecipientsRows, error: existingErr } = await supabase
+      .from("whatsapp_campaign_recipients")
+      .select("contact_id")
+      .eq("campaign_id", campaignId);
+    if (existingErr) {
+      return NextResponse.json({ error: existingErr.message }, { status: 500 });
+    }
+    const existingContactIds = new Set<string>(
+      (existingRecipientsRows ?? []).map((r) => r.contact_id as string)
+    );
+
+    const toRemove = [...existingContactIds].filter((id) => !desiredSet.has(id));
+    const toAdd = desiredContactIds.filter((id) => !existingContactIds.has(id));
+
+    if (toRemove.length > 0) {
+      const DELETE_CHUNK = 1000;
+      for (let i = 0; i < toRemove.length; i += DELETE_CHUNK) {
+        const chunk = toRemove.slice(i, i + DELETE_CHUNK);
+        const { error: delErr } = await supabase
+          .from("whatsapp_campaign_recipients")
+          .delete()
+          .eq("campaign_id", campaignId)
+          .in("contact_id", chunk);
+        if (delErr) {
+          return NextResponse.json({ error: delErr.message }, { status: 500 });
+        }
+      }
+    }
+
+    if (toAdd.length > 0) {
       const INSERT_CHUNK = 1000;
-      for (let i = 0; i < contactIdList.length; i += INSERT_CHUNK) {
-        const chunk = contactIdList.slice(i, i + INSERT_CHUNK);
+      for (let i = 0; i < toAdd.length; i += INSERT_CHUNK) {
+        const chunk = toAdd.slice(i, i + INSERT_CHUNK);
         const recipients = chunk.map((contact_id: string) => ({
           campaign_id: campaignId,
           contact_id,

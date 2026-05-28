@@ -69,13 +69,24 @@ export async function POST(
 
   const { data: recipient, error: recError } = await admin
     .from("whatsapp_campaign_recipients")
-    .select("id, contact_id, retry_count")
+    .select("id, contact_id, retry_count, status")
     .eq("campaign_id", campaignId)
     .eq("contact_id", contactId)
     .single();
 
   if (recError || !recipient) {
     return NextResponse.json({ error: "Recipient not found in this campaign" }, { status: 404 });
+  }
+
+  // Guard against re-sending to a recipient who already received the
+  // template. The UI hides the Send/Retry button for these statuses but a
+  // stale tab or scripted caller could still hit this endpoint.
+  if (recipient.status === "sent" || recipient.status === "delivered" || recipient.status === "read") {
+    return NextResponse.json({
+      ok: false,
+      error: `This contact already received the message (status: ${recipient.status}). Refusing to send again.`,
+      error_code: "already_sent",
+    });
   }
 
   const creds = await getWhatsAppAccountToken(admin, projectId);
