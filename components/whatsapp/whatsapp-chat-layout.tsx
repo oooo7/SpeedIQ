@@ -584,7 +584,7 @@ export function WhatsAppChatLayout({
   }
 
   return (
-    <div className="flex h-full w-full max-w-full min-w-0 overflow-hidden bg-white dark:bg-gray-900">
+    <div className="flex h-full min-h-0 w-full max-w-full min-w-0 overflow-hidden bg-white dark:bg-gray-900">
       <div className="flex min-w-0 flex-1 flex-col gap-0 overflow-hidden bg-white dark:bg-gray-900 md:flex-row">
         {/* Left: Contact list */}
         <div className="flex w-full flex-col border-b border-gray-100 dark:border-gray-800/80 md:w-80 md:flex-shrink-0 md:border-b-0 md:border-r">

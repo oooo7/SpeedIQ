@@ -64,7 +64,18 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
             avatar: userData.avatar,
           }}
         />
-        <SidebarInset className={cn("max-w-full bg-[var(--bg)] text-[var(--fg)]")}>
+        <SidebarInset
+          className={cn(
+            "max-w-full bg-[var(--bg)] text-[var(--fg)]",
+            // Pin live-chat to exactly the viewport height so the composer
+            // stays anchored at the bottom and only the chat panels scroll.
+            // Without this, SidebarProvider's `min-h-svh` wrapper lets the
+            // page grow whenever the chat layout's natural content height
+            // exceeds the viewport, which is what made the composer fall
+            // below the fold.
+            isWhatsAppLiveChat && "h-svh overflow-hidden",
+          )}
+        >
           <DashboardHeader />
           <div
             className={cn(
