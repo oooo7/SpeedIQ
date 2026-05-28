@@ -105,6 +105,11 @@ export default function CampaignDetailPage() {
   const [retryingAll, setRetryingAll] = useState(false);
   const [editTagIds, setEditTagIds] = useState<string[]>([]);
   const [editContactIds, setEditContactIds] = useState<string[]>([]);
+  // Track whether the user actually changed the recipient picker since the
+  // modal was opened. The server uses this to decide whether to apply a
+  // recipient-set diff — without it, every save would wipe + reinsert
+  // recipients and re-send the template to anyone already delivered.
+  const [editRecipientsTouched, setEditRecipientsTouched] = useState(false);
   const [editTagDefinitions, setEditTagDefinitions] = useState<Array<{ id: string; name: string; color: string | null; contact_count?: number }>>([]);
   const [editContacts, setEditContacts] = useState<Array<{ id: string; phone: string; name: string | null }>>([]);
   const [editRecipientsLoading, setEditRecipientsLoading] = useState(false);
@@ -163,6 +168,7 @@ export default function CampaignDetailPage() {
         data.campaign.status === "scheduled" ? "schedule" : data.campaign.status === "sending" ? "send_now" : "draft"
       );
       setEditScheduledAt(data.campaign.scheduled_at ? new Date(data.campaign.scheduled_at).toISOString().slice(0, 16) : "");
+      setEditRecipientsTouched(false);
       setEditOpen(true);
     }
   };
@@ -192,8 +198,16 @@ export default function CampaignDetailPage() {
           use_hello_world: editUseHelloWorld,
           status,
           scheduled_at,
-          tag_ids: editTagIds,
-          contact_ids: editContactIds,
+          // Only ship recipient-set fields when the picker was touched; the
+          // server gates its diff-update on `recipients_touched`. Otherwise
+          // an unchanged save would still trigger DELETE+INSERT and re-send.
+          ...(editRecipientsTouched
+            ? {
+                recipients_touched: true,
+                tag_ids: editTagIds,
+                contact_ids: editContactIds,
+              }
+            : {}),
         }),
       });
       const json = await res.json();
@@ -903,7 +917,10 @@ export default function CampaignDetailPage() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => setEditTagIds(editTagDefinitions.map((t) => t.id))}
+                            onClick={() => {
+                              setEditTagIds(editTagDefinitions.map((t) => t.id));
+                              setEditRecipientsTouched(true);
+                            }}
                           >
                             Select all
                           </Button>
@@ -911,7 +928,10 @@ export default function CampaignDetailPage() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => setEditTagIds([])}
+                            onClick={() => {
+                              setEditTagIds([]);
+                              setEditRecipientsTouched(true);
+                            }}
                           >
                             Clear
                           </Button>
@@ -929,6 +949,7 @@ export default function CampaignDetailPage() {
                               onCheckedChange={(checked) => {
                                 if (checked) setEditTagIds((prev) => [...prev, t.id]);
                                 else setEditTagIds((prev) => prev.filter((id) => id !== t.id));
+                                setEditRecipientsTouched(true);
                               }}
                             />
                             <span className="text-sm whitespace-nowrap">
@@ -957,6 +978,7 @@ export default function CampaignDetailPage() {
                               onCheckedChange={(checked) => {
                                 if (checked) setEditContactIds((prev) => [...prev, c.id]);
                                 else setEditContactIds((prev) => prev.filter((id) => id !== c.id));
+                                setEditRecipientsTouched(true);
                               }}
                             />
                             <span className="text-sm truncate">{c.name || c.phone || c.id}</span>
