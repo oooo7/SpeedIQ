@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ReactNode,
+} from "react";
 import {
   AlertCircle,
   Archive,
@@ -11,13 +19,21 @@ import {
   CheckCheck,
   ChevronDown,
   Clock,
+  Download,
+  FileText,
+  Image as ImageIcon,
   Info,
   LayoutTemplate,
   Loader2,
+  MapPin,
   MessageSquare,
+  Mic,
   MoreVertical,
+  Paperclip,
   Send,
   Trash2,
+  User,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -50,6 +66,22 @@ export interface Conversation {
   is_deleted: boolean;
 }
 
+export interface WhatsAppMessagePayload {
+  voice?: boolean;
+  latitude?: number;
+  longitude?: number;
+  name?: string | null;
+  address?: string | null;
+  emoji?: string | null;
+  message_id?: string | null;
+  contacts?: Array<{
+    name?: { formatted_name?: string; first_name?: string };
+    phones?: Array<{ phone?: string; wa_id?: string }>;
+  }>;
+  original_type?: string;
+  [k: string]: unknown;
+}
+
 export interface Message {
   id: string;
   direction: string;
@@ -58,6 +90,10 @@ export interface Message {
   status: string;
   created_at: string;
   meta_message_id?: string | null;
+  media_url?: string | null;
+  mime_type?: string | null;
+  media_filename?: string | null;
+  payload?: WhatsAppMessagePayload | null;
 }
 
 export interface ContactInfo {
@@ -95,6 +131,193 @@ export interface ContactProfile {
   campaigns: Array<{ id: string; name: string; sent_at: string | null }>;
   tags: Array<{ id: string; name: string; color: string | null }>;
   journey: Array<{ type: string; label: string; at: string; campaign_id?: string }>;
+}
+
+/** Fallback bubble when media couldn't be downloaded/stored (or is still pending). */
+function MediaPlaceholder({
+  icon,
+  label,
+  caption,
+}: {
+  icon: ReactNode;
+  label: string;
+  caption?: string | null;
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-1.5 italic opacity-70">
+        {icon}
+        <span>{label}</span>
+      </div>
+      {caption ? <p className="whitespace-pre-wrap break-words not-italic opacity-100">{caption}</p> : null}
+    </div>
+  );
+}
+
+/** Renders a single message's content by WhatsApp type (text, media, location, etc.). */
+function MessageContent({ msg }: { msg: Message }) {
+  const caption = msg.body?.trim() || null;
+  const url = msg.media_url || null;
+  const payload = msg.payload ?? null;
+
+  switch (msg.type) {
+    case "image":
+    case "sticker": {
+      const isSticker = msg.type === "sticker";
+      if (!url) {
+        return (
+          <MediaPlaceholder
+            icon={<ImageIcon className="h-3.5 w-3.5" />}
+            label={isSticker ? "Sticker" : "Photo"}
+            caption={caption}
+          />
+        );
+      }
+      return (
+        <div className="space-y-1">
+          <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={url}
+              alt={caption ?? (isSticker ? "Sticker" : "Image")}
+              loading="lazy"
+              className={
+                isSticker
+                  ? "max-h-32 w-auto object-contain"
+                  : "max-h-72 w-auto rounded-md object-cover"
+              }
+            />
+          </a>
+          {caption ? <p className="whitespace-pre-wrap break-words">{caption}</p> : null}
+        </div>
+      );
+    }
+
+    case "audio": {
+      const isVoice = !!payload?.voice;
+      if (!url) {
+        return (
+          <MediaPlaceholder
+            icon={<Mic className="h-3.5 w-3.5" />}
+            label={isVoice ? "Voice message" : "Audio"}
+            caption={caption}
+          />
+        );
+      }
+      return (
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            {isVoice ? <Mic className="h-4 w-4 shrink-0 opacity-60" /> : null}
+            <audio controls preload="none" src={url} className="h-10 max-w-[240px]" />
+          </div>
+          {caption ? <p className="whitespace-pre-wrap break-words">{caption}</p> : null}
+        </div>
+      );
+    }
+
+    case "video": {
+      if (!url) {
+        return <MediaPlaceholder icon={<ImageIcon className="h-3.5 w-3.5" />} label="Video" caption={caption} />;
+      }
+      return (
+        <div className="space-y-1">
+          <video controls preload="metadata" src={url} className="max-h-72 max-w-full rounded-md" />
+          {caption ? <p className="whitespace-pre-wrap break-words">{caption}</p> : null}
+        </div>
+      );
+    }
+
+    case "document": {
+      const name = msg.media_filename || "Document";
+      return (
+        <div className="space-y-1">
+          {url ? (
+            <a
+              href={`${url}?download=1`}
+              className="flex items-center gap-2 rounded-md bg-black/5 px-2.5 py-2 dark:bg-white/10"
+            >
+              <FileText className="h-5 w-5 shrink-0 opacity-70" />
+              <span className="min-w-0 flex-1 truncate">{name}</span>
+              <Download className="h-4 w-4 shrink-0 opacity-60" />
+            </a>
+          ) : (
+            <MediaPlaceholder icon={<FileText className="h-3.5 w-3.5" />} label={name} />
+          )}
+          {caption ? <p className="whitespace-pre-wrap break-words">{caption}</p> : null}
+        </div>
+      );
+    }
+
+    case "location": {
+      const lat = payload?.latitude;
+      const lng = payload?.longitude;
+      const label = payload?.name || payload?.address || "Shared location";
+      const mapsUrl =
+        typeof lat === "number" && typeof lng === "number"
+          ? `https://www.google.com/maps?q=${lat},${lng}`
+          : null;
+      const content = (
+        <div className="flex items-start gap-2">
+          <MapPin className="mt-0.5 h-5 w-5 shrink-0 opacity-70" />
+          <div className="min-w-0">
+            <p className="font-medium">{label}</p>
+            {payload?.address && payload.address !== label ? (
+              <p className="text-xs opacity-70">{payload.address}</p>
+            ) : null}
+          </div>
+        </div>
+      );
+      return mapsUrl ? (
+        <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="block hover:opacity-90">
+          {content}
+        </a>
+      ) : (
+        content
+      );
+    }
+
+    case "contacts": {
+      const first = payload?.contacts?.[0];
+      const name = first?.name?.formatted_name || first?.name?.first_name || "Contact";
+      const phone = first?.phones?.[0]?.phone;
+      const extra = (payload?.contacts?.length ?? 0) - 1;
+      return (
+        <div className="flex items-center gap-2">
+          <User className="h-5 w-5 shrink-0 opacity-70" />
+          <div className="min-w-0">
+            <p className="truncate font-medium">
+              {name}
+              {extra > 0 ? ` +${extra}` : ""}
+            </p>
+            {phone ? <p className="text-xs opacity-70">{phone}</p> : null}
+          </div>
+        </div>
+      );
+    }
+
+    case "reaction": {
+      const emoji = payload?.emoji || caption || "👍";
+      return (
+        <p className="flex items-center gap-1.5">
+          <span className="text-lg leading-none">{emoji}</span>
+          <span className="text-xs opacity-70">Reaction</span>
+        </p>
+      );
+    }
+
+    case "unsupported": {
+      return (
+        <p className="flex items-center gap-1.5 italic opacity-70">
+          <Info className="h-3.5 w-3.5 shrink-0" />
+          Unsupported message
+        </p>
+      );
+    }
+
+    case "text":
+    default:
+      return caption ? <p className="whitespace-pre-wrap break-words">{caption}</p> : null;
+  }
 }
 
 interface WhatsAppChatLayoutProps {
@@ -143,6 +366,12 @@ function getWindowStatus(lastInboundAt: string | null): {
   const urgent = remaining < 60 * 60 * 1000;
   const label = h > 0 ? `Window closes in ${h}h ${m}m` : `Window closes in ${m}m`;
   return { within: true, label, urgent };
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function getInitial(name: string | null, phone: string | null) {
@@ -195,6 +424,11 @@ export function WhatsAppChatLayout({
   const [templates, setTemplates] = useState<Array<{ id: string; name: string; language: string }>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Staged outbound attachment (image / video / audio / document) + its local
+  // preview URL, used until the real message comes back from the server.
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // Tick every 60 s so the window countdown re-renders without a full fetch
   const [windowTick, setWindowTick] = useState(0);
 
@@ -439,6 +673,115 @@ export function WhatsAppChatLayout({
       setSending(false);
     }
   };
+
+  const clearAttachment = useCallback(() => {
+    setAttachment(null);
+    setAttachmentPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
+
+  const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size === 0) {
+      toast.error("That file is empty");
+      return;
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error("File too large (max 100MB)");
+      return;
+    }
+    setAttachmentPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setAttachment(file);
+    const mime = file.type || "";
+    if (mime.startsWith("image/") || mime.startsWith("video/") || mime.startsWith("audio/")) {
+      setAttachmentPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleSendMedia = async () => {
+    if (!projectId || !selectedContactId || !attachment) return;
+    if (!windowStatus.within) {
+      toast.error("24h window closed. Send a template to re-engage.");
+      return;
+    }
+    const file = attachment;
+    const caption = text.trim();
+    const mime = file.type || "application/octet-stream";
+    const mediaType = mime.startsWith("image/")
+      ? "image"
+      : mime.startsWith("video/")
+        ? "video"
+        : mime.startsWith("audio/")
+          ? "audio"
+          : "document";
+    const previewUrl = attachmentPreview;
+
+    // Optimistic bubble — reuse the local object URL so the media shows instantly.
+    const tempId = `temp-${Date.now()}`;
+    const tempMsg: Message = {
+      id: tempId,
+      direction: "out",
+      type: mediaType,
+      body: caption || null,
+      status: "sending",
+      created_at: new Date().toISOString(),
+      media_url: mediaType === "document" ? null : previewUrl,
+      mime_type: mime,
+      media_filename: file.name,
+    };
+    // Detach state without revoking previewUrl — the optimistic bubble still uses it.
+    setText("");
+    setAttachment(null);
+    setAttachmentPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setMessages((prev) => [...prev, tempMsg]);
+    setSending(true);
+
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      if (caption) fd.append("caption", caption);
+      const res = await fetch(
+        `/api/projects/${projectId}/whatsapp/conversations/${selectedContactId}/media`,
+        { method: "POST", body: fd }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        if (data.within_24h === false) {
+          setContactInfo((prev) => (prev ? { ...prev, within_24h_window: false } : prev));
+          toast.error("Chat window just expired. Use a template to re-engage.");
+        } else {
+          toast.error(data.error ?? "Failed to send attachment");
+        }
+        return;
+      }
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? (data.message ?? m) : m)));
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      fetchConversations(true);
+      if (profile) fetchProfile(selectedContactId, true);
+    } catch (err) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      toast.error(err instanceof Error ? err.message : "Could not send attachment");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Drop any staged attachment when switching conversations.
+  useEffect(() => {
+    clearAttachment();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedContactId]);
 
   const handleSendTemplate = async (templateName: string, templateLanguage: string) => {
     if (!projectId || !selectedContactId) return;
@@ -842,9 +1185,9 @@ export function WhatsAppChatLayout({
                                 <LayoutTemplate className="h-3.5 w-3.5 shrink-0 opacity-60" />
                                 <span className="italic opacity-80">{templateName}</span>
                               </div>
-                            ) : msg.body ? (
-                              <p className="whitespace-pre-wrap break-words">{msg.body}</p>
-                            ) : null}
+                            ) : (
+                              <MessageContent msg={msg} />
+                            )}
                             <div className="flex items-center justify-end gap-1 mt-0.5">
                               <span className="text-[10px] text-muted-foreground opacity-90">
                                 {formatTime(msg.created_at)}
@@ -918,17 +1261,69 @@ export function WhatsAppChatLayout({
                         <span>{windowStatus.label} — reply soon or send a template</span>
                       </div>
                     )}
+                    {attachment && (
+                      <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-2 dark:border-gray-700 dark:bg-gray-800">
+                        {attachmentPreview && attachment.type.startsWith("image/") ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={attachmentPreview} alt="" className="h-12 w-12 rounded object-cover" />
+                        ) : attachmentPreview && attachment.type.startsWith("video/") ? (
+                          <video src={attachmentPreview} className="h-12 w-12 rounded object-cover" />
+                        ) : (
+                          <div className="flex h-12 w-12 items-center justify-center rounded bg-muted">
+                            {attachment.type.startsWith("audio/") ? (
+                              <Mic className="h-5 w-5 opacity-70" />
+                            ) : (
+                              <FileText className="h-5 w-5 opacity-70" />
+                            )}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{attachment.name}</p>
+                          <p className="text-xs text-muted-foreground">{formatBytes(attachment.size)}</p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0"
+                          onClick={clearAttachment}
+                          disabled={sending}
+                          title="Remove attachment"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
-                        handleSend();
+                        if (attachment) handleSendMedia();
+                        else handleSend();
                       }}
                       className="flex items-center gap-2"
                     >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        onChange={handleFileSelect}
+                        accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        disabled={sending}
+                        className="h-10 w-10 shrink-0"
+                        title="Attach a file"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Paperclip className="h-4 w-4" />
+                      </Button>
                       <Input
                         value={text}
                         onChange={(e) => setText(e.target.value)}
-                        placeholder="Type a message"
+                        placeholder={attachment ? "Add a caption…" : "Type a message"}
                         disabled={sending}
                         className="min-h-12 flex-1 border-gray-300 bg-white px-4 dark:border-gray-700 dark:bg-gray-800"
                       />
@@ -970,7 +1365,7 @@ export function WhatsAppChatLayout({
                       <Button
                         type="submit"
                         size="icon"
-                        disabled={sending || !text.trim()}
+                        disabled={sending || (!text.trim() && !attachment)}
                         className="h-10 w-10 shrink-0 bg-[#25D366] text-white hover:bg-[#20bd5a] dark:bg-[#25D366] dark:hover:bg-[#20bd5a]"
                       >
                         {sending ? (

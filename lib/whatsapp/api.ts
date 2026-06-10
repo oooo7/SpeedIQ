@@ -849,6 +849,49 @@ export async function sendMediaMessage(
   return { message_id: messageId };
 }
 
+export type DownloadedMedia = {
+  data: Uint8Array;
+  mimeType: string;
+  fileSize: number;
+};
+
+/**
+ * Download inbound media by its Meta media id. Two-step per the Cloud API:
+ *   1. GET /{media-id} → short-lived authenticated download URL + mime/size
+ *   2. GET that URL with the Bearer token → the binary
+ * Returns the bytes + mime so the caller can persist them to storage.
+ * See https://developers.facebook.com/docs/whatsapp/cloud-api/reference/media
+ */
+export async function downloadWhatsAppMedia(
+  accessToken: string,
+  mediaId: string
+): Promise<DownloadedMedia | { error: { message: string; code?: number } }> {
+  // Step 1 — resolve the media id to a (short-lived) download URL.
+  const metaUrl = `${META_GRAPH_BASE}/${META_API_VERSION}/${encodeURIComponent(mediaId)}`;
+  const metaRes = await fetch(metaUrl, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const metaJson = await metaRes.json().catch(() => ({}));
+  if (!metaRes.ok || !metaJson?.url) {
+    const code = metaJson?.error?.code;
+    const msg = metaJson?.error?.message ?? `Failed to resolve media ${mediaId}`;
+    return { error: { message: msg, code } };
+  }
+  const downloadUrl: string = metaJson.url;
+  const mimeType: string = metaJson.mime_type ?? "application/octet-stream";
+  const declaredSize: number = Number(metaJson.file_size ?? 0) || 0;
+
+  // Step 2 — download the binary. The CDN URL still requires the Bearer token.
+  const fileRes = await fetch(downloadUrl, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!fileRes.ok) {
+    return { error: { message: `Failed to download media ${mediaId} (${fileRes.status})` } };
+  }
+  const buf = new Uint8Array(await fileRes.arrayBuffer());
+  return { data: buf, mimeType, fileSize: declaredSize || buf.byteLength };
+}
+
 /**
  * Mark an incoming message as read (and optionally show typing indicator).
  * Use the message_id from the messages webhook (incoming message id).

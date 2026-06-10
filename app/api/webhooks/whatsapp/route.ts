@@ -1,8 +1,20 @@
 import { NextResponse } from "next/server";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureCannedMessageBucket } from "@/lib/supabase/canned-messages-storage";
-import { getWhatsAppAccountToken, sendMediaMessage, sendTextMessage } from "@/lib/whatsapp/api";
+import {
+  buildWhatsAppMediaPath,
+  ensureWhatsAppMediaBucket,
+  WHATSAPP_MEDIA_BUCKET,
+} from "@/lib/supabase/whatsapp-media-storage";
+import {
+  downloadWhatsAppMedia,
+  getWhatsAppAccountToken,
+  sendMediaMessage,
+  sendTextMessage,
+} from "@/lib/whatsapp/api";
 import type { MediaMessageType } from "@/lib/whatsapp/api";
 
 const WHATSAPP_SETTINGS_BUCKET = "canned-message-attachments";
@@ -39,6 +51,159 @@ function isWithinWorkingHours(timezone: string, workingHours: WorkingHoursMap): 
   } catch {
     return true;
   }
+}
+
+type InboundMessage = {
+  id: string;
+  from: string;
+  timestamp: string;
+  type: string;
+  text?: { body: string };
+  image?: { id: string; mime_type?: string; caption?: string };
+  document?: { id: string; mime_type?: string; caption?: string; filename?: string };
+  audio?: { id: string; mime_type?: string; voice?: boolean };
+  video?: { id: string; mime_type?: string; caption?: string };
+  sticker?: { id: string; mime_type?: string; animated?: boolean };
+  location?: { latitude: number; longitude: number; name?: string; address?: string };
+  contacts?: Array<{
+    name?: { formatted_name?: string; first_name?: string };
+    phones?: Array<{ phone?: string; wa_id?: string; type?: string }>;
+    emails?: Array<{ email?: string; type?: string }>;
+  }>;
+  reaction?: { message_id: string; emoji?: string };
+  button?: { text?: string; payload?: string };
+  interactive?: {
+    type?: string;
+    button_reply?: { id?: string; title?: string };
+    list_reply?: { id?: string; title?: string; description?: string };
+  };
+};
+
+type InboundMessageFields = {
+  type: string;
+  body: string | null;
+  media_path: string | null;
+  mime_type: string | null;
+  media_filename: string | null;
+  payload: Record<string, unknown> | null;
+};
+
+/**
+ * Turn a raw inbound WhatsApp message into the columns we persist. For media
+ * types (image, audio/voice, video, document, sticker) this downloads the
+ * binary from Meta and uploads it to the whatsapp-media bucket so the live
+ * chat can render it. Anything that fails to download still records the type +
+ * caption so the UI shows a sensible placeholder rather than a blank bubble.
+ * Never throws — the webhook must always 200 so Meta doesn't retry forever.
+ */
+async function buildInboundMessageFields(
+  supabase: SupabaseClient,
+  creds: { access_token: string; phone_number_id: string } | null,
+  project_id: string,
+  contact_id: string,
+  msg: InboundMessage
+): Promise<InboundMessageFields> {
+  const rawType = msg.type ?? "text";
+  const fields: InboundMessageFields = {
+    type: rawType,
+    body: null,
+    media_path: null,
+    mime_type: null,
+    media_filename: null,
+    payload: null,
+  };
+
+  switch (rawType) {
+    case "text":
+      fields.body = msg.text?.body ?? null;
+      break;
+
+    case "image":
+    case "audio":
+    case "video":
+    case "document":
+    case "sticker": {
+      const part = (msg as Record<string, { id?: string; mime_type?: string }>)[rawType] ?? null;
+      fields.body = msg.image?.caption ?? msg.video?.caption ?? msg.document?.caption ?? null;
+      fields.media_filename = msg.document?.filename ?? null;
+      fields.mime_type = part?.mime_type ?? null;
+      if (rawType === "audio" && msg.audio?.voice) fields.payload = { voice: true };
+
+      const mediaId = part?.id;
+      if (mediaId && creds) {
+        try {
+          const dl = await downloadWhatsAppMedia(creds.access_token, mediaId);
+          if (!("error" in dl)) {
+            const mime = dl.mimeType || fields.mime_type || "application/octet-stream";
+            const path = buildWhatsAppMediaPath(project_id, contact_id, mediaId, mime);
+            await ensureWhatsAppMediaBucket(supabase);
+            const { error: upErr } = await supabase.storage
+              .from(WHATSAPP_MEDIA_BUCKET)
+              .upload(path, dl.data, { contentType: mime, upsert: true });
+            if (!upErr) {
+              fields.media_path = path;
+              fields.mime_type = mime;
+            }
+          }
+        } catch {
+          // Swallow — fields.media_path stays null and the bubble shows a placeholder.
+        }
+      }
+      break;
+    }
+
+    case "location": {
+      const loc = msg.location;
+      if (loc) {
+        fields.payload = {
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          name: loc.name ?? null,
+          address: loc.address ?? null,
+        };
+        fields.body = loc.name ?? loc.address ?? null;
+      }
+      break;
+    }
+
+    case "contacts": {
+      const contacts = msg.contacts ?? [];
+      fields.payload = { contacts };
+      fields.body = contacts[0]?.name?.formatted_name ?? contacts[0]?.name?.first_name ?? null;
+      break;
+    }
+
+    case "reaction": {
+      fields.payload = {
+        emoji: msg.reaction?.emoji ?? null,
+        message_id: msg.reaction?.message_id ?? null,
+      };
+      fields.body = msg.reaction?.emoji ?? null;
+      break;
+    }
+
+    case "button": {
+      fields.body = msg.button?.text ?? null;
+      fields.payload = { payload: msg.button?.payload ?? null };
+      break;
+    }
+
+    case "interactive": {
+      const reply = msg.interactive?.button_reply ?? msg.interactive?.list_reply;
+      fields.body = reply?.title ?? null;
+      fields.payload = { interactive: msg.interactive ?? null };
+      break;
+    }
+
+    default:
+      // Unknown / unsupported type — normalize so the insert passes the CHECK
+      // constraint and the UI can render a generic "unsupported" placeholder.
+      fields.type = "unsupported";
+      fields.payload = { original_type: rawType };
+      break;
+  }
+
+  return fields;
 }
 
 // Must match the "Verify token" value you set in Meta App Dashboard → WhatsApp → Configuration → Webhook.
@@ -85,10 +250,24 @@ export async function POST(request: Request) {
           timestamp: string;
           type: string;
           text?: { body: string };
-          image?: { id: string; caption?: string };
-          document?: { id: string; caption?: string };
-          audio?: { id: string };
-          video?: { id: string; caption?: string };
+          image?: { id: string; mime_type?: string; caption?: string };
+          document?: { id: string; mime_type?: string; caption?: string; filename?: string };
+          audio?: { id: string; mime_type?: string; voice?: boolean };
+          video?: { id: string; mime_type?: string; caption?: string };
+          sticker?: { id: string; mime_type?: string; animated?: boolean };
+          location?: { latitude: number; longitude: number; name?: string; address?: string };
+          contacts?: Array<{
+            name?: { formatted_name?: string; first_name?: string };
+            phones?: Array<{ phone?: string; wa_id?: string; type?: string }>;
+            emails?: Array<{ email?: string; type?: string }>;
+          }>;
+          reaction?: { message_id: string; emoji?: string };
+          button?: { text?: string; payload?: string };
+          interactive?: {
+            type?: string;
+            button_reply?: { id?: string; title?: string };
+            list_reply?: { id?: string; title?: string; description?: string };
+          };
         }>;
         statuses?: Array<{
           id: string;
@@ -223,11 +402,14 @@ export async function POST(request: Request) {
             if (!contact_id) continue;
           }
 
-          const type = msg.type ?? "text";
-          const body =
-            msg.text?.body ??
-            (msg.image?.caption || msg.document?.caption || msg.video?.caption) ??
-            null;
+          const fields = await buildInboundMessageFields(
+            supabase,
+            creds,
+            project_id,
+            contact_id,
+            msg
+          );
+          const { type, body } = fields;
 
           await supabase.from("whatsapp_messages").insert({
             project_id,
@@ -235,6 +417,10 @@ export async function POST(request: Request) {
             direction: "in",
             type,
             body,
+            media_path: fields.media_path,
+            mime_type: fields.mime_type,
+            media_filename: fields.media_filename,
+            payload: fields.payload,
             meta_message_id,
             meta_timestamp: msg.timestamp,
             status: "sent",

@@ -50,7 +50,9 @@ export async function GET(
 
   const { data: messages, error } = await supabase
     .from("whatsapp_messages")
-    .select("id, contact_id, direction, type, body, media_url, meta_message_id, status, created_at")
+    .select(
+      "id, contact_id, direction, type, body, media_path, mime_type, media_filename, payload, meta_message_id, status, created_at"
+    )
     .eq("project_id", projectId)
     .eq("contact_id", contactId)
     .order("created_at", { ascending: true })
@@ -62,7 +64,29 @@ export async function GET(
 
   const within24h = isWithin24hWindow(contact.last_inbound_at);
 
-  const list = messages ?? [];
+  // Expose stored media through the authenticated proxy route (stable per-message
+  // URL so the browser caches it across chat polls). media_path stays internal.
+  type MessageRow = {
+    id: string;
+    contact_id: string;
+    direction: string;
+    type: string;
+    body: string | null;
+    media_path: string | null;
+    mime_type: string | null;
+    media_filename: string | null;
+    payload: unknown;
+    meta_message_id: string | null;
+    status: string;
+    created_at: string;
+  };
+  const list = ((messages ?? []) as MessageRow[]).map((m) => {
+    const { media_path, ...rest } = m;
+    return {
+      ...rest,
+      media_url: media_path ? `/api/projects/${projectId}/whatsapp/media/${m.id}` : null,
+    };
+  });
   const lastInbound = [...list].reverse().find((m: { direction: string }) => m.direction === "in");
   const last_inbound_meta_message_id =
     lastInbound && "meta_message_id" in lastInbound ? (lastInbound as { meta_message_id: string | null }).meta_message_id : null;
