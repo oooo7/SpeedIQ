@@ -13,9 +13,16 @@ export const WHATSAPP_MEDIA_BUCKET = "whatsapp-media";
  * Creates the bucket if it doesn't exist (e.g. "Bucket not found").
  */
 export async function ensureWhatsAppMediaBucket(supabase: SupabaseClient): Promise<void> {
+  // NOTE: a bucket's file_size_limit cannot exceed the project's GLOBAL upload
+  // limit (50MB by default). Requesting 100MB here made createBucket fail every
+  // time — the bucket was never created and inbound media silently vanished.
+  // 50MB matches the known-good canned-message-attachments bucket and covers all
+  // WhatsApp media (images ≤5MB, audio/video/docs ≤16MB). To allow larger files,
+  // raise the project's global limit in Supabase → Settings → Storage first, then
+  // bump this value to match.
   const { error } = await supabase.storage.createBucket(WHATSAPP_MEDIA_BUCKET, {
     public: false,
-    fileSizeLimit: 104857600, // 100MB — WhatsApp's max for documents/video
+    fileSizeLimit: 52428800, // 50MB — must stay within the project's global limit
   });
   if (error) {
     const msg = error.message?.toLowerCase() ?? "";

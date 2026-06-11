@@ -133,20 +133,37 @@ async function buildInboundMessageFields(
       if (mediaId && creds) {
         try {
           const dl = await downloadWhatsAppMedia(creds.access_token, mediaId);
-          if (!("error" in dl)) {
+          if ("error" in dl) {
+            // Meta failed to resolve/download the media. Log it — never swallow,
+            // or a systematic failure (expired token, perms) stays invisible.
+            console.error(
+              `[whatsapp-webhook] media download failed (${rawType}, id=${mediaId}):`,
+              dl.error?.message ?? dl.error
+            );
+          } else {
             const mime = dl.mimeType || fields.mime_type || "application/octet-stream";
             const path = buildWhatsAppMediaPath(project_id, contact_id, mediaId, mime);
             await ensureWhatsAppMediaBucket(supabase);
             const { error: upErr } = await supabase.storage
               .from(WHATSAPP_MEDIA_BUCKET)
               .upload(path, dl.data, { contentType: mime, upsert: true });
-            if (!upErr) {
+            if (upErr) {
+              console.error(
+                `[whatsapp-webhook] media upload to ${WHATSAPP_MEDIA_BUCKET} failed (${rawType}, id=${mediaId}):`,
+                upErr.message
+              );
+            } else {
               fields.media_path = path;
               fields.mime_type = mime;
             }
           }
-        } catch {
-          // Swallow — fields.media_path stays null and the bubble shows a placeholder.
+        } catch (err) {
+          // Bucket creation or unexpected error — surface it so the cause is
+          // diagnosable instead of leaving an empty bubble with no trail.
+          console.error(
+            `[whatsapp-webhook] media store errored (${rawType}, id=${mediaId}):`,
+            err instanceof Error ? err.message : err
+          );
         }
       }
       break;
