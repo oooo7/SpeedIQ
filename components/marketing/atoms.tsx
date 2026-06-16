@@ -29,6 +29,7 @@ interface BtnProps {
   icon?: ReactNode;
   style?: CSSProperties;
   type?: "button" | "submit";
+  disabled?: boolean;
 }
 
 export function Btn({
@@ -40,6 +41,7 @@ export function Btn({
   icon,
   style,
   type = "button",
+  disabled,
 }: BtnProps) {
   const sizes: Record<string, CSSProperties> = {
     sm: { padding: "7px 12px", fontSize: 13, height: 32 },
@@ -68,7 +70,9 @@ export function Btn({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    cursor: "pointer",
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.6 : 1,
+    pointerEvents: disabled ? "none" : "auto",
     transition: "transform .15s ease, opacity .15s ease, background-color .15s ease",
     whiteSpace: "nowrap",
     textDecoration: "none",
@@ -88,7 +92,7 @@ export function Btn({
     );
   }
   return (
-    <button type={type} onClick={onClick} style={base}>
+    <button type={type} onClick={onClick} disabled={disabled} style={base}>
       {content}
     </button>
   );
@@ -198,12 +202,14 @@ export function SectionHead({
   lede,
   align = "left",
   style,
+  as: HeadingTag = "h2",
 }: {
   eyebrow?: string;
   title: string | ReactNode;
   lede?: string;
   align?: "left" | "center";
   style?: CSSProperties;
+  as?: "h1" | "h2";
 }) {
   return (
     <div
@@ -215,7 +221,7 @@ export function SectionHead({
       }}
     >
       {eyebrow && <Eyebrow style={{ marginBottom: 18 }}>{eyebrow}</Eyebrow>}
-      <h2
+      <HeadingTag
         style={{
           fontFamily: "var(--font-display)",
           fontSize: "clamp(32px, 4.2vw, 52px)",
@@ -227,7 +233,7 @@ export function SectionHead({
         }}
       >
         {renderEmphTitle(title)}
-      </h2>
+      </HeadingTag>
       {lede && (
         <p
           style={{

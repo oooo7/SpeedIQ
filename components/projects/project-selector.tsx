@@ -83,7 +83,7 @@ function ProjectCard({
       >
         <div className="flex flex-col gap-1">
           <h3 className="font-medium text-gray-900 dark:text-gray-50">{project.name}</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-gray-500 dark:text-gray-400" suppressHydrationWarning>
             Created {new Date(project.created_at).toLocaleDateString()}
           </p>
         </div>
@@ -132,7 +132,7 @@ function ProjectCardList({
       >
       <div className="flex flex-col gap-0.5">
         <span className="font-medium text-gray-900 dark:text-gray-50">{project.name}</span>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
+        <span className="text-xs text-gray-500 dark:text-gray-400" suppressHydrationWarning>
           Created {new Date(project.created_at).toLocaleDateString()}
         </span>
       </div>

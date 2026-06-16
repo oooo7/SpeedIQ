@@ -242,7 +242,7 @@ export function BroadcastPanel() {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(30,1fr)", gap: 3, height: 64, alignItems: "end" }}>
         {Array.from({ length: 30 }).map((_, i) => {
-          const h = 12 + Math.abs(Math.sin(i * 0.62) * 0.5 + Math.cos(i * 0.33) * 0.5) * 50;
+          const h = Math.round(12 + Math.abs(Math.sin(i * 0.62) * 0.5 + Math.cos(i * 0.33) * 0.5) * 50);
           const isLive = i >= 22;
           return (
             <div
@@ -589,9 +589,9 @@ export function AnalyticsPanel() {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(30,1fr)", gap: 2, height: 100, alignItems: "end", marginBottom: 8 }}>
         {Array.from({ length: 30 }).map((_, i) => {
-          const wa = 22 + Math.abs(Math.sin(i * 0.5)) * 30;
-          const em = 12 + Math.abs(Math.cos(i * 0.4)) * 22;
-          const sm = 6 + Math.abs(Math.sin(i * 0.7)) * 12;
+          const wa = Math.round(22 + Math.abs(Math.sin(i * 0.5)) * 30);
+          const em = Math.round(12 + Math.abs(Math.cos(i * 0.4)) * 22);
+          const sm = Math.round(6 + Math.abs(Math.sin(i * 0.7)) * 12);
           return (
             <div key={i} style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: 1 }}>
               <div style={{ background: "#25D366", height: wa, borderRadius: "2px 2px 0 0" }} />

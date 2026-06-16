@@ -352,9 +352,9 @@ function HeroDashboard() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(24,1fr)", gap: 2, height: 56, alignItems: "end" }}>
               {Array.from({ length: 24 }).map((_, i) => {
-                const wa = 14 + Math.abs(Math.sin(i * 0.5 + pulse * 0.1)) * 22;
-                const em = 8 + Math.abs(Math.cos(i * 0.4)) * 16;
-                const sm = 4 + Math.abs(Math.sin(i * 0.7)) * 8;
+                const wa = Math.round(14 + Math.abs(Math.sin(i * 0.5 + pulse * 0.1)) * 22);
+                const em = Math.round(8 + Math.abs(Math.cos(i * 0.4)) * 16);
+                const sm = Math.round(4 + Math.abs(Math.sin(i * 0.7)) * 8);
                 return (
                   <div key={i} style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: 1 }}>
                     <div style={{ background: "#25D366", height: wa, borderRadius: "2px 2px 0 0", transition: "height .6s ease" }} />
