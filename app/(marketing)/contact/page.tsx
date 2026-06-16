@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 
 import { Container, SectionHead } from "@/components/marketing/atoms";
 import { ContactForm } from "@/components/marketing/contact-form";
@@ -46,7 +47,8 @@ export default function ContactPage() {
 
   return (
     <>
-      <script
+      <Script
+        id="jsonld-contact"
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />

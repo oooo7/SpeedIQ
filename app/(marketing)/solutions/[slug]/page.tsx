@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Script from "next/script";
 import {
   ShoppingBag,
   Home,
@@ -81,7 +82,8 @@ export default async function SolutionDetailsPage({ params }: Props) {
 
   return (
     <>
-      <script
+      <Script
+        id={`jsonld-solutions-${slug}`}
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />

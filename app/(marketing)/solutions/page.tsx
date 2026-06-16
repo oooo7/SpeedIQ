@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 
 import { Container, SectionHead } from "@/components/marketing/atoms";
 import { FinalCTA } from "@/components/marketing/landing-sections";
@@ -34,7 +35,8 @@ export default function SolutionsHubPage() {
 
   return (
     <>
-      <script
+      <Script
+        id="jsonld-solutions"
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />

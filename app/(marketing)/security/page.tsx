@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 
 import {
   ArrowIcon,
@@ -55,7 +56,8 @@ export default function SecurityPage() {
 
   return (
     <>
-      <script
+      <Script
+        id="jsonld-security"
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
