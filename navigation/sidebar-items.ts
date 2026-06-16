@@ -8,6 +8,7 @@ import {
   UsersRound,
   CreditCard,
   Settings,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 
@@ -105,6 +106,12 @@ export const sidebarItems: NavGroup[] = [
               { title: "Analytics", url: "/dashboard/sms/analytics" },
             ]
           : undefined,
+      },
+      {
+        title: "Automation",
+        url: "/dashboard/automation",
+        icon: Workflow,
+        requiresProject: true,
       },
       {
         title: "Contacts",

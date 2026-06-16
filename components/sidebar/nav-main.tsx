@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { ChevronRight, Lock } from "lucide-react";
 
@@ -190,7 +190,11 @@ export function NavMain({ items, isProjectSelected }: NavMainProps) {
   const path = usePathname();
   const { state, isMobile } = useSidebar();
 
-  const [openState, setOpenState] = useState<Record<string, boolean>>(() => getStoredOpenState());
+  const [openState, setOpenState] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setOpenState(getStoredOpenState());
+  }, []);
 
   const isItemActive = useCallback(
     (url: string, subItems?: NavMainItem["subItems"]) => {
