@@ -20,6 +20,7 @@ import {
 import { Container, SectionHead, Eyebrow } from "@/components/marketing/atoms";
 import { INDUSTRIES } from "./solutions-data";
 import { SolutionsSimulator } from "@/components/marketing/solutions-mockups";
+import { ROICalculator } from "@/components/marketing/roi-calculator";
 
 // Extended metadata for client cards
 const INDUSTRY_DETAILS: Record<string, {
@@ -322,6 +323,28 @@ export function SolutionsClient() {
               </Link>
             ))}
           </div>
+        </Container>
+      </section>
+
+      {/* ROI CALCULATOR SECTION */}
+      <section 
+        style={{ 
+          paddingTop: 60, 
+          paddingBottom: 80, 
+          borderTop: "1px solid var(--line)",
+          position: "relative"
+        }}
+      >
+        <Container>
+          <SectionHead
+            eyebrow="REVENUE CALCULATOR"
+            title="Calculate *your WhatsApp ROI.*"
+            lede="Estimate the revenue lift from switching cart reminders and customer outreach to interactive WhatsApp broadcasts instead of standard emails."
+            align="center"
+            style={{ marginBottom: 48 }}
+          />
+
+          <ROICalculator />
         </Container>
       </section>
 
