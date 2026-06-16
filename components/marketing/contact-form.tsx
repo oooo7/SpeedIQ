@@ -47,18 +47,17 @@ export function ContactForm() {
   };
 
   return (
-    <section style={{ paddingBottom: "var(--section-y)" }}>
-      <Container narrow>
-        <div
-          style={{
-            maxWidth: 580,
-            margin: "0 auto",
-            background: "var(--bg-elev)",
-            border: "1px solid var(--line)",
-            borderRadius: "var(--radius-lg)",
-            padding: "40px 32px",
-          }}
-        >
+    <div
+      style={{
+        width: "100%",
+        maxWidth: 580,
+        margin: "0 auto",
+        background: "var(--bg-elev)",
+        border: "1px solid var(--line)",
+        borderRadius: "var(--radius-lg)",
+        padding: "40px 32px",
+      }}
+    >
           {status === "success" ? (
             <div style={{ textAlign: "center", padding: "24px 0" }}>
               <div
@@ -230,8 +229,6 @@ export function ContactForm() {
               </Btn>
             </form>
           )}
-        </div>
-      </Container>
-    </section>
+    </div>
   );
 }
